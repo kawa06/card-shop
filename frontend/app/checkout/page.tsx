@@ -1,0 +1,154 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/store/auth'
+import { useCartStore } from '@/store/cart'
+import { ordersApi } from '@/lib/api'
+import { toast } from '@/lib/use-toast'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+export default function CheckoutPage() {
+  const router = useRouter()
+  const { isAuthenticated } = useAuthStore()
+  const { items, total, fetchCart, clearCart } = useCartStore()
+
+  const [shippingAddress, setShippingAddress] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('credit_card')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    fetchCart()
+  }, [isAuthenticated, router, fetchCart])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (items.length === 0) {
+      router.push('/cart')
+    }
+  }, [items, isAuthenticated, router])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!shippingAddress.trim()) {
+      toast({ title: 'エラー', description: '配送先住所を入力してください', variant: 'destructive' })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const res = await ordersApi.create({
+        shipping_address: shippingAddress,
+        payment_method: paymentMethod,
+      })
+      clearCart()
+      toast({ title: '注文が完了しました！', description: `注文番号: #${res.data.id}` })
+      router.push('/orders')
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        '注文に失敗しました。もう一度お試しください。'
+      toast({ title: 'エラー', description: message, variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (!isAuthenticated || items.length === 0) return null
+
+  return (
+    <div className="min-h-screen bg-gray-950">
+      <div className="container py-8 max-w-4xl">
+        <h1 className="text-2xl font-bold text-white mb-6">注文確認</h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Order Items */}
+          <div>
+            <h2 className="text-white font-semibold mb-3">注文内容</h2>
+            <div className="bg-gray-900 rounded-lg border border-white/10 p-4 space-y-3">
+              {items.map((item) => (
+                <div key={item.id} className="flex gap-3 items-center">
+                  <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+                    {item.card.image_url ? (
+                      <Image src={item.card.image_url} alt={item.card.name} fill className="object-cover" />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-xl">🃏</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{item.card.name}</p>
+                    <p className="text-gray-500 text-xs">{item.card.rarity} × {item.quantity}</p>
+                  </div>
+                  <p className="text-yellow-400 font-bold text-sm">
+                    ¥{(item.card.price * item.quantity).toLocaleString()}
+                  </p>
+                </div>
+              ))}
+              <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
+                <span className="text-gray-400">合計</span>
+                <span className="text-yellow-400 text-lg">¥{total.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Checkout Form */}
+          <div>
+            <h2 className="text-white font-semibold mb-3">配送・支払い情報</h2>
+            <form onSubmit={handleSubmit} className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="address" className="text-gray-300">配送先住所</Label>
+                <textarea
+                  id="address"
+                  value={shippingAddress}
+                  onChange={(e) => setShippingAddress(e.target.value)}
+                  placeholder="〒000-0000&#10;東京都渋谷区..."
+                  required
+                  rows={3}
+                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-gray-300">支払い方法</Label>
+                <div className="space-y-2">
+                  {[
+                    { value: 'credit_card', label: 'クレジットカード（後日実装）' },
+                    { value: 'bank_transfer', label: '銀行振込' },
+                    { value: 'cod', label: '代金引換' },
+                  ].map((method) => (
+                    <label key={method.value} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value={method.value}
+                        checked={paymentMethod === method.value}
+                        onChange={() => setPaymentMethod(method.value)}
+                        className="accent-yellow-400"
+                      />
+                      <span className="text-gray-300 text-sm">{method.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-11 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold"
+              >
+                {isSubmitting ? '注文処理中...' : '注文を確定する'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
