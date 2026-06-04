@@ -1,10 +1,12 @@
 services:
   - type: web
-    name: card-shop-api
+    name: card-shop
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    buildCommand: |
+      pip install -r requirements.txt
+      cd ../frontend && npm install && npm run build
+    startCommand: python -m uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -16,18 +18,7 @@ services:
         generateValue: true
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: 1440
-      - key: CORS_ORIGINS
-        value: "https://your-frontend.vercel.app,https://your-frontend.netlify.app"
     healthCheckPath: /api/health
-
-  - type: web
-    name: card-shop-frontend
-    env: static
-    buildCommand: cd ../frontend && npm install && npm run build
-    staticPublishPath: ../frontend/dist
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://card-shop-api.onrender.com
 
 databases:
   - name: card-shop-db

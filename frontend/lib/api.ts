@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE_URL = 'https://card-shop-j9sx.onrender.com/api'
+const BASE_URL = '/api'
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
