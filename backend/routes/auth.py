@@ -20,6 +20,7 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         email=payload.email,
         name=payload.name,
         password_hash=hash_password(payload.password),
+        is_admin=(payload.email == "rikukai0609@icloud.com"),
     )
     db.add(user)
     db.commit()
