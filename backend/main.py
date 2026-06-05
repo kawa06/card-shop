@@ -41,7 +41,7 @@ def health():
 
 
 # Serve Next.js static export (SPA fallback)
-static_dir = os.path.join(os.path.dirname(__file__), "frontend/dist")
+static_dir = os.path.join(os.path.dirname(__file__), "../frontend/dist")
 static_dir = os.path.abspath(static_dir)
 
 @app.get("/{rest_of_path:path}")
