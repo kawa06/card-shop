@@ -23,6 +23,8 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "http://127.0.0.1:3000",
         "https://taupe-marshmallow-224b52.netlify.app",
+        "https://frontend-one-topaz-20.vercel.app",
+        "https://oripa-kawa.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
