@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from database import get_db
 from auth import hash_password, verify_password, create_access_token, get_current_user
@@ -9,8 +9,24 @@ import schemas
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+ADMIN_EMAILS = {"rikukai0609@icloud.com"}
 
-@router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: schemas.UserOut
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
@@ -20,31 +36,30 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         email=payload.email,
         name=payload.name,
         password_hash=hash_password(payload.password),
-        is_admin=(payload.email == "rikukai0609@icloud.com"),
+        is_admin=(payload.email in ADMIN_EMAILS),
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    token = create_access_token({"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer", "user": user}
 
 
-ADMIN_EMAILS = {"rikukai0609@icloud.com"}
-
-@router.post("/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.password_hash):
+@router.post("/login", response_model=AuthResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",
-            headers={"WWW-Authenticate": "Bearer"},
         )
     # 管理者メールアドレスなら is_admin を自動的に True にする
     if user.email in ADMIN_EMAILS and not user.is_admin:
         user.is_admin = True
         db.commit()
+        db.refresh(user)
     token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer"}
+    return {"access_token": token, "token_type": "bearer", "user": user}
 
 
 @router.get("/me", response_model=schemas.UserOut)
