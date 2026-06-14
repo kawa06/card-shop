@@ -8,7 +8,7 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
               <span className="text-yellow-400">✦</span>
-              CardShop
+              Oripa_kawa
             </h3>
             <p className="text-sm leading-relaxed">
               トレーディングカードの専門ショップ。レアカードから初心者向けカードまで豊富なラインナップ。
@@ -35,7 +35,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm">
-          <p>&copy; {new Date().getFullYear()} CardShop. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Oripa_kawa. All rights reserved.</p>
         </div>
       </div>
     </footer>

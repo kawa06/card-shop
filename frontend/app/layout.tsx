@@ -8,7 +8,7 @@ import { Toaster } from '@/components/ui/toaster'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'CardShop - トレーディングカード専門店',
+  title: 'Oripa_kawa - トレーディングカード専門店',
   description: 'レアカードから初心者向けカードまで豊富なラインナップのトレーディングカード専門店',
 }
 

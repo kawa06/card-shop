@@ -43,7 +43,7 @@ export default function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-xl mr-4">
           <span className="text-yellow-400">✦</span>
-          <span className="text-white">CardShop</span>
+          <span className="text-white">Oripa_kawa</span>
         </Link>
 
         {/* Search - desktop */}

@@ -1,7 +1,7 @@
 import CardDetailClient from './CardDetailClient'
 
 export async function generateStaticParams() {
-  return []
+  return [{ id: '1' }]
 }
 
 export default function CardDetailPage({ params }: { params: { id: string } }) {
