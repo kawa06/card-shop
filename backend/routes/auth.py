@@ -28,6 +28,8 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     return user
 
 
+ADMIN_EMAILS = {"rikukai0609@icloud.com"}
+
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
@@ -37,6 +39,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             detail="メールアドレスまたはパスワードが正しくありません",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # 管理者メールアドレスなら is_admin を自動的に True にする
+    if user.email in ADMIN_EMAILS and not user.is_admin:
+        user.is_admin = True
+        db.commit()
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 
