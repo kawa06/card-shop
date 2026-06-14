@@ -13,11 +13,16 @@ import { Button } from '@/components/ui/button'
 import CardCard from '@/components/cards/CardCard'
 
 const rarityColors: Record<string, string> = {
-  UR: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
-  SR: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-  R: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-  N: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
-  SSR: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+  C:    'bg-gray-500/20 text-gray-300 border-gray-500/40',
+  U:    'bg-green-500/20 text-green-300 border-green-500/40',
+  R:    'bg-blue-500/20 text-blue-300 border-blue-500/40',
+  RR:   'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+  AR:   'bg-teal-500/20 text-teal-300 border-teal-500/40',
+  SR:   'bg-purple-500/20 text-purple-300 border-purple-500/40',
+  SAR:  'bg-violet-500/20 text-violet-300 border-violet-500/40',
+  MUR:  'bg-orange-500/20 text-orange-300 border-orange-500/40',
+  SSR:  'bg-pink-500/20 text-pink-300 border-pink-500/40',
+  ミラー: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
 }
 
 export default function CardDetailClient({ id }: { id: string }) {
@@ -102,7 +107,7 @@ export default function CardDetailClient({ id }: { id: string }) {
 
   if (!card) return null
 
-  const rarityClass = rarityColors[card.rarity] || rarityColors['N']
+  const rarityClass = rarityColors[card.rarity] || rarityColors['C']
 
   return (
     <div className="min-h-screen bg-gray-950">
