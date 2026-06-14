@@ -1,19 +1,24 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  distDir: 'dist',
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'card-shop-api.onrender.com',
+        hostname: 'backend-production-054e.up.railway.app',
       },
       {
         protocol: 'https',
         hostname: '**',
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://backend-production-054e.up.railway.app/api/:path*',
+      },
+    ]
   },
 }
 
