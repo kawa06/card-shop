@@ -38,10 +38,18 @@ class UserOut(UserBase):
     id: int
     is_admin: bool
     is_verified: bool
+    postal_code: Optional[str] = None
+    address: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    postal_code: Optional[str] = None
+    address: Optional[str] = None
 
 
 class PasswordChangeRequest(BaseModel):

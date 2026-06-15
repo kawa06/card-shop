@@ -26,6 +26,8 @@ with engine.connect() as conn:
     for col, definition in [
         ("is_verified", "BOOLEAN DEFAULT 0"),
         ("verification_token", "VARCHAR(255)"),
+        ("postal_code", "VARCHAR(20)"),
+        ("address", "TEXT"),
     ]:
         try:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))

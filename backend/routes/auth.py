@@ -67,6 +67,24 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.put("/me", response_model=schemas.UserOut)
+def update_profile(
+    payload: schemas.UserUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if payload.name is not None:
+        current_user.name = payload.name
+    if payload.postal_code is not None:
+        current_user.postal_code = payload.postal_code
+    if payload.address is not None:
+        current_user.address = payload.address
+    
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     payload: schemas.PasswordChangeRequest,

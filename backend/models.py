@@ -26,6 +26,8 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
     verification_token = Column(String(255), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    address = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

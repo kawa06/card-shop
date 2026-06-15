@@ -33,6 +33,8 @@ export interface User {
   name: string
   is_admin: boolean
   is_verified: boolean
+  postal_code: string | null
+  address: string | null
   created_at: string
 }
 
