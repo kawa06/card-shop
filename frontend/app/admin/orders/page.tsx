@@ -93,7 +93,7 @@ export default function AdminOrdersPage() {
                       <span className={`text-sm font-medium ${statusColors[order.status] || 'text-gray-400'}`}>
                         {statusOptions.find(s => s.value === order.status)?.label || order.status}
                       </span>
-                      <span className="text-yellow-400 font-bold">¥{order.total.toLocaleString()}</span>
+                      <span className="text-yellow-400 font-bold">¥{order.total_amount.toLocaleString()}</span>
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}

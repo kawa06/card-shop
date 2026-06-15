@@ -60,7 +60,7 @@ export interface Order {
   id: number
   user_id: number
   status: string
-  total: number
+  total_amount: number
   shipping_address: string | null
   created_at: string
   items: OrderItem[]

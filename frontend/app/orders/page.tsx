@@ -78,7 +78,7 @@ export default function OrdersPage() {
                     <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-yellow-400 font-bold">¥{order.total.toLocaleString()}</span>
+                    <span className="text-yellow-400 font-bold">¥{order.total_amount.toLocaleString()}</span>
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4 text-gray-400" />
                     ) : (
