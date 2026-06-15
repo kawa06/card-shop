@@ -5,8 +5,21 @@ from config import settings
 from database import Base, engine
 from routes import auth, cards, cart, orders, admin
 
-# Create all tables on startup
+# Create all tables on startup (new columns added if not exists via ALTER)
 Base.metadata.create_all(bind=engine)
+
+# Apply missing column migrations for SQLite
+from sqlalchemy import text
+with engine.connect() as conn:
+    for col, definition in [
+        ("image_urls", "TEXT"),
+        ("condition", "VARCHAR(10)"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
 
 app = FastAPI(
     title=settings.APP_NAME,

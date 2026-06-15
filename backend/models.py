@@ -52,10 +52,11 @@ class Card(Base):
     price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)
     image_url = Column(String(500), nullable=True)
+    image_urls = Column(Text, nullable=True)  # JSON array of up to 10 image URLs
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     rarity = Column(String(50), nullable=True)
     set_name = Column(String(100), nullable=True)
-    condition = Column(String(50), nullable=True)
+    condition = Column(String(10), nullable=True)  # a/b/c/d/e
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

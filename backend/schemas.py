@@ -79,6 +79,7 @@ class CardBase(BaseModel):
     price: float
     stock: int = 0
     image_url: Optional[str] = None
+    image_urls: Optional[str] = None  # JSON array string
     category_id: Optional[int] = None
     rarity: Optional[str] = None
     set_name: Optional[str] = None
@@ -96,6 +97,7 @@ class CardUpdate(BaseModel):
     price: Optional[float] = None
     stock: Optional[int] = None
     image_url: Optional[str] = None
+    image_urls: Optional[str] = None
     category_id: Optional[int] = None
     rarity: Optional[str] = None
     set_name: Optional[str] = None

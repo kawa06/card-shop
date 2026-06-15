@@ -5,7 +5,9 @@ export interface Card {
   price: number
   stock: number
   image_url: string | null
+  image_urls: string | null  // JSON array string e.g. '["url1","url2"]'
   rarity: string
+  condition: string | null   // a/b/c/d/e
   category_id: number | null
   category?: Category
   created_at: string
