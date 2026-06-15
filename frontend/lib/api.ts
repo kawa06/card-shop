@@ -123,7 +123,7 @@ export const adminApi = {
   // Orders
   getAllOrders: () => apiClient.get('/admin/orders'),
   updateOrderStatus: (id: number, status: string) =>
-    apiClient.put(`/admin/orders/${id}`, { status }),
+    apiClient.put(`/admin/orders/${id}/status`, { status }),
 
   // Announcements
   createAnnouncement: (data: {
