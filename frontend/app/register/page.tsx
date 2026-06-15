@@ -74,6 +74,7 @@ export default function RegisterPage() {
               <Label htmlFor="email" className="text-gray-300">メールアドレス</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -88,6 +89,7 @@ export default function RegisterPage() {
               <Label htmlFor="password" className="text-gray-300">パスワード</Label>
               <Input
                 id="password"
+                name="new-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -103,6 +105,7 @@ export default function RegisterPage() {
               <Label htmlFor="confirmPassword" className="text-gray-300">パスワード（確認）</Label>
               <Input
                 id="confirmPassword"
+                name="confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

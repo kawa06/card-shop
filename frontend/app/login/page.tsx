@@ -49,12 +49,13 @@ export default function LoginPage() {
               <Label htmlFor="email" className="text-gray-300">メールアドレス</Label>
               <Input
                 id="email"
+                name="username"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
                 required
-                autoComplete="username email"
+                autoComplete="username"
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
               />
             </div>
@@ -63,6 +64,7 @@ export default function LoginPage() {
               <Label htmlFor="password" className="text-gray-300">パスワード</Label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
