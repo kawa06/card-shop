@@ -79,6 +79,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@email.com"
                 required
+                autoComplete="email"
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
               />
             </div>
@@ -93,6 +94,7 @@ export default function RegisterPage() {
                 placeholder="8文字以上"
                 required
                 minLength={8}
+                autoComplete="new-password"
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
               />
             </div>
@@ -106,6 +108,7 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                autoComplete="new-password"
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
               />
             </div>
