@@ -92,6 +92,17 @@ def admin_delete_card(
     card = db.query(models.Card).filter(models.Card.id == card_id).first()
     if not card:
         raise HTTPException(status_code=404, detail="カードが見つかりません")
+    
+    # 注文履歴(order_items)に関連付けられている場合は物理削除せずに非表示にする
+    has_orders = db.query(models.OrderItem).filter(models.OrderItem.card_id == card_id).first()
+    if has_orders:
+        card.is_active = False
+        db.commit()
+        return None
+
+    # カートからは削除
+    db.query(models.CartItem).filter(models.CartItem.card_id == card_id).delete()
+    
     db.delete(card)
     db.commit()
 
