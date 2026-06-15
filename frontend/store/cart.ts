@@ -22,8 +22,9 @@ export const useCartStore = create<CartState>((set) => ({
     set({ isLoading: true })
     try {
       const res = await cartApi.get()
-      const { items, total } = res.data
-      set({ items: items || [], total: total || 0, isLoading: false })
+      const items = Array.isArray(res.data) ? res.data : []
+      const total = items.reduce((sum, item) => sum + (item.card?.price || 0) * item.quantity, 0)
+      set({ items, total, isLoading: false })
     } catch {
       set({ isLoading: false })
     }
@@ -33,8 +34,9 @@ export const useCartStore = create<CartState>((set) => ({
     try {
       await cartApi.add({ card_id: cardId, quantity })
       const res = await cartApi.get()
-      const { items, total } = res.data
-      set({ items: items || [], total: total || 0 })
+      const items = Array.isArray(res.data) ? res.data : []
+      const total = items.reduce((sum, item) => sum + (item.card?.price || 0) * item.quantity, 0)
+      set({ items, total })
     } catch (error) {
       throw error
     }
@@ -44,8 +46,9 @@ export const useCartStore = create<CartState>((set) => ({
     try {
       await cartApi.update(itemId, { quantity })
       const res = await cartApi.get()
-      const { items, total } = res.data
-      set({ items: items || [], total: total || 0 })
+      const items = Array.isArray(res.data) ? res.data : []
+      const total = items.reduce((sum, item) => sum + (item.card?.price || 0) * item.quantity, 0)
+      set({ items, total })
     } catch (error) {
       throw error
     }
@@ -55,8 +58,9 @@ export const useCartStore = create<CartState>((set) => ({
     try {
       await cartApi.remove(itemId)
       const res = await cartApi.get()
-      const { items, total } = res.data
-      set({ items: items || [], total: total || 0 })
+      const items = Array.isArray(res.data) ? res.data : []
+      const total = items.reduce((sum, item) => sum + (item.card?.price || 0) * item.quantity, 0)
+      set({ items, total })
     } catch (error) {
       throw error
     }
