@@ -12,16 +12,23 @@ import { Button } from '@/components/ui/button'
 
 export default function CartPage() {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
   const { items, total, isLoading, fetchCart, updateItem, removeItem } = useCartStore()
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) {
       router.push('/login')
       return
     }
     fetchCart()
-  }, [isAuthenticated, router, fetchCart])
+  }, [isMounted, isAuthLoading, isAuthenticated, router, fetchCart])
 
   const handleUpdateQuantity = async (itemId: number, newQty: number) => {
     if (newQty < 1) return
@@ -41,7 +48,7 @@ export default function CartPage() {
     }
   }
 
-  if (!isAuthenticated) return null
+  if (!isMounted || isAuthLoading || !isAuthenticated) return null
 
   if (isLoading) {
     return (
@@ -81,7 +88,7 @@ export default function CartPage() {
               >
                 {/* Image */}
                 <div className="relative w-16 h-20 flex-shrink-0 overflow-hidden rounded bg-gray-800">
-                  {item.card.image_url ? (
+                  {item.card?.image_url ? (
                     <Image
                       src={item.card.image_url}
                       alt={item.card.name}
@@ -96,21 +103,21 @@ export default function CartPage() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <Link
-                    href={`/cards/${item.card.id}`}
+                    href={`/cards/${item.card?.id}`}
                     className="text-white font-medium hover:text-yellow-400 transition-colors truncate block"
                   >
-                    {item.card.name}
+                    {item.card?.name || '不明なカード'}
                   </Link>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.card.rarity}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.card?.rarity}</p>
                   <p className="text-yellow-400 font-bold mt-1">
-                    ¥{(item.card.price * item.quantity).toLocaleString()}
+                    ¥{((item.card?.price || 0) * item.quantity).toLocaleString()}
                   </p>
                 </div>
 
                 {/* Controls */}
                 <div className="flex flex-col items-end gap-2">
                   <button
-                    onClick={() => handleRemove(item.id, item.card.name)}
+                    onClick={() => handleRemove(item.id, item.card?.name || '')}
                     className="text-gray-500 hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -128,7 +135,7 @@ export default function CartPage() {
                     </span>
                     <button
                       onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                      disabled={item.quantity >= item.card.stock}
+                      disabled={item.card?.stock !== undefined && item.quantity >= item.card.stock}
                       className="px-2 py-1 text-gray-300 hover:bg-white/10 disabled:opacity-30 transition-colors"
                     >
                       <Plus className="h-3 w-3" />

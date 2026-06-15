@@ -14,12 +14,17 @@ import Link from 'next/link'
 
 export default function AdminCategoriesPage() {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const [form, setForm] = useState({
     name: '',
@@ -27,10 +32,12 @@ export default function AdminCategoriesPage() {
   })
 
   useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) { router.push('/login'); return }
     if (user && !user.is_admin) { router.push('/'); return }
     fetchCategories()
-  }, [isAuthenticated, user, router])
+  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
 
   const fetchCategories = async () => {
     setIsLoading(true)

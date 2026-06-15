@@ -50,7 +50,7 @@ function parseImages(card: Card): string[] {
 
 export default function AdminCardsPage() {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -61,12 +61,19 @@ export default function AdminCardsPage() {
   const [showImagePicker, setShowImagePicker] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadSlot, setUploadSlot] = useState<number>(0)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) { router.push('/login'); return }
     if (user && !user.is_admin) { router.push('/'); return }
     fetchAll()
-  }, [isAuthenticated, user, router])
+  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
 
   const fetchAll = async () => {
     setIsLoading(true)

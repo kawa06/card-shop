@@ -11,17 +11,27 @@ import { Button } from '@/components/ui/button'
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { isAuthenticated, user: currentUser } = useAuthStore()
+  const { isAuthenticated, user: currentUser, isLoading: isAuthLoading } = useAuthStore()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) { router.push('/login'); return }
     if (currentUser && !currentUser.is_admin) { router.push('/'); return }
+    
     adminApi.getAllUsers().then(res => {
       setUsers(res.data || [])
     }).catch(() => {}).finally(() => setIsLoading(false))
-  }, [isAuthenticated, currentUser, router])
+  }, [isMounted, isAuthLoading, isAuthenticated, currentUser, router])
+
+  if (!isMounted || isAuthLoading || !isAuthenticated) return null
 
   return (
     <div className="min-h-screen bg-gray-950">

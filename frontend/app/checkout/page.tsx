@@ -13,27 +13,34 @@ import { Label } from '@/components/ui/label'
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
   const { items, total, fetchCart, clearCart } = useCartStore()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const [shippingAddress, setShippingAddress] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) {
       router.push('/login')
       return
     }
     fetchCart()
-  }, [isAuthenticated, router, fetchCart])
+  }, [isMounted, isAuthLoading, isAuthenticated, router, fetchCart])
 
   useEffect(() => {
-    if (!isAuthenticated) return
-    if (items.length === 0) {
+    if (!isMounted || isAuthLoading || !isAuthenticated) return
+    if (items.length === 0 && !isAuthLoading) {
       router.push('/cart')
     }
-  }, [items, isAuthenticated, router])
+  }, [items, isMounted, isAuthLoading, isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,7 +68,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (!isAuthenticated || items.length === 0) return null
+  if (!isMounted || isAuthLoading || !isAuthenticated || items.length === 0) return null
 
   return (
     <div className="min-h-screen bg-gray-950">
@@ -76,18 +83,18 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <div key={item.id} className="flex gap-3 items-center">
                   <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                    {item.card.image_url ? (
+                    {item.card?.image_url ? (
                       <Image src={item.card.image_url} alt={item.card.name} fill className="object-cover" />
                     ) : (
                       <div className="flex items-center justify-center h-full text-xl">🃏</div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{item.card.name}</p>
-                    <p className="text-gray-500 text-xs">{item.card.rarity} × {item.quantity}</p>
+                    <p className="text-white text-sm font-medium truncate">{item.card?.name || '不明なカード'}</p>
+                    <p className="text-gray-500 text-xs">{item.card?.rarity} × {item.quantity}</p>
                   </div>
                   <p className="text-yellow-400 font-bold text-sm">
-                    ¥{(item.card.price * item.quantity).toLocaleString()}
+                    ¥{((item.card?.price || 0) * item.quantity).toLocaleString()}
                   </p>
                 </div>
               ))}

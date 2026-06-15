@@ -28,16 +28,29 @@ const statusColors: Record<string, string> = {
 
 export default function AdminOrdersPage() {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    if (user && !user.is_admin) {
+      router.push('/')
+      return
+    }
     fetchAll()
-  }, [isAuthenticated, user, router])
+  }, [isMounted, isAuthenticated, user, isAuthLoading, router])
 
   const fetchAll = async () => {
     setIsLoading(true)

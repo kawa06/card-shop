@@ -25,11 +25,18 @@ interface Stats {
 
 export default function AdminPage() {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, announcements: 0, users: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) { router.push('/login'); return }
     if (user && !user.is_admin) { router.push('/'); return }
 
@@ -56,9 +63,9 @@ export default function AdminPage() {
         users: getCount(usersRes),
       })
     }).finally(() => setIsLoading(false))
-  }, [isAuthenticated, user, router])
+  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
 
-  if (!isAuthenticated || (user && !user.is_admin)) return null
+  if (!isMounted || !isAuthenticated || (user && !user.is_admin)) return null
 
   const sections = [
     { href: '/admin/cards', icon: CreditCard, label: 'カード管理', count: stats.cards, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },

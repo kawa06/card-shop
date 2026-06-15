@@ -17,12 +17,19 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 
 export default function OrdersPage() {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+
     if (!isAuthenticated) {
       router.push('/login')
       return
@@ -30,9 +37,9 @@ export default function OrdersPage() {
     ordersApi.getAll().then((res) => {
       setOrders(res.data || [])
     }).catch(() => {}).finally(() => setIsLoading(false))
-  }, [isAuthenticated, router])
+  }, [isMounted, isAuthLoading, isAuthenticated, router])
 
-  if (!isAuthenticated) return null
+  if (!isMounted || isAuthLoading || !isAuthenticated) return null
 
   if (isLoading) {
     return (
