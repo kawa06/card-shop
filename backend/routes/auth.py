@@ -47,7 +47,11 @@ async def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(user)
 
     # 実際にメールを送信（非同期）
-    await send_verification_email(user.email, verification_token)
+    try:
+        await send_verification_email(user.email, verification_token)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        # Registration continues even if email fails
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
@@ -61,6 +65,11 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",
         )
+    
+    # 認証済みチェック (必要に応じて制限)
+    # if not user.is_verified:
+    #     raise HTTPException(status_code=403, detail="メールアドレスの認証が完了していません")
+
     # 管理者メールアドレスなら is_admin を自動的に True にする
     if user.email in ADMIN_EMAILS and not user.is_admin:
         user.is_admin = True
@@ -122,7 +131,10 @@ async def request_verification(
     db.commit()
     
     # 実際にメールを送信
-    await send_verification_email(current_user.email, token)
+    try:
+        await send_verification_email(current_user.email, token)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"メールの送信に失敗しました: {e}")
     
     return {"message": "認証メールを送信しました"}
 
