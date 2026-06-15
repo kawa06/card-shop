@@ -66,11 +66,18 @@ export default function AdminCategoriesPage() {
     e.preventDefault()
     setSaving(true)
     try {
+      const slug = form.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || `cat-${Date.now()}`
+      
+      const payload = { ...form, slug }
+
       if (editingId) {
-        await adminApi.updateCategory(editingId, form)
+        await adminApi.updateCategory(editingId, payload)
         toast({ title: '更新しました' })
       } else {
-        await adminApi.createCategory(form)
+        await adminApi.createCategory(payload)
         toast({ title: '作成しました' })
       }
       setShowForm(false)
