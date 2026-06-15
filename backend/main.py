@@ -11,12 +11,24 @@ Base.metadata.create_all(bind=engine)
 # Apply missing column migrations for SQLite
 from sqlalchemy import text
 with engine.connect() as conn:
+    # Cards table migrations
     for col, definition in [
         ("image_urls", "TEXT"),
         ("condition", "VARCHAR(10)"),
     ]:
         try:
             conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+
+    # Users table migrations
+    for col, definition in [
+        ("is_verified", "BOOLEAN DEFAULT 0"),
+        ("verification_token", "VARCHAR(255)"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
             conn.commit()
         except Exception:
             pass  # column already exists

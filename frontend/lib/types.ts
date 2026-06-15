@@ -32,6 +32,7 @@ export interface User {
   email: string
   name: string
   is_admin: boolean
+  is_verified: boolean
   created_at: string
 }
 
@@ -88,4 +89,9 @@ export interface AuthResponse {
   access_token: string
   token_type: string
   user: User
+}
+
+export interface PasswordChangeRequest {
+  old_password: string
+  new_password: string
 }

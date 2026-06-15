@@ -72,6 +72,13 @@ export const authApi = {
   me: () => apiClient.get('/auth/me'),
 
   deleteAccount: () => apiClient.delete('/auth/me'),
+
+  changePassword: (data: import('./types').PasswordChangeRequest) =>
+    apiClient.put('/auth/password', data),
+
+  requestVerification: () => apiClient.post('/auth/request-verification'),
+
+  verifyEmail: (token: string) => apiClient.get(`/auth/verify/${token}`),
 }
 
 // Cart API

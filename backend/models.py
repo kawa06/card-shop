@@ -23,6 +23,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     name = Column(String(100), nullable=False)
     is_admin = Column(Boolean, default=False)
+    is_verified = Column(Boolean, default=False)
+    verification_token = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

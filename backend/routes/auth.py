@@ -67,6 +67,56 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: schemas.PasswordChangeRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="現在のパスワードが正しくありません",
+        )
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return None
+
+
+@router.post("/request-verification", status_code=status.HTTP_200_OK)
+def request_verification(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.is_verified:
+        return {"message": "既に認証済みです"}
+    
+    # 認証トークン生成 (簡易的なもの)
+    import secrets
+    token = secrets.token_urlsafe(32)
+    current_user.verification_token = token
+    db.commit()
+    
+    # TODO: 実際にメールを送信する処理を追加
+    # 現状はデバッグ用にメッセージを返すだけ
+    return {"message": "認証メールを送信しました（モック）", "debug_token": token}
+
+
+@router.get("/verify/{token}", status_code=status.HTTP_200_OK)
+def verify_email(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    user = db.query(models.User).filter(models.User.verification_token == token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="無効なトークンです")
+    
+    user.is_verified = True
+    user.verification_token = None
+    db.commit()
+    return {"message": "メール認証が完了しました"}
+
+
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
     current_user: models.User = Depends(get_current_user),
