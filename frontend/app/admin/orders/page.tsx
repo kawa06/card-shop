@@ -88,12 +88,14 @@ export default function AdminOrdersPage() {
                       </button>
                       <div className="flex-1">
                         <p className="text-white font-medium">注文 #{order.id}</p>
-                        <p className="text-gray-500 text-xs">{new Date(order.created_at).toLocaleString('ja-JP')}</p>
+                        <p className="text-gray-500 text-xs">
+                          {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '不明'}
+                        </p>
                       </div>
                       <span className={`text-sm font-medium ${statusColors[order.status] || 'text-gray-400'}`}>
                         {statusOptions.find(s => s.value === order.status)?.label || order.status}
                       </span>
-                      <span className="text-yellow-400 font-bold">¥{order.total_amount.toLocaleString()}</span>
+                      <span className="text-yellow-400 font-bold">¥{(order.total_amount || 0).toLocaleString()}</span>
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
@@ -108,7 +110,7 @@ export default function AdminOrdersPage() {
                         {order.items.map((item) => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
-                            <span className="text-gray-400">¥{item.price.toLocaleString()} × {item.quantity}</span>
+                            <span className="text-gray-400">¥{(item.unit_price || 0).toLocaleString()} × {item.quantity}</span>
                           </div>
                         ))}
                         {order.shipping_address && (

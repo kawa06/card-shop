@@ -52,7 +52,7 @@ export interface OrderItem {
   id: number
   card_id: number
   quantity: number
-  price: number
+  unit_price: number
   card: Card
 }
 

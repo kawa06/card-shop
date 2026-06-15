@@ -253,11 +253,11 @@ export default function MypagePage() {
                   <div>
                     <p className="text-white text-sm font-medium">注文 #{order.id}</p>
                     <p className="text-gray-500 text-[10px]">
-                      {new Date(order.created_at).toLocaleDateString('ja-JP')}
+                      {order.created_at ? new Date(order.created_at).toLocaleDateString('ja-JP') : '不明'}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-yellow-400 font-bold block text-sm">¥{order.total_amount.toLocaleString()}</span>
+                    <span className="text-yellow-400 font-bold block text-sm">¥{(order.total_amount || 0).toLocaleString()}</span>
                     <span className="text-[10px] text-gray-500">{order.status}</span>
                   </div>
                 </div>

@@ -93,7 +93,7 @@ export default function OrdersPage() {
                       <div key={item.id} className="flex justify-between items-center text-sm">
                         <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
                         <span className="text-gray-400">
-                          ¥{item.price.toLocaleString()} × {item.quantity}
+                          ¥{(item.unit_price || 0).toLocaleString()} × {item.quantity}
                         </span>
                       </div>
                     ))}
