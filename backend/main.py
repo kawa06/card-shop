@@ -28,6 +28,7 @@ with engine.connect() as conn:
         ("verification_token", "VARCHAR(255)"),
         ("postal_code", "VARCHAR(20)"),
         ("address", "TEXT"),
+        ("phone_number", "VARCHAR(20)"),
     ]:
         try:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))

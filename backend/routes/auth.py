@@ -96,6 +96,8 @@ def update_profile(
         current_user.postal_code = payload.postal_code
     if payload.address is not None:
         current_user.address = payload.address
+    if payload.phone_number is not None:
+        current_user.phone_number = payload.phone_number
     
     db.commit()
     db.refresh(current_user)

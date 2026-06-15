@@ -28,6 +28,7 @@ class User(Base):
     verification_token = Column(String(255), nullable=True)
     postal_code = Column(String(20), nullable=True)
     address = Column(Text, nullable=True)
+    phone_number = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

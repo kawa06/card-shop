@@ -23,6 +23,7 @@ export default function CheckoutPage() {
 
   const [postalCode, setPostalCode] = useState('')
   const [shippingAddress, setShippingAddress] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
@@ -32,6 +33,7 @@ export default function CheckoutPage() {
     if (user) {
       if (user.postal_code) setPostalCode(user.postal_code)
       if (user.address) setShippingAddress(user.address)
+      if (user.phone_number) setPhoneNumber(user.phone_number)
     }
   }, [user])
 
@@ -63,20 +65,26 @@ export default function CheckoutPage() {
       return
     }
 
+    if (!phoneNumber.trim()) {
+      toast({ title: 'エラー', description: '電話番号を入力してください', variant: 'destructive' })
+      return
+    }
+
     setIsSubmitting(true)
     try {
       // 1. Update user profile if saveAddress is checked
       if (saveAddress) {
         await authApi.updateProfile({ 
           postal_code: postalCode, 
-          address: shippingAddress 
+          address: shippingAddress,
+          phone_number: phoneNumber
         })
         fetchMe() // refresh global state
       }
 
       // 2. Create order
       const res = await ordersApi.create({
-        shipping_address: `〒${postalCode} ${shippingAddress}`,
+        shipping_address: `〒${postalCode} ${shippingAddress} (Tel: ${phoneNumber})`,
         payment_method: paymentMethod,
       })
       
@@ -157,6 +165,19 @@ export default function CheckoutPage() {
                     required
                     rows={3}
                     className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-gray-300 text-sm">電話番号</Label>
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="090-0000-0000"
+                    required
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
                   />
                 </div>
 

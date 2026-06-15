@@ -40,6 +40,7 @@ class UserOut(UserBase):
     is_verified: bool
     postal_code: Optional[str] = None
     address: Optional[str] = None
+    phone_number: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -50,6 +51,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     postal_code: Optional[str] = None
     address: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class PasswordChangeRequest(BaseModel):

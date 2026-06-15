@@ -35,6 +35,7 @@ export interface User {
   is_verified: boolean
   postal_code: string | null
   address: string | null
+  phone_number: string | null
   created_at: string
 }
 
