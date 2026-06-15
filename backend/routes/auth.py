@@ -65,3 +65,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=schemas.UserOut)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # カート、注文などの関連データも削除（Cascade設定がない場合）
+    db.query(models.CartItem).filter(models.CartItem.user_id == current_user.id).delete()
+    # 注文は履歴として残すか削除するか検討が必要だが、ここではアカウント削除に伴い削除
+    db.query(models.Order).filter(models.Order.user_id == current_user.id).delete()
+    
+    db.delete(current_user)
+    db.commit()
+    return None

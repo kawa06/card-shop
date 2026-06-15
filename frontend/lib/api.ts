@@ -70,6 +70,8 @@ export const authApi = {
     apiClient.post('/auth/register', data),
 
   me: () => apiClient.get('/auth/me'),
+
+  deleteAccount: () => apiClient.delete('/auth/me'),
 }
 
 // Cart API

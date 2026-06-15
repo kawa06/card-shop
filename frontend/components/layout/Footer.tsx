@@ -26,10 +26,11 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-3">アカウント</h4>
+            <h4 className="text-white font-semibold mb-3">規約・情報</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/login" className="hover:text-yellow-400 transition-colors">ログイン</Link></li>
-              <li><Link href="/register" className="hover:text-yellow-400 transition-colors">会員登録</Link></li>
+              <li><Link href="/terms" className="hover:text-yellow-400 transition-colors">利用規約</Link></li>
+              <li><Link href="/privacy" className="hover:text-yellow-400 transition-colors">プライバシーポリシー</Link></li>
+              <li><Link href="#" className="hover:text-yellow-400 transition-colors opacity-50 cursor-not-allowed">特定商取引法に基づく表記</Link></li>
             </ul>
           </div>
         </div>

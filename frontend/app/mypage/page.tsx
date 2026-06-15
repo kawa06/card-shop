@@ -3,16 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, Package, Heart, MapPin } from 'lucide-react'
+import { User, Package, Heart, MapPin, Trash2, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { ordersApi } from '@/lib/api'
+import { ordersApi, authApi } from '@/lib/api'
 import { Order } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { toast } from '@/lib/use-toast'
 
 export default function MypagePage() {
   const router = useRouter()
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated, user, logout } = useAuthStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -23,6 +26,23 @@ export default function MypagePage() {
       setOrders((res.data || []).slice(0, 3))
     }).catch(() => {}).finally(() => setIsLoading(false))
   }, [isAuthenticated, router])
+
+  const handleDeleteAccount = async () => {
+    const confirmed = confirm('本当にアカウントを削除しますか？この操作は取り消せません。')
+    if (!confirmed) return
+
+    setIsDeleting(true)
+    try {
+      await authApi.deleteAccount()
+      toast({ title: 'アカウントを削除しました', description: 'ご利用ありがとうございました。' })
+      logout()
+      router.push('/')
+    } catch {
+      toast({ title: 'エラー', description: 'アカウントの削除に失敗しました。', variant: 'destructive' })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   if (!isAuthenticated || !user) return null
 
@@ -107,6 +127,28 @@ export default function MypagePage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Danger Zone */}
+        <div className="mt-12 pt-8 border-t border-white/5">
+          <div className="bg-red-500/5 rounded-xl border border-red-500/10 p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <h2 className="text-lg font-bold text-white">危険領域</h2>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              アカウントを削除すると、これまでの注文履歴や登録情報がすべて失われます。
+            </p>
+            <Button
+              variant="ghost"
+              disabled={isDeleting}
+              onClick={handleDeleteAccount}
+              className="text-red-500 hover:text-white hover:bg-red-500 flex items-center gap-2 transition-all border border-red-500/20"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? '削除中...' : 'アカウントを完全に削除する'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
