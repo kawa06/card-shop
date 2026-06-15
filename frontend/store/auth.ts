@@ -65,8 +65,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await authApi.me()
           set({ user: res.data, isAuthenticated: true })
-        } catch {
-          get().logout()
+        } catch (error: any) {
+          if (error.response?.status === 401) {
+            get().logout()
+          }
         }
       },
     }),

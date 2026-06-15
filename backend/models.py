@@ -10,8 +10,9 @@ import enum
 
 class OrderStatus(str, enum.Enum):
     pending = "pending"
-    paid = "paid"
+    processing = "processing"
     shipped = "shipped"
+    delivered = "delivered"
     cancelled = "cancelled"
 
 
