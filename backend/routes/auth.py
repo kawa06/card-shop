@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -29,7 +29,11 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+async def register(
+    payload: schemas.UserCreate, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="このメールアドレスは既に使用されています")
@@ -46,12 +50,8 @@ async def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    # 実際にメールを送信（非同期）
-    try:
-        await send_verification_email(user.email, verification_token)
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-        # Registration continues even if email fails
+    # メール送信をバックグラウンドで実行
+    background_tasks.add_task(send_verification_email, user.email, verification_token)
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
@@ -122,6 +122,7 @@ def change_password(
 
 @router.post("/request-verification", status_code=status.HTTP_200_OK)
 async def request_verification(
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -133,10 +134,7 @@ async def request_verification(
     db.commit()
     
     # 実際にメールを送信
-    try:
-        await send_verification_email(current_user.email, token)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"メールの送信に失敗しました: {e}")
+    background_tasks.add_task(send_verification_email, current_user.email, token)
     
     return {"message": "認証メールを送信しました"}
 
