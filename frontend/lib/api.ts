@@ -54,6 +54,11 @@ export const categoriesApi = {
 // Announcements API
 export const announcementsApi = {
   getAll: () => apiClient.get('/announcements'),
+  create: (data: { title: string; content: string; is_active: boolean }) =>
+    apiClient.post('/admin/announcements', data),
+  update: (id: number, data: { title: string; content: string; is_active: boolean }) =>
+    apiClient.put(`/admin/announcements/${id}`, data),
+  delete: (id: number) => apiClient.delete(`/admin/announcements/${id}`),
 }
 
 // Auth API

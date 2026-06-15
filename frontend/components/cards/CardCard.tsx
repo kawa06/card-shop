@@ -27,6 +27,14 @@ const rarityColors: Record<string, string> = {
   ミラー: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
 }
 
+const conditionLabel: Record<string, string> = {
+  a: 'A',
+  b: 'B',
+  c: 'C',
+  d: 'D',
+  e: 'E',
+}
+
 export default function CardCard({ card }: CardCardProps) {
   const { isAuthenticated } = useAuthStore()
   const { addItem } = useCartStore()
@@ -71,18 +79,27 @@ export default function CardCard({ card }: CardCardProps) {
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+              unoptimized={card.image_url.startsWith('data:')}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
               <span className="text-4xl opacity-20">🃏</span>
             </div>
           )}
-          {/* Rarity Badge */}
-          <div className="absolute top-2 right-2">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${rarityClass}`}>
+          {/* Rarity Badge (Top Right) */}
+          <div className="absolute top-2 right-2 z-10">
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rarityClass}`}>
               {card.rarity}
             </span>
           </div>
+          {/* Condition Badge (Top Left) */}
+          {card.condition && (
+            <div className="absolute top-2 left-2 z-10">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-white/20 backdrop-blur-sm">
+                状態 {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
+              </span>
+            </div>
+          )}
           {/* Out of stock overlay */}
           {card.stock === 0 && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
