@@ -46,5 +46,19 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+    # Email Settings (to be set in Railway environment variables)
+    MAIL_USERNAME: Optional[str] = None
+    MAIL_PASSWORD: Optional[str] = None
+    MAIL_FROM: str = "noreply@oripa-kawa.com"
+    MAIL_PORT: int = 587
+    MAIL_SERVER: str = "smtp.gmail.com"
+    MAIL_FROM_NAME: str = "Oripa_kawa"
+    MAIL_TLS: bool = True
+    MAIL_SSL: bool = False
+    USE_CREDENTIALS: bool = True
+
+    # Frontend URL for verification links
+    FRONTEND_URL: str = "https://frontend-one-topaz-20.vercel.app"
+
 
 settings = Settings()

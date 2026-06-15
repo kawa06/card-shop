@@ -4,8 +4,10 @@ from pydantic import BaseModel
 
 from database import get_db
 from auth import hash_password, verify_password, create_access_token, get_current_user
+from mail import send_verification_email
 import models
 import schemas
+import secrets
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -27,20 +29,26 @@ class AuthResponse(BaseModel):
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+async def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="このメールアドレスは既に使用されています")
 
+    verification_token = secrets.token_urlsafe(32)
     user = models.User(
         email=payload.email,
         name=payload.name,
         password_hash=hash_password(payload.password),
         is_admin=(payload.email in ADMIN_EMAILS),
+        verification_token=verification_token,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    # 実際にメールを送信（非同期）
+    await send_verification_email(user.email, verification_token)
+
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -102,22 +110,21 @@ def change_password(
 
 
 @router.post("/request-verification", status_code=status.HTTP_200_OK)
-def request_verification(
+async def request_verification(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if current_user.is_verified:
         return {"message": "既に認証済みです"}
     
-    # 認証トークン生成 (簡易的なもの)
-    import secrets
     token = secrets.token_urlsafe(32)
     current_user.verification_token = token
     db.commit()
     
-    # TODO: 実際にメールを送信する処理を追加
-    # 現状はデバッグ用にメッセージを返すだけ
-    return {"message": "認証メールを送信しました（モック）", "debug_token": token}
+    # 実際にメールを送信
+    await send_verification_email(current_user.email, token)
+    
+    return {"message": "認証メールを送信しました"}
 
 
 @router.get("/verify/{token}", status_code=status.HTTP_200_OK)
