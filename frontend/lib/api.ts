@@ -27,7 +27,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token')
-        window.location.href = '/login'
+        // Zustand store will be updated by the catch block in fetchMe or direct logout
       }
     }
     return Promise.reject(error)

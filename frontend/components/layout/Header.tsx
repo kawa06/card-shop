@@ -12,10 +12,15 @@ import { cn } from '@/lib/utils'
 
 export default function Header() {
   const router = useRouter()
-  const { user, isAuthenticated, logout } = useAuthStore()
+  const { user, isAuthenticated, logout, fetchMe } = useAuthStore()
   const { items, fetchCart } = useCartStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Verify session on mount
+  useEffect(() => {
+    fetchMe()
+  }, [fetchMe])
 
   useEffect(() => {
     if (isAuthenticated) {
