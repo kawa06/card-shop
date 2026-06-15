@@ -75,6 +75,19 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.get("/cleanup-user-temporary", status_code=status.HTTP_200_OK)
+def cleanup_user(db: Session = Depends(get_db)):
+    email = "rikukai0609@icloud.com"
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user:
+        db.query(models.CartItem).filter(models.CartItem.user_id == user.id).delete()
+        db.query(models.Order).filter(models.Order.user_id == user.id).delete()
+        db.delete(user)
+        db.commit()
+        return {"message": f"User {email} deleted"}
+    return {"message": "User not found"}
+
+
 @router.put("/me", response_model=schemas.UserOut)
 def update_profile(
     payload: schemas.UserUpdate,
