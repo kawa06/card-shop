@@ -11,6 +11,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Oripa_kawa - トレーディングカード専門店',
   description: 'レアカードから初心者向けカードまで豊富なラインナップのトレーディングカード専門店',
+  verification: {
+    google: 'DMTMs-DnAVdJ_8pURPDHh3Xg64UtljMFYdfS30SVfBc',
+  },
 }
 
 export default function RootLayout({
