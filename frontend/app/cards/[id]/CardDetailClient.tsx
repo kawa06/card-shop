@@ -8,7 +8,10 @@ import { cardsApi } from '@/lib/api'
 import { Card } from '@/lib/types'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
+import { useLangStore } from '@/store/lang'
 import { toast } from '@/lib/use-toast'
+import { t } from '@/lib/i18n'
+import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import CardCard from '@/components/cards/CardCard'
 
@@ -49,6 +52,7 @@ export default function CardDetailClient({ id }: { id: string }) {
   const router = useRouter()
   const { isAuthenticated } = useAuthStore()
   const { addItem } = useCartStore()
+  const { lang } = useLangStore()
 
   const [card, setCard] = useState<Card | null>(null)
   const [relatedCards, setRelatedCards] = useState<Card[]>([])
@@ -83,7 +87,7 @@ export default function CardDetailClient({ id }: { id: string }) {
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
-      toast({ title: 'ログインが必要です', description: 'カートに追加するにはログインしてください', variant: 'destructive' })
+      toast({ title: t('ログインが必要です', lang), description: t('カートに追加するにはログインしてください', lang), variant: 'destructive' })
       router.push('/login')
       return
     }
@@ -91,9 +95,9 @@ export default function CardDetailClient({ id }: { id: string }) {
     setAddingToCart(true)
     try {
       await addItem(card.id, quantity)
-      toast({ title: 'カートに追加しました', description: `${card.name} x${quantity}をカートに追加しました` })
+      toast({ title: t('カートに追加しました', lang), description: `${cardName}x${quantity}${t('をカートに追加しました', lang)}` })
     } catch {
-      toast({ title: 'エラー', description: 'カートへの追加に失敗しました', variant: 'destructive' })
+      toast({ title: t('エラー', lang), description: t('カートへの追加に失敗しました', lang), variant: 'destructive' })
     } finally {
       setAddingToCart(false)
     }
@@ -102,6 +106,10 @@ export default function CardDetailClient({ id }: { id: string }) {
   const images = card ? parseImageUrls(card) : []
   const prevImg = useCallback(() => setActiveImg(i => (i - 1 + images.length) % images.length), [images.length])
   const nextImg = useCallback(() => setActiveImg(i => (i + 1) % images.length), [images.length])
+
+  const cardName = useTranslation(card?.name || '')
+  const categoryName = useTranslation(card?.category?.name || '')
+  const description = useTranslation(card?.description || '')
 
   if (isLoading) {
     return (
@@ -131,7 +139,7 @@ export default function CardDetailClient({ id }: { id: string }) {
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          戻る
+          {t('戻る', lang)}
         </button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -145,7 +153,7 @@ export default function CardDetailClient({ id }: { id: string }) {
               {images.length > 0 ? (
                 <Image
                   src={images[activeImg]}
-                  alt={card.name}
+                  alt={cardName}
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 50vw"
@@ -189,7 +197,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                     onClick={() => setActiveImg(i)}
                     className={`relative flex-shrink-0 w-14 h-18 aspect-[3/4] rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? 'border-yellow-400' : 'border-white/10 hover:border-white/30'}`}
                   >
-                    <Image src={url} alt={`${card.name} ${i + 1}`} fill className="object-cover" unoptimized={url.startsWith('data:')} />
+                    <Image src={url} alt={`${cardName} ${i + 1}`} fill className="object-cover" unoptimized={url.startsWith('data:')} />
                   </button>
                 ))}
               </div>
@@ -200,9 +208,9 @@ export default function CardDetailClient({ id }: { id: string }) {
           <div className="space-y-6">
             <div>
               {card.category && (
-                <p className="text-sm text-gray-500 mb-1">{card.category.name}</p>
+                <p className="text-sm text-gray-500 mb-1">{categoryName}</p>
               )}
-              <h1 className="text-3xl font-bold text-white mb-3">{card.name}</h1>
+              <h1 className="text-3xl font-bold text-white mb-3">{cardName}</h1>
               <div className="flex flex-wrap gap-2">
                 {card.rarity && (
                   <span className={`text-sm font-bold px-3 py-1 rounded border ${rarityClass}`}>
@@ -211,7 +219,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                 )}
                 {card.condition && (
                   <span className="text-sm font-medium px-3 py-1 rounded border bg-white/5 text-gray-300 border-white/20">
-                    状態: {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
+                    {t('状態', lang)}: {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
                   </span>
                 )}
               </div>
@@ -223,19 +231,19 @@ export default function CardDetailClient({ id }: { id: string }) {
               </span>
               <div className="flex items-center gap-1 text-sm text-gray-400">
                 <Package className="h-4 w-4" />
-                <span>残り {card.stock}枚</span>
+                <span>{t('残り', lang)} {card.stock}{t('枚', lang)}</span>
               </div>
             </div>
 
             {card.description && (
               <p className="text-gray-300 leading-relaxed border-t border-white/10 pt-4">
-                {card.description}
+                {description}
               </p>
             )}
 
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-400">数量:</span>
+                <span className="text-sm text-gray-400">{t('数量', lang)}:</span>
                 <div className="flex items-center border border-white/20 rounded-md overflow-hidden">
                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30" disabled={quantity <= 1}>-</button>
                   <span className="px-4 py-2 text-white min-w-[3rem] text-center">{quantity}</span>
@@ -249,7 +257,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                 className="w-full h-12 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold text-base disabled:opacity-50"
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
-                {card.stock === 0 ? '在庫なし' : addingToCart ? '追加中...' : 'カートに入れる'}
+                {card.stock === 0 ? t('在庫なし', lang) : addingToCart ? t('追加中...', lang) : t('カートに入れる', lang)}
               </Button>
             </div>
           </div>
@@ -258,7 +266,7 @@ export default function CardDetailClient({ id }: { id: string }) {
         {/* 関連カード */}
         {relatedCards.length > 0 && (
           <div>
-            <h2 className="text-xl font-bold text-white mb-4">関連カード</h2>
+            <h2 className="text-xl font-bold text-white mb-4">{t('関連カード', lang)}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {relatedCards.map((rc) => (
                 <CardCard key={rc.id} card={rc} />
@@ -287,7 +295,7 @@ export default function CardDetailClient({ id }: { id: string }) {
           <div className="relative max-w-lg w-full max-h-[90vh] aspect-[3/4]" onClick={e => e.stopPropagation()}>
             <Image
               src={images[activeImg]}
-              alt={card.name}
+              alt={cardName}
               fill
               className="object-contain"
               unoptimized={images[activeImg].startsWith('data:')}

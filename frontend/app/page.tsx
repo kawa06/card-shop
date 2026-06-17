@@ -6,6 +6,9 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Bell, ChevronRight } from 'lucide-react'
 import { cardsApi, categoriesApi, announcementsApi } from '@/lib/api'
 import { Card, Category, Announcement } from '@/lib/types'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
+import { useTranslation, useBatchTranslation } from '@/hooks/useTranslation'
 import CardGrid from '@/components/cards/CardGrid'
 import CategorySidebar from '@/components/cards/CategorySidebar'
 import Pagination from '@/components/cards/Pagination'
@@ -13,6 +16,7 @@ import Pagination from '@/components/cards/Pagination'
 function HomeContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { lang } = useLangStore()
 
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -81,6 +85,8 @@ function HomeContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const mobileCategoryNames = useBatchTranslation(categories.map((c) => c.name))
+
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Announcements Banner */}
@@ -90,12 +96,7 @@ function HomeContent() {
             <div className="flex items-center gap-2 overflow-x-auto">
               <Bell className="h-4 w-4 text-yellow-400 flex-shrink-0" />
               {announcements.map((announcement, i) => (
-                <span key={announcement.id} className="flex items-center gap-2 text-sm text-yellow-200/80 whitespace-nowrap">
-                  {i > 0 && <span className="text-yellow-400/30">|</span>}
-                  <span className="text-yellow-400 font-medium">{announcement.title}</span>
-                  <ChevronRight className="h-3 w-3 text-yellow-400/50" />
-                  <span>{announcement.content}</span>
-                </span>
+                <TranslatedAnnouncement key={announcement.id} announcement={announcement} i={i} />
               ))}
             </div>
           </div>
@@ -107,12 +108,16 @@ function HomeContent() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-900/10 via-transparent to-transparent" />
         <div className="container py-10 relative">
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            トレーディングカード専門店
+            {t('トレーディングカード専門店', lang)}
           </h1>
           <p className="text-gray-400">
             {searchQuery
-              ? `"${searchQuery}" の検索結果: ${totalCards}件`
-              : `${totalCards}枚のカードから選ぼう`}
+              ? (lang === 'ja'
+                ? `"${searchQuery}" の検索結果: ${totalCards}件`
+                : `Search results for "${searchQuery}": ${totalCards} results`)
+              : (lang === 'ja'
+                ? `${totalCards}枚のカードから選ぼう`
+                : `${totalCards} cards to choose from`)}
           </p>
         </div>
       </div>
@@ -143,9 +148,9 @@ function HomeContent() {
                     : 'border-white/10 text-gray-400 hover:text-white'
                 }`}
               >
-                すべて
+                {t('すべて', lang)}
               </button>
-              {categories.map((cat) => (
+              {categories.map((cat, idx) => (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
@@ -155,7 +160,7 @@ function HomeContent() {
                       : 'border-white/10 text-gray-400 hover:text-white'
                   }`}
                 >
-                  {cat.name}
+                  {mobileCategoryNames[idx] || cat.name}
                 </button>
               ))}
             </div>
@@ -173,11 +178,24 @@ function HomeContent() {
   )
 }
 
+function TranslatedAnnouncement({ announcement, i }: { announcement: Announcement; i: number }) {
+  const title = useTranslation(announcement.title)
+  const content = useTranslation(announcement.content)
+  return (
+    <span className="flex items-center gap-2 text-sm text-yellow-200/80 whitespace-nowrap">
+      {i > 0 && <span className="text-yellow-400/30">|</span>}
+      <span className="text-yellow-400 font-medium">{title}</span>
+      <ChevronRight className="h-3 w-3 text-yellow-400/50" />
+      <span>{content}</span>
+    </span>
+  )
+}
+
 export default function HomePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400 animate-pulse">読み込み中...</div>
+        <div className="text-gray-400 animate-pulse">{t('読み込み中...', 'ja')}</div>
       </div>
     }>
       <HomeContent />

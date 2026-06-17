@@ -2,6 +2,9 @@
 
 import { Category } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
+import { useBatchTranslation } from '@/hooks/useTranslation'
 
 interface CategorySidebarProps {
   categories: Category[]
@@ -14,10 +17,14 @@ export default function CategorySidebar({
   selectedCategory,
   onSelect,
 }: CategorySidebarProps) {
+  const { lang } = useLangStore()
+  const names = categories.map((c) => c.name)
+  const translatedNames = useBatchTranslation(names)
+
   return (
     <aside className="w-full space-y-1">
       <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">
-        カテゴリー
+        {t('カテゴリー', lang)}
       </h2>
       <button
         onClick={() => onSelect(null)}
@@ -28,9 +35,9 @@ export default function CategorySidebar({
             : 'text-gray-300 hover:bg-white/5 hover:text-white'
         )}
       >
-        すべて
+        {t('すべて', lang)}
       </button>
-      {categories.map((category) => (
+      {categories.map((category, i) => (
         <button
           key={category.id}
           onClick={() => onSelect(category.id)}
@@ -41,7 +48,7 @@ export default function CategorySidebar({
               : 'text-gray-300 hover:bg-white/5 hover:text-white'
           )}
         >
-          {category.name}
+          {translatedNames[i] || category.name}
         </button>
       ))}
     </aside>

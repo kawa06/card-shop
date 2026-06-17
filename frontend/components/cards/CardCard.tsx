@@ -1,12 +1,13 @@
-'use client'
-
 import Image from 'next/image'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import { Card } from '@/lib/types'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
+import { useLangStore } from '@/store/lang'
 import { toast } from '@/lib/use-toast'
+import { t } from '@/lib/i18n'
+import { useTranslation } from '@/hooks/useTranslation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -38,13 +39,16 @@ const conditionLabel: Record<string, string> = {
 export default function CardCard({ card }: CardCardProps) {
   const { isAuthenticated } = useAuthStore()
   const { addItem } = useCartStore()
+  const { lang } = useLangStore()
+  const cardName = useTranslation(card.name)
+  const categoryName = useTranslation(card.category?.name || '')
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
     if (!isAuthenticated) {
       toast({
-        title: 'ログインが必要です',
-        description: 'カートに追加するにはログインしてください',
+        title: t('ログインが必要です', lang),
+        description: t('カートに追加するにはログインしてください', lang),
         variant: 'destructive',
       })
       return
@@ -53,13 +57,13 @@ export default function CardCard({ card }: CardCardProps) {
     try {
       await addItem(card.id, 1)
       toast({
-        title: 'カートに追加しました',
-        description: `${card.name}をカートに追加しました`,
+        title: t('カートに追加しました', lang),
+        description: `${cardName}${t('をカートに追加しました', lang)}`,
       })
     } catch {
       toast({
-        title: 'エラー',
-        description: 'カートへの追加に失敗しました',
+        title: t('エラー', lang),
+        description: t('カートへの追加に失敗しました', lang),
         variant: 'destructive',
       })
     }
@@ -75,7 +79,7 @@ export default function CardCard({ card }: CardCardProps) {
           {card.image_url ? (
             <Image
               src={card.image_url}
-              alt={card.name}
+              alt={cardName}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
@@ -96,7 +100,7 @@ export default function CardCard({ card }: CardCardProps) {
           {card.condition && (
             <div className="absolute top-2 left-2 z-10">
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-white/20 backdrop-blur-sm">
-                状態 {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
+                {t('状態', lang)} {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
               </span>
             </div>
           )}
@@ -104,7 +108,7 @@ export default function CardCard({ card }: CardCardProps) {
           {card.stock === 0 && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <span className="text-white font-bold text-sm bg-red-600/80 px-3 py-1 rounded">
-                売り切れ
+                {t('売り切れ', lang)}
               </span>
             </div>
           )}
@@ -112,17 +116,17 @@ export default function CardCard({ card }: CardCardProps) {
 
         {/* Card Info */}
         <div className="p-3">
-          <h3 className="text-white font-medium text-sm truncate mb-1">{card.name}</h3>
+          <h3 className="text-white font-medium text-sm truncate mb-1">{cardName}</h3>
           <div className="flex items-center justify-between">
             <span className="text-yellow-400 font-bold">
               ¥{card.price.toLocaleString()}
             </span>
             <span className="text-xs text-gray-500">
-              残り {card.stock}枚
+              {t('残り', lang)} {card.stock}{t('枚', lang)}
             </span>
           </div>
           {card.category && (
-            <span className="text-xs text-gray-500 mt-1 block">{card.category.name}</span>
+            <span className="text-xs text-gray-500 mt-1 block">{categoryName}</span>
           )}
         </div>
 
@@ -135,7 +139,7 @@ export default function CardCard({ card }: CardCardProps) {
             className="w-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 hover:bg-yellow-400 hover:text-gray-950 transition-colors disabled:opacity-50"
           >
             <ShoppingCart className="h-3 w-3 mr-1" />
-            {card.stock === 0 ? '在庫なし' : 'カートに追加'}
+            {card.stock === 0 ? t('在庫なし', lang) : t('カートに追加', lang)}
           </Button>
         </div>
       </div>

@@ -1,5 +1,7 @@
 import CardCard from './CardCard'
 import { Card } from '@/lib/types'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
 
 interface CardGridProps {
   cards: Card[]
@@ -20,6 +22,8 @@ function CardSkeleton() {
 }
 
 export default function CardGrid({ cards, isLoading }: CardGridProps) {
+  const { lang } = useLangStore()
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -34,8 +38,8 @@ export default function CardGrid({ cards, isLoading }: CardGridProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-gray-500">
         <span className="text-6xl mb-4">🃏</span>
-        <p className="text-lg font-medium">カードが見つかりませんでした</p>
-        <p className="text-sm mt-1">検索条件を変更してみてください</p>
+        <p className="text-lg font-medium">{t('カードが見つかりませんでした', lang)}</p>
+        <p className="text-sm mt-1">{t('検索条件を変更してみてください', lang)}</p>
       </div>
     )
   }

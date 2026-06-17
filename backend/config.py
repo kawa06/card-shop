@@ -61,5 +61,8 @@ class Settings(BaseSettings):
     # Frontend URL for verification links
     FRONTEND_URL: str = "https://frontend-one-topaz-20.vercel.app"
 
+    # DeepL API
+    DEEPL_API_KEY: str = ""
+
 
 settings = Settings()

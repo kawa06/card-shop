@@ -1,11 +1,11 @@
-'use client'
-
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Search, User, LogOut, Shield, Menu, X } from 'lucide-react'
+import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ export default function Header() {
   const router = useRouter()
   const { user, isAuthenticated, logout, fetchMe } = useAuthStore()
   const { items, fetchCart } = useCartStore()
+  const { lang, setLang } = useLangStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -57,7 +58,7 @@ export default function Header() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               type="search"
-              placeholder="カードを検索..."
+              placeholder={t('カードを検索...', lang)}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
@@ -69,6 +70,18 @@ export default function Header() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          {/* Language Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}
+            title={lang === 'ja' ? 'Switch to English' : '日本語に切り替え'}
+          >
+            <Globe className="h-4 w-4 mr-1" />
+            <span className="text-xs font-medium">{lang === 'ja' ? 'EN' : 'JP'}</span>
+          </Button>
+
           {/* Cart */}
           <Link href="/cart">
             <Button variant="ghost" size="icon" className="relative text-gray-300 hover:text-white hover:bg-white/10">
@@ -89,14 +102,14 @@ export default function Header() {
                   <Link href="/admin">
                     <Button variant="ghost" size="sm" className="text-yellow-400 hover:text-yellow-300 hover:bg-white/10">
                       <Shield className="h-4 w-4 mr-1" />
-                      管理
+                      {t('管理', lang)}
                     </Button>
                   </Link>
                 )}
                 <Link href="/mypage">
                   <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-white/10">
                     <User className="h-4 w-4 mr-1" />
-                    {user.name}
+                    {t('マイページ', lang)}
                   </Button>
                 </Link>
                 <Button
@@ -112,12 +125,12 @@ export default function Header() {
               <>
                 <Link href="/login">
                   <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white hover:bg-white/10">
-                    ログイン
+                    {t('ログイン', lang)}
                   </Button>
                 </Link>
                 <Link href="/register">
                   <Button size="sm" className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-semibold">
-                    会員登録
+                    {t('会員登録', lang)}
                   </Button>
                 </Link>
               </>
@@ -144,14 +157,14 @@ export default function Header() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 type="search"
-                placeholder="カードを検索..."
+                placeholder={t('カードを検索...', lang)}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500"
               />
             </div>
             <Button type="submit" size="sm" className="bg-yellow-400 text-gray-950 hover:bg-yellow-300">
-              検索
+              {t('検索', lang)}
             </Button>
           </form>
 
@@ -161,14 +174,14 @@ export default function Header() {
                 <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full border-yellow-400/30 text-yellow-400">
                     <Shield className="h-4 w-4 mr-2" />
-                    管理画面
+                    {t('管理画面', lang)}
                   </Button>
                 </Link>
               )}
               <Link href="/mypage" onClick={() => setMobileMenuOpen(false)}>
                 <Button variant="outline" className="w-full border-white/20 text-gray-300">
                   <User className="h-4 w-4 mr-2" />
-                  マイページ ({user.name})
+                  {t('マイページ', lang)} ({user.name})
                 </Button>
               </Link>
               <Button
@@ -177,19 +190,19 @@ export default function Header() {
                 onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
               >
                 <LogOut className="h-4 w-4 mr-2" />
-                ログアウト
+                {t('ログアウト', lang)}
               </Button>
             </div>
           ) : (
             <div className="flex gap-2">
               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex-1">
                 <Button variant="outline" className="w-full border-white/20 text-gray-300">
-                  ログイン
+                  {t('ログイン', lang)}
                 </Button>
               </Link>
               <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="flex-1">
                 <Button className="w-full bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-semibold">
-                  会員登録
+                  {t('会員登録', lang)}
                 </Button>
               </Link>
             </div>

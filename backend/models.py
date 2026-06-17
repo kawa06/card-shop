@@ -120,3 +120,14 @@ class Announcement(Base):
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TranslationCache(Base):
+    __tablename__ = "translation_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_text = Column(String(2000), nullable=False, index=True)
+    source_lang = Column(String(10), nullable=False, index=True)
+    target_lang = Column(String(10), nullable=False, index=True)
+    translated_text = Column(String(2000), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
