@@ -1,3 +1,5 @@
+'use client'
+
 import CardCard from './CardCard'
 import { Card } from '@/lib/types'
 import { useLangStore } from '@/store/lang'

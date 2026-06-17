@@ -1,0 +1,9 @@
+{
+  "experimentalServices": {
+    "card-shop-api": {
+      "type": "web",
+      "routePrefix": "/",
+      "buildCommand": "pip install -r requirements.txt"
+    }
+  }
+}

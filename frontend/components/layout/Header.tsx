@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe } from 'lucide-react'

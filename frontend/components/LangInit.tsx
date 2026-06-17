@@ -19,6 +19,7 @@ export function LangInit() {
       } catch { /* ignore */ }
     }
     document.documentElement.lang = lang === 'en' ? 'en' : 'ja'
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {

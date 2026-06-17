@@ -99,7 +99,6 @@ const dict: Record<string, string> = {
   'エラー': 'Error',
   'カートへの追加に失敗しました': 'Failed to add to cart',
   '関連カード': 'Related Cards',
-  '在庫': 'Stock',
   '追加中...': 'Adding...',
 }
 
