@@ -65,5 +65,8 @@ class Settings(BaseSettings):
     # DeepL API
     DEEPL_API_KEY: str = ""
 
+    # Exchange Rate (USD -> JPY)
+    EXCHANGE_RATE_USD_JPY: float = 150.0
+
 
 settings = Settings()

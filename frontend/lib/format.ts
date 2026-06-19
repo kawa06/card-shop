@@ -1,4 +1,5 @@
 import { useLangStore } from '@/store/lang'
+import { useRateStore } from '@/store/rate'
 
 const DEFAULT_RATE = 150
 
@@ -13,7 +14,7 @@ export const formatPrice = (price: number, lang: 'ja' | 'en' = 'ja') => {
     return `¥${price.toLocaleString()}`
   }
 
-  const rate = Number(process.env.NEXT_PUBLIC_EXCHANGE_RATE_USD_JPY || process.env.EXCHANGE_RATE_USD_JPY) || DEFAULT_RATE
+  const rate = useRateStore.getState().usdJpyRate || DEFAULT_RATE
   // 換算ロジック: Math.round(price / rate * 100) / 100 で 小数点以下2桁に丸める
   const usdPrice = Math.round((price / rate) * 100) / 100
   
@@ -31,8 +32,11 @@ export const formatPrice = (price: number, lang: 'ja' | 'en' = 'ja') => {
  */
 export const usePrice = () => {
   const { lang } = useLangStore()
+  const { usdJpyRate } = useRateStore()
+  
   return {
     formatPrice: (price: number) => formatPrice(price, lang),
-    lang
+    lang,
+    rate: usdJpyRate
   }
 }

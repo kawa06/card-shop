@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { Toaster } from '@/components/ui/toaster'
 import { LangInit } from '@/components/LangInit'
+import { RateInit } from '@/components/RateInit'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -62,6 +63,7 @@ export default function RootLayout({
     <html lang="ja" className="dark">
       <body className={`${inter.className} min-h-screen bg-gray-950 text-white`}>
         <LangInit />
+        <RateInit />
         <div className="flex flex-col min-h-screen">
           <Header />
           <main className="flex-1">{children}</main>

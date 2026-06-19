@@ -160,3 +160,8 @@ export const adminApi = {
   // Users
   getAllUsers: () => apiClient.get('/admin/users'),
 }
+
+// Exchange API
+export const exchangeApi = {
+  getRate: () => apiClient.get<{ rate: number; last_updated: number }>('/exchange-rate'),
+}

@@ -267,3 +267,10 @@ class PaginatedCards(BaseModel):
     page: int
     per_page: int
     pages: int
+
+
+# ─────────────────────────── Exchange Rate ───────────────────
+
+class ExchangeRateResponse(BaseModel):
+    rate: float
+    last_updated: int  # Timestamp

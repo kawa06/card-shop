@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from database import Base, engine
-from routes import auth, cards, cart, orders, admin, translate
+from routes import auth, cards, cart, orders, admin, translate, exchange
 
 # Create all tables on startup (new columns added if not exists via ALTER)
 Base.metadata.create_all(bind=engine)
@@ -65,6 +65,7 @@ app.include_router(cart.router)
 app.include_router(orders.router)
 app.include_router(admin.router)
 app.include_router(translate.router)
+app.include_router(exchange.router)
 
 
 @app.get("/api/health")
