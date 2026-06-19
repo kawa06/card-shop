@@ -76,4 +76,8 @@ app.include_router(exchange_router, prefix="/api")
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "commit": "daebd61"}
+
+@app.get("/api/exchange-rate")
+def get_exchange_rate_direct():
+    return {"rate": 150.0, "last_updated": 0, "direct": True}
