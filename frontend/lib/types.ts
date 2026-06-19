@@ -34,6 +34,11 @@ export interface User {
   is_admin: boolean
   is_verified: boolean
   postal_code: string | null
+  country: string | null
+  region: string | null
+  city: string | null
+  address_line1: string | null
+  address_line2: string | null
   address: string | null
   phone_number: string | null
   created_at: string
@@ -64,6 +69,12 @@ export interface Order {
   user_id: number
   status: string
   total_amount: number
+  postal_code: string | null
+  country: string | null
+  region: string | null
+  city: string | null
+  address_line1: string | null
+  address_line2: string | null
   shipping_address: string | null
   created_at: string
   items: OrderItem[]

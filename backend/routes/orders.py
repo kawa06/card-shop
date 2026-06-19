@@ -37,6 +37,12 @@ def create_order(
     order = models.Order(
         user_id=current_user.id,
         total_amount=round(total, 2),
+        postal_code=payload.postal_code,
+        country=payload.country,
+        region=payload.region,
+        city=payload.city,
+        address_line1=payload.address_line1,
+        address_line2=payload.address_line2,
         shipping_address=payload.shipping_address,
         status=models.OrderStatus.pending,
     )

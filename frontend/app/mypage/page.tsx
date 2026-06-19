@@ -131,6 +131,13 @@ export default function MypagePage() {
                 )}
               </div>
               <p className="text-gray-400 text-sm mt-1">{user.email}</p>
+              <p className="text-gray-500 text-xs mt-1">
+                {user.postal_code && `〒${user.postal_code} `}
+                {user.region}{user.city}{user.address_line1} {user.address_line2}
+              </p>
+              {user.address && !user.region && (
+                <p className="text-gray-500 text-xs mt-1">{user.address}</p>
+              )}
               
               {!user.is_verified && (
                 <button 

@@ -94,6 +94,16 @@ def update_profile(
         current_user.name = payload.name
     if payload.postal_code is not None:
         current_user.postal_code = payload.postal_code
+    if payload.country is not None:
+        current_user.country = payload.country
+    if payload.region is not None:
+        current_user.region = payload.region
+    if payload.city is not None:
+        current_user.city = payload.city
+    if payload.address_line1 is not None:
+        current_user.address_line1 = payload.address_line1
+    if payload.address_line2 is not None:
+        current_user.address_line2 = payload.address_line2
     if payload.address is not None:
         current_user.address = payload.address
     if payload.phone_number is not None:

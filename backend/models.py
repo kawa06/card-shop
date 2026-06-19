@@ -27,6 +27,11 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     verification_token = Column(String(255), nullable=True)
     postal_code = Column(String(20), nullable=True)
+    country = Column(String(100), nullable=True)
+    region = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    address_line1 = Column(Text, nullable=True)
+    address_line2 = Column(Text, nullable=True)
     address = Column(Text, nullable=True)
     phone_number = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -47,6 +52,9 @@ class Category(Base):
     parent = relationship("Category", remote_side=[id], back_populates="children")
     children = relationship("Category", back_populates="parent")
     cards = relationship("Card", back_populates="category")
+
+
+CARD_RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー', 'MA', 'PROMO', 'CLASSIC', 'パック', 'BOX', 'PSA10']
 
 
 class Card(Base):
@@ -91,6 +99,12 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     total_amount = Column(Float, nullable=False)
     status = Column(SAEnum(OrderStatus), default=OrderStatus.pending, nullable=False)
+    postal_code = Column(String(20), nullable=True)
+    country = Column(String(100), nullable=True)
+    region = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    address_line1 = Column(Text, nullable=True)
+    address_line2 = Column(Text, nullable=True)
     shipping_address = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

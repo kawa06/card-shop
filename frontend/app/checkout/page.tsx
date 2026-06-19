@@ -22,7 +22,10 @@ export default function CheckoutPage() {
   }, [])
 
   const [postalCode, setPostalCode] = useState('')
-  const [shippingAddress, setShippingAddress] = useState('')
+  const [region, setRegion] = useState('')
+  const [city, setCity] = useState('')
+  const [addressLine1, setAddressLine1] = useState('')
+  const [addressLine2, setAddressLine2] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,7 +35,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (user) {
       if (user.postal_code) setPostalCode(user.postal_code)
-      if (user.address) setShippingAddress(user.address)
+      if (user.region) setRegion(user.region)
+      if (user.city) setCity(user.city)
+      if (user.address_line1) setAddressLine1(user.address_line1)
+      if (user.address_line2) setAddressLine2(user.address_line2)
       if (user.phone_number) setPhoneNumber(user.phone_number)
     }
   }, [user])
@@ -60,8 +66,16 @@ export default function CheckoutPage() {
       toast({ title: 'エラー', description: '郵便番号を入力してください', variant: 'destructive' })
       return
     }
-    if (!shippingAddress.trim()) {
-      toast({ title: 'エラー', description: '配送先住所を入力してください', variant: 'destructive' })
+    if (!region.trim()) {
+      toast({ title: 'エラー', description: '都道府県を入力してください', variant: 'destructive' })
+      return
+    }
+    if (!city.trim()) {
+      toast({ title: 'エラー', description: '市区町村を入力してください', variant: 'destructive' })
+      return
+    }
+    if (!addressLine1.trim()) {
+      toast({ title: 'エラー', description: '住所番地を入力してください', variant: 'destructive' })
       return
     }
 
@@ -75,8 +89,12 @@ export default function CheckoutPage() {
       // 1. Update user profile if saveAddress is checked
       if (saveAddress) {
         await authApi.updateProfile({ 
-          postal_code: postalCode, 
-          address: shippingAddress,
+          postal_code: postalCode,
+          country: 'Japan',
+          region: region,
+          city: city,
+          address_line1: addressLine1,
+          address_line2: addressLine2,
           phone_number: phoneNumber
         })
         fetchMe() // refresh global state
@@ -84,7 +102,13 @@ export default function CheckoutPage() {
 
       // 2. Create order
       const res = await ordersApi.create({
-        shipping_address: `〒${postalCode} ${shippingAddress} (Tel: ${phoneNumber})`,
+        postal_code: postalCode,
+        country: 'Japan',
+        region: region,
+        city: city,
+        address_line1: addressLine1,
+        address_line2: addressLine2,
+        shipping_address: `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2} (Tel: ${phoneNumber})`,
         payment_method: paymentMethod,
       })
       
@@ -156,15 +180,49 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-gray-300 text-sm">配送先住所</Label>
-                  <textarea
-                    id="address"
-                    value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
-                    placeholder="東京都渋谷区..."
+                  <Label htmlFor="region" className="text-gray-300 text-sm">都道府県</Label>
+                  <Input
+                    id="region"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    placeholder="東京都"
                     required
-                    rows={3}
-                    className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 resize-none"
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="city" className="text-gray-300 text-sm">市区町村</Label>
+                  <Input
+                    id="city"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="渋谷区"
+                    required
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="addressLine1" className="text-gray-300 text-sm">住所番地</Label>
+                  <Input
+                    id="addressLine1"
+                    value={addressLine1}
+                    onChange={(e) => setAddressLine1(e.target.value)}
+                    placeholder="神南1-1-1"
+                    required
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="addressLine2" className="text-gray-300 text-sm">建物名・部屋番号（任意）</Label>
+                  <Input
+                    id="addressLine2"
+                    value={addressLine2}
+                    onChange={(e) => setAddressLine2(e.target.value)}
+                    placeholder="〇〇ビル 101"
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
                   />
                 </div>
 

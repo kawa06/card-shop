@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, field_validator
-from models import OrderStatus
+from models import OrderStatus, CARD_RARITIES
 
 
 # ─────────────────────────── Token ───────────────────────────
@@ -39,6 +39,11 @@ class UserOut(UserBase):
     is_admin: bool
     is_verified: bool
     postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     address: Optional[str] = None
     phone_number: Optional[str] = None
     created_at: datetime
@@ -50,6 +55,11 @@ class UserOut(UserBase):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     address: Optional[str] = None
     phone_number: Optional[str] = None
 
@@ -101,6 +111,13 @@ class CardBase(BaseModel):
     set_name: Optional[str] = None
     condition: Optional[str] = None
     is_active: bool = True
+
+    @field_validator("rarity")
+    @classmethod
+    def validate_rarity(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in CARD_RARITIES:
+            raise ValueError(f"Invalid rarity. Must be one of: {', '.join(CARD_RARITIES)}")
+        return v
 
 
 class CardCreate(CardBase):
@@ -182,7 +199,13 @@ class OrderItemOut(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    shipping_address: str
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    shipping_address: Optional[str] = None
 
 
 class OrderOut(BaseModel):
@@ -190,6 +213,12 @@ class OrderOut(BaseModel):
     user_id: int
     total_amount: float
     status: OrderStatus
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     shipping_address: Optional[str]
     created_at: datetime
     items: List[OrderItemOut] = []
