@@ -13,6 +13,8 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
 import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi } from '@/lib/api'
 
 interface Stats {
@@ -26,6 +28,7 @@ interface Stats {
 export default function AdminPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { lang } = useLangStore()
   const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, announcements: 0, users: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
@@ -68,11 +71,11 @@ export default function AdminPage() {
   if (!isMounted || !isAuthenticated || (user && !user.is_admin)) return null
 
   const sections = [
-    { href: '/admin/cards', icon: CreditCard, label: 'カード管理', count: stats.cards, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },
-    { href: '/admin/categories', icon: Tag, label: 'カテゴリー管理', count: stats.categories, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
-    { href: '/admin/orders', icon: ShoppingBag, label: '注文管理', count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
-    { href: '/admin/announcements', icon: Bell, label: 'お知らせ管理', count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
-    { href: '/admin/users', icon: Users, label: 'ユーザー管理', count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
+    { href: '/admin/cards', icon: CreditCard, label: t('カード管理', lang), count: stats.cards, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },
+    { href: '/admin/categories', icon: Tag, label: t('カテゴリー管理', lang), count: stats.categories, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
+    { href: '/admin/orders', icon: t('注文管理', lang), label: t('注文管理', lang), count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
+    { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
+    { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
   ]
 
   return (
@@ -80,7 +83,7 @@ export default function AdminPage() {
       <div className="container py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-8">
           <LayoutDashboard className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-bold text-white">管理ダッシュボード</h1>
+          <h1 className="text-2xl font-bold text-white">{t('管理ダッシュボード', lang)}</h1>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

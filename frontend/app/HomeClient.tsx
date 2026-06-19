@@ -119,19 +119,6 @@ function HomeContent() {
 
           {/* Cards */}
           <div className="flex-1 min-w-0">
-            {/* Search results count */}
-            <div className="mb-4">
-              <p className="text-gray-400 text-sm">
-                {searchQuery
-                  ? (lang === 'ja'
-                    ? `"${searchQuery}" の検索結果: ${totalCards}件`
-                    : `Search results for "${searchQuery}": ${totalCards} results`)
-                  : (lang === 'ja'
-                    ? `${totalCards}枚のカードから選ぼう`
-                    : `${totalCards} cards to choose from`)}
-              </p>
-            </div>
-
             {/* Mobile category filter */}
             <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-2">
               <button

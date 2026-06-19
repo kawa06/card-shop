@@ -10,6 +10,7 @@ import { toast } from '@/lib/use-toast'
 import { formatPrice, usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
+import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,7 +19,8 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading, fetchMe } = useAuthStore()
   const { items, total, fetchCart, clearCart } = useCartStore()
-  const { formatPrice, lang } = usePrice()
+  const { formatPrice } = usePrice()
+  const { lang } = useLangStore()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -72,11 +74,6 @@ export default function CheckoutPage() {
     e.preventDefault()
     
     // Validation
-    if (lang === 'en' && country === 'Japan') {
-      // In EN mode, if country is Japan, we still use the overseas fields logic but maybe they picked Japan in select?
-      // Actually, in EN mode the form fields are different.
-    }
-
     if (!postalCode.trim()) {
       toast({ title: t('エラー', lang), description: t('郵便番号を入力してください', lang), variant: 'destructive' })
       return
@@ -94,7 +91,7 @@ export default function CheckoutPage() {
       return
     }
     if (lang === 'en' && !fullName.trim()) {
-      toast({ title: t('エラー', lang), description: t('氏名を入力してください', lang), variant: 'destructive' })
+      toast({ title: t('エラー', lang), description: lang === 'ja' ? '氏名を入力してください' : 'Please enter full name', variant: 'destructive' })
       return
     }
 
@@ -155,30 +152,15 @@ export default function CheckoutPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="container py-8 max-w-4xl">
-        <h1 className="text-2xl font-bold text-white mb-6">注文確認</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('注文確認', lang)}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Order Items */}
           <div>
-            <h2 className="text-white font-semibold mb-3">注文内容</h2>
+            <h2 className="text-white font-semibold mb-3">{t('注文内容', lang)}</h2>
             <div className="bg-gray-900 rounded-lg border border-white/10 p-4 space-y-3">
               {items.map((item) => (
-                <div key={item.id} className="flex gap-3 items-center">
-                  <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
-                    {item.card?.image_url ? (
-                      <Image src={item.card.image_url} alt={item.card.name} fill className="object-cover" />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-xl">🃏</div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-medium truncate">{item.card?.name || '不明なカード'}</p>
-                    <p className="text-gray-500 text-xs">{item.card?.rarity} × {item.quantity}</p>
-                  </div>
-                  <p className="text-yellow-400 font-bold text-sm">
-                    {formatPrice((item.card?.price || 0) * item.quantity)}
-                  </p>
-                </div>
+                <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
               ))}
               <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
                 <span className="text-gray-400">{t('合計', lang)}</span>
@@ -407,6 +389,28 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function CheckoutItemRow({ item, formatPrice, lang }: any) {
+  const cardName = useTranslation(item.card?.name)
+  return (
+    <div className="flex gap-3 items-center">
+      <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+        {item.card?.image_url ? (
+          <Image src={item.card.image_url} alt={cardName} fill className="object-cover" />
+        ) : (
+          <div className="flex items-center justify-center h-full text-xl">🃏</div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm font-medium truncate">{cardName || t('不明なカード', lang)}</p>
+        <p className="text-gray-500 text-xs">{item.card?.rarity} × {item.quantity}</p>
+      </div>
+      <p className="text-yellow-400 font-bold text-sm">
+        {formatPrice((item.card?.price || 0) * item.quantity)}
+      </p>
     </div>
   )
 }

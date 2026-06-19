@@ -23,7 +23,7 @@ const rarityColors: Record<string, string> = {
   RR:   'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   AR:   'bg-teal-500/20 text-teal-300 border-teal-500/40',
   SR:   'bg-purple-500/20 text-purple-300 border-purple-500/40',
-  SAR:  'bg-violet-500/20 text-violet-300 border-violet-500/40',
+  SAR:  'bg-violet-500/20 text-violet-300 border-violet-300 border-violet-500/40',
   MUR:  'bg-orange-500/20 text-orange-300 border-orange-500/40',
   SSR:  'bg-pink-500/20 text-pink-300 border-pink-500/40',
   ミラー: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
@@ -33,14 +33,6 @@ const rarityColors: Record<string, string> = {
   パック: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
   BOX: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
   PSA10: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40',
-}
-
-const conditionLabel: Record<string, string> = {
-  a: 'A（美品）',
-  b: 'B（良品）',
-  c: 'C（並品）',
-  d: 'D（傷あり）',
-  e: 'E（難あり）',
 }
 
 function parseImageUrls(card: Card): string[] {
@@ -69,6 +61,14 @@ export default function CardDetailClient({ id }: { id: string }) {
   const [activeImg, setActiveImg] = useState(0)
   const [isZoomed, setIsZoomed] = useState(false)
   const [addingToCart, setAddingToCart] = useState(false)
+
+  const conditionLabel: Record<string, string> = {
+    a: lang === 'ja' ? 'A（美品）' : 'A (Mint)',
+    b: lang === 'ja' ? 'B（良品）' : 'B (Near Mint)',
+    c: lang === 'ja' ? 'C（並品）' : 'C (Good)',
+    d: lang === 'ja' ? 'D（傷あり）' : 'D (Played)',
+    e: lang === 'ja' ? 'E（難あり）' : 'E (Damaged)',
+  }
 
   useEffect(() => {
     const fetchCard = async () => {

@@ -7,20 +7,31 @@ import { useAuthStore } from '@/store/auth'
 import { ordersApi } from '@/lib/api'
 import { Order } from '@/lib/types'
 import { usePrice } from '@/lib/format'
+import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
+import { useTranslation } from '@/hooks/useTranslation'
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pending: { label: '処理中', color: 'text-yellow-400' },
-  processing: { label: '準備中', color: 'text-blue-400' },
-  shipped: { label: '発送済み', color: 'text-purple-400' },
-  delivered: { label: '配達完了', color: 'text-green-400' },
-  cancelled: { label: 'キャンセル', color: 'text-red-400' },
+const statusLabels: Record<string, string> = {
+  pending: '処理中',
+  processing: '準備中',
+  shipped: '発送済み',
+  delivered: '配達完了',
+  cancelled: 'キャンセル',
+}
+
+const statusColors: Record<string, string> = {
+  pending: 'text-yellow-400',
+  processing: 'text-blue-400',
+  shipped: 'text-purple-400',
+  delivered: 'text-green-400',
+  cancelled: 'text-red-400',
 }
 
 export default function OrdersPage() {
   const router = useRouter()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
-  const { formatPrice, lang } = usePrice()
+  const { formatPrice } = usePrice()
+  const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -47,7 +58,7 @@ export default function OrdersPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-gray-400 animate-pulse">読み込み中...</div>
+        <div className="text-gray-400 animate-pulse">{t('読み込み中...', lang)}</div>
       </div>
     )
   }
@@ -56,8 +67,8 @@ export default function OrdersPage() {
     return (
       <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
         <Package className="h-16 w-16 text-gray-700" />
-        <h2 className="text-xl font-bold text-white">注文履歴はありません</h2>
-        <p className="text-gray-400 text-sm">まだ注文がありません</p>
+        <h2 className="text-xl font-bold text-white">{t('注文履歴はありません', lang)}</h2>
+        <p className="text-gray-400 text-sm">{t('まだ注文がありません', lang)}</p>
       </div>
     )
   }
@@ -65,11 +76,12 @@ export default function OrdersPage() {
   return (
     <div className="min-h-screen bg-gray-950">
       <div className="container py-8 max-w-3xl">
-        <h1 className="text-2xl font-bold text-white mb-6">注文履歴</h1>
+        <h1 className="text-2xl font-bold text-white mb-6">{t('注文履歴', lang)}</h1>
 
         <div className="space-y-3">
           {orders.map((order) => {
-            const status = statusLabels[order.status] || { label: order.status, color: 'text-gray-400' }
+            const statusLabel = statusLabels[order.status] || order.status
+            const statusColor = statusColors[order.status] || 'text-gray-400'
             const isExpanded = expandedId === order.id
 
             return (
@@ -80,12 +92,12 @@ export default function OrdersPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-white font-medium">注文 #{order.id}</p>
+                      <p className="text-white font-medium">{t('注文番号', lang)} #{order.id}</p>
                       <p className="text-gray-500 text-sm">
-                        {new Date(order.created_at).toLocaleDateString('ja-JP')}
+                        {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')}
                       </p>
                     </div>
-                    <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
+                    <span className={`text-sm font-medium ${statusColor}`}>{t(statusLabel, lang)}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount)}</span>
@@ -99,17 +111,10 @@ export default function OrdersPage() {
 
                 {isExpanded && (
                   <div className="border-t border-white/10 p-4 space-y-3">
-                    {order.items?.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center text-sm">
-                        <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
-                        <span className="text-gray-400">
-                          {formatPrice(item.unit_price || 0)} × {item.quantity}
-                        </span>
-                      </div>
-                    ))}
+                    <OrderItemsList items={order.items} formatPrice={formatPrice} lang={lang} />
                     {order.shipping_address && (
                       <div className="border-t border-white/10 pt-3 text-sm">
-                        <span className="text-gray-500">配送先: </span>
+                        <span className="text-gray-500">{t('配送先', lang)}: </span>
                         <span className="text-gray-300">{order.shipping_address}</span>
                       </div>
                     )}
@@ -120,6 +125,28 @@ export default function OrdersPage() {
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function OrderItemsList({ items, formatPrice, lang }: any) {
+  return (
+    <>
+      {items?.map((item: any) => (
+        <OrderItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
+      ))}
+    </>
+  )
+}
+
+function OrderItemRow({ item, formatPrice, lang }: any) {
+  const cardName = useTranslation(item.card?.name)
+  return (
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-300">{cardName || `${t('カード', lang)} #${item.card_id}`}</span>
+      <span className="text-gray-400">
+        {formatPrice(item.unit_price || 0)} × {item.quantity}
+      </span>
     </div>
   )
 }
