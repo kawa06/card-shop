@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    BUILD_ID: '2026-06-20-v5',
+  },
   images: {
     remotePatterns: [
       {
