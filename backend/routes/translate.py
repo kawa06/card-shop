@@ -8,7 +8,7 @@ from models import TranslationCache
 from schemas_translate import TranslateRequest, TranslateResponse
 from config import settings
 
-# Translation router (Updated 2026-06-20)
+# Translation router (Consolidated)
 router = APIRouter(tags=["translate"])
 
 DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"

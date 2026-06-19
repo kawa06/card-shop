@@ -1,3 +1,4 @@
+// Version: 2026-06-20-v2
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'

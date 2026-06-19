@@ -8,7 +8,7 @@ from database import get_db
 import models
 import schemas
 
-router = APIRouter(prefix="/api", tags=["cards"])
+router = APIRouter(tags=["cards"])
 
 
 @router.get("/cards", response_model=schemas.PaginatedCards)

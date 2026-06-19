@@ -6,7 +6,7 @@ from auth import get_current_user
 import models
 import schemas
 
-router = APIRouter(prefix="/api/orders", tags=["orders"])
+router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 @router.post("", response_model=schemas.OrderOut, status_code=status.HTTP_201_CREATED)

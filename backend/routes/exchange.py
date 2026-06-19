@@ -5,7 +5,7 @@ import time
 from config import settings
 from schemas import ExchangeRateResponse
 
-# Exchange rate router (Updated 2026-06-20)
+# Exchange rate router (Consolidated)
 router = APIRouter(tags=["exchange"])
 
 # In-memory cache

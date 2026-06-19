@@ -58,12 +58,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers (Verified 2026-06-20)
-app.include_router(auth.router)
-app.include_router(cards.router)
-app.include_router(cart.router)
-app.include_router(orders.router)
-app.include_router(admin.router)
+# Routers (Consolidated API Prefix 2026-06-20)
+app.include_router(auth.router, prefix="/api")
+app.include_router(cards.router, prefix="/api")
+app.include_router(cart.router, prefix="/api")
+app.include_router(orders.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
 app.include_router(translate.router, prefix="/api")
 app.include_router(exchange.router, prefix="/api")
 
@@ -71,8 +71,3 @@ app.include_router(exchange.router, prefix="/api")
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/api/test-rate")
-def test_rate():
-    return {"rate": 150.0}
