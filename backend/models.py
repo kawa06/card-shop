@@ -17,6 +17,7 @@ class OrderStatus(str, enum.Enum):
 
 
 class User(Base):
+    """User model with full address support for Japan standards"""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

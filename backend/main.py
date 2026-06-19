@@ -58,7 +58,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
+# Routers (Verified 2026-06-20)
 app.include_router(auth.router)
 app.include_router(cards.router)
 app.include_router(cart.router)
