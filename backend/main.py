@@ -71,3 +71,8 @@ app.include_router(exchange.router, prefix="/api")
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/test-rate")
+def test_rate():
+    return {"rate": 150.0}
