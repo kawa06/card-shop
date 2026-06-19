@@ -3,7 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from database import Base, engine
-from routes import auth, cards, cart, orders, admin, translate, exchange
+from routes.auth import router as auth_router
+from routes.cards import router as cards_router
+from routes.cart import router as cart_router
+from routes.orders import router as orders_router
+from routes.admin import router as admin_router
+from routes.translate import router as translate_router
+from routes.exchange import router as exchange_router
 
 # Create all tables on startup (new columns added if not exists via ALTER)
 Base.metadata.create_all(bind=engine)
@@ -58,14 +64,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers (Consolidated API Prefix 2026-06-20)
-app.include_router(auth.router, prefix="/api")
-app.include_router(cards.router, prefix="/api")
-app.include_router(cart.router, prefix="/api")
-app.include_router(orders.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
-app.include_router(translate.router, prefix="/api")
-app.include_router(exchange.router, prefix="/api")
+# Routers (Explicit Import 2026-06-20)
+app.include_router(auth_router, prefix="/api")
+app.include_router(cards_router, prefix="/api")
+app.include_router(cart_router, prefix="/api")
+app.include_router(orders_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(translate_router, prefix="/api")
+app.include_router(exchange_router, prefix="/api")
 
 
 @app.get("/api/health")
