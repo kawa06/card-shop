@@ -6,6 +6,8 @@ import { Package, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ordersApi } from '@/lib/api'
 import { Order } from '@/lib/types'
+import { usePrice } from '@/lib/format'
+import { t } from '@/lib/i18n'
 
 const statusLabels: Record<string, { label: string; color: string }> = {
   pending: { label: '処理中', color: 'text-yellow-400' },
@@ -18,6 +20,7 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 export default function OrdersPage() {
   const router = useRouter()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { formatPrice, lang } = usePrice()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -85,7 +88,7 @@ export default function OrdersPage() {
                     <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-yellow-400 font-bold">¥{order.total_amount.toLocaleString()}</span>
+                    <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount)}</span>
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4 text-gray-400" />
                     ) : (
@@ -100,7 +103,7 @@ export default function OrdersPage() {
                       <div key={item.id} className="flex justify-between items-center text-sm">
                         <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
                         <span className="text-gray-400">
-                          ¥{(item.unit_price || 0).toLocaleString()} × {item.quantity}
+                          {formatPrice(item.unit_price || 0)} × {item.quantity}
                         </span>
                       </div>
                     ))}

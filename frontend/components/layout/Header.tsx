@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe } from 'lucide-react'
+import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe, Mail } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
@@ -46,7 +46,19 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/60">
+    <>
+      {isAuthenticated && user && !user.is_verified && (
+        <div className="bg-yellow-400 text-gray-950 py-2 px-4 text-center text-xs font-bold animate-in fade-in slide-in-from-top duration-500">
+          <div className="container flex items-center justify-center gap-2">
+            <Mail className="h-3 w-3" />
+            <span>メールアドレスが未認証です。</span>
+            <Link href="/mypage" className="underline hover:text-gray-800 ml-1">
+              マイページで認証してください
+            </Link>
+          </div>
+        </div>
+      )}
+      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/60">
       <div className="container flex h-16 items-center gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-xl mr-4">

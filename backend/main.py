@@ -27,6 +27,11 @@ with engine.connect() as conn:
         ("is_verified", "BOOLEAN DEFAULT 0"),
         ("verification_token", "VARCHAR(255)"),
         ("postal_code", "VARCHAR(20)"),
+        ("country", "VARCHAR(100)"),
+        ("region", "VARCHAR(100)"),
+        ("city", "VARCHAR(100)"),
+        ("address_line1", "TEXT"),
+        ("address_line2", "TEXT"),
         ("address", "TEXT"),
         ("phone_number", "VARCHAR(20)"),
     ]:

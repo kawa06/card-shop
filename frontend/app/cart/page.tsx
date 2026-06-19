@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
+import { usePrice } from '@/lib/format'
 import { toast } from '@/lib/use-toast'
 import { Button } from '@/components/ui/button'
 
@@ -14,6 +15,7 @@ export default function CartPage() {
   const router = useRouter()
   const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
   const { items, total, isLoading, fetchCart, updateItem, removeItem } = useCartStore()
+  const { formatPrice } = usePrice()
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function CartPage() {
                   </Link>
                   <p className="text-xs text-gray-500 mt-0.5">{item.card?.rarity}</p>
                   <p className="text-yellow-400 font-bold mt-1">
-                    ¥{((item.card?.price || 0) * item.quantity).toLocaleString()}
+                    {formatPrice((item.card?.price || 0) * item.quantity)}
                   </p>
                 </div>
 
@@ -157,11 +159,11 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between text-sm text-gray-400">
                   <span>小計</span>
-                  <span>¥{total.toLocaleString()}</span>
+                  <span>{formatPrice(total)}</span>
                 </div>
                 <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-white">
                   <span>合計</span>
-                  <span className="text-yellow-400">¥{total.toLocaleString()}</span>
+                  <span className="text-yellow-400">{formatPrice(total)}</span>
                 </div>
               </div>
               <Button

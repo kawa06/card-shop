@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { adminApi } from '@/lib/api'
 import { Order } from '@/lib/types'
+import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/lib/use-toast'
 
@@ -29,6 +30,7 @@ const statusColors: Record<string, string> = {
 export default function AdminOrdersPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { formatPrice } = usePrice()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -108,7 +110,7 @@ export default function AdminOrdersPage() {
                       <span className={`text-sm font-medium ${statusColors[order.status] || 'text-gray-400'}`}>
                         {statusOptions.find(s => s.value === order.status)?.label || order.status}
                       </span>
-                      <span className="text-yellow-400 font-bold">¥{(order.total_amount || 0).toLocaleString()}</span>
+                      <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount || 0)}</span>
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
@@ -123,7 +125,7 @@ export default function AdminOrdersPage() {
                         {order.items.map((item) => (
                           <div key={item.id} className="flex justify-between text-sm">
                             <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
-                            <span className="text-gray-400">¥{(item.unit_price || 0).toLocaleString()} × {item.quantity}</span>
+                            <span className="text-gray-400">{formatPrice(item.unit_price || 0)} × {item.quantity}</span>
                           </div>
                         ))}
                         {order.shipping_address && (

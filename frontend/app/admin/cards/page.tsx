@@ -7,13 +7,14 @@ import { Plus, Pencil, Trash2, ArrowLeft, Upload, Images, X } from 'lucide-react
 import { useAuthStore } from '@/store/auth'
 import { cardsApi, categoriesApi, adminApi } from '@/lib/api'
 import { Card, Category } from '@/lib/types'
+import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
 import Link from 'next/link'
 
-const RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー']
+const RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー', 'MA', 'PROMO', 'CLASSIC', 'パック', 'BOX', 'PSA10']
 const CONDITIONS = ['a', 'b', 'c', 'd', 'e']
 const CONDITION_LABEL: Record<string, string> = {
   a: 'A（美品）', b: 'B（良品）', c: 'C（並品）', d: 'D（傷あり）', e: 'E（難あり）'
@@ -51,6 +52,7 @@ function parseImages(card: Card): string[] {
 export default function AdminCardsPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { formatPrice } = usePrice()
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -406,7 +408,7 @@ export default function AdminCardsPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-400">{card.rarity}</td>
                       <td className="px-4 py-3 text-gray-400">{card.condition ? CONDITION_LABEL[card.condition] ?? card.condition : '—'}</td>
-                      <td className="px-4 py-3 text-right text-yellow-400">¥{card.price.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-yellow-400">{formatPrice(card.price)}</td>
                       <td className="px-4 py-3 text-right text-gray-400">{card.stock}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">

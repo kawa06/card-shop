@@ -48,6 +48,7 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
     # Email Settings (to be set in Railway environment variables)
+    RESEND_API_KEY: Optional[str] = None
     MAIL_USERNAME: Optional[str] = None
     MAIL_PASSWORD: Optional[str] = None
     MAIL_FROM: str = "noreply@oripa-kawa.com"

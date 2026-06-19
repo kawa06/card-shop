@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
+from typing import Optional
 from database import get_db
+from config import settings
 from auth import hash_password, verify_password, create_access_token, get_current_user
 from mail import send_verification_email
 import models
@@ -23,6 +25,7 @@ class AuthResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: schemas.UserOut
+    debug_token: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -54,7 +57,10 @@ async def register(
     background_tasks.add_task(send_verification_email, user.email, verification_token)
 
     token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    res = {"access_token": token, "token_type": "bearer", "user": user}
+    if not settings.RESEND_API_KEY:
+        res["debug_token"] = verification_token
+    return res
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -146,7 +152,11 @@ async def request_verification(
     # 実際にメールを送信
     background_tasks.add_task(send_verification_email, current_user.email, token)
     
-    return {"message": "認証メールを送信しました"}
+    response = {"message": "認証メールを送信しました"}
+    if not settings.RESEND_API_KEY:
+        response["debug_token"] = token
+    
+    return response
 
 
 @router.get("/verify/{token}", status_code=status.HTTP_200_OK)

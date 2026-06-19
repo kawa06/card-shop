@@ -33,8 +33,11 @@ export default function RegisterPage() {
 
     try {
       await register(email, password, name)
-      toast({ title: '会員登録が完了しました' })
-      router.push('/')
+      toast({ 
+        title: '会員登録が完了しました', 
+        description: '認証メールを送信しました。メールをご確認ください。' 
+      })
+      router.push('/mypage')
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||

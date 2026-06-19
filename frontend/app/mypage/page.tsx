@@ -7,6 +7,7 @@ import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, 
 import { useAuthStore } from '@/store/auth'
 import { ordersApi, authApi } from '@/lib/api'
 import { Order } from '@/lib/types'
+import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +16,7 @@ import { toast } from '@/lib/use-toast'
 export default function MypagePage() {
   const router = useRouter()
   const { isAuthenticated, user, logout, fetchMe } = useAuthStore()
+  const { formatPrice, lang } = usePrice()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -264,7 +266,7 @@ export default function MypagePage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-yellow-400 font-bold block text-sm">¥{(order.total_amount || 0).toLocaleString()}</span>
+                    <span className="text-yellow-400 font-bold block text-sm">{formatPrice(order.total_amount || 0)}</span>
                     <span className="text-[10px] text-gray-500">{order.status}</span>
                   </div>
                 </div>

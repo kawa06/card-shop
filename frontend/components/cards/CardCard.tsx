@@ -10,6 +10,7 @@ import { useLangStore } from '@/store/lang'
 import { toast } from '@/lib/use-toast'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
+import { formatPrice, usePrice } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -28,6 +29,12 @@ const rarityColors: Record<string, string> = {
   MUR:  'bg-orange-500/20 text-orange-300 border-orange-500/40',
   SSR:  'bg-pink-500/20 text-pink-300 border-pink-500/40',
   ミラー: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  MA: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  PROMO: 'bg-red-500/20 text-red-300 border-red-500/40',
+  CLASSIC: 'bg-stone-500/20 text-stone-300 border-stone-500/40',
+  パック: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+  BOX: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  PSA10: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/40',
 }
 
 const conditionLabel: Record<string, string> = {
@@ -42,6 +49,7 @@ export default function CardCard({ card }: CardCardProps) {
   const { isAuthenticated } = useAuthStore()
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
+  const { formatPrice } = usePrice()
   const cardName = useTranslation(card.name)
   const categoryName = useTranslation(card.category?.name || '')
 
@@ -121,7 +129,7 @@ export default function CardCard({ card }: CardCardProps) {
           <h3 className="text-white font-medium text-sm truncate mb-1">{cardName}</h3>
           <div className="flex items-center justify-between">
             <span className="text-yellow-400 font-bold">
-              ¥{card.price.toLocaleString()}
+              {formatPrice(card.price)}
             </span>
             <span className="text-xs text-gray-500">
               {t('残り', lang)} {card.stock}{t('枚', lang)}

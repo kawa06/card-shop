@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/layout/Header'
@@ -8,11 +8,48 @@ import { LangInit } from '@/components/LangInit'
 
 const inter = Inter({ subsets: ['latin'] })
 
+export const viewport: Viewport = {
+  themeColor: '#030712',
+  width: 'device-width',
+  initialScale: 1,
+}
+
 export const metadata: Metadata = {
-  title: 'Oripa_kawa - トレーディングカード専門店',
-  description: 'レアカードから初心者向けカードまで豊富なラインナップのトレーディングカード専門店',
+  metadataBase: new URL('https://frontend-one-topaz-20.vercel.app/'),
+  title: {
+    default: 'Oripa_kawa | トレーディングカード販売サイト',
+    template: '%s | Oripa_kawa',
+  },
+  description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
+  openGraph: {
+    type: 'website',
+    siteName: 'Oripa_kawa',
+    images: [
+      {
+        url: '/ogp.png',
+        width: 1200,
+        height: 630,
+        alt: 'Oripa_kawa',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@oripa_kawa',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   verification: {
     google: 'DMTMs-DnAVdJ_8pURPDHh3Xg64UtljMFYdfS30SVfBc',
+  },
+  alternates: {
+    canonical: '/',
+    languages: {
+      'ja-JP': '/',
+      'en-US': '/?lang=en',
+    },
   },
 }
 

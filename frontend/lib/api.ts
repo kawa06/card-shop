@@ -71,8 +71,16 @@ export const authApi = {
 
   me: () => apiClient.get('/auth/me'),
 
-  updateProfile: (data: { name?: string; postal_code?: string; address?: string; phone_number?: string }) =>
-    apiClient.put('/auth/me', data),
+  updateProfile: (data: { 
+    name?: string; 
+    postal_code?: string; 
+    country?: string;
+    region?: string;
+    city?: string;
+    address_line1?: string;
+    address_line2?: string;
+    phone_number?: string;
+  }) => apiClient.put('/auth/me', data),
 
   deleteAccount: () => apiClient.delete('/auth/me'),
 
@@ -99,8 +107,16 @@ export const cartApi = {
 
 // Orders API
 export const ordersApi = {
-  create: (data: { shipping_address: string; payment_method: string }) =>
-    apiClient.post('/orders', data),
+  create: (data: { 
+    shipping_address: string; 
+    payment_method: string;
+    postal_code?: string;
+    country?: string;
+    region?: string;
+    city?: string;
+    address_line1?: string;
+    address_line2?: string;
+  }) => apiClient.post('/orders', data),
 
   getAll: () => apiClient.get('/orders'),
 
