@@ -44,14 +44,14 @@ export default function Header() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" key={lang}>
       {isAuthenticated && user && !user.is_verified && (
         <div className="bg-yellow-400 text-gray-950 py-2 px-4 text-center text-xs font-bold animate-in fade-in slide-in-from-top duration-500">
           <div className="container flex items-center justify-center gap-2">
             <Mail className="h-3 w-3" />
-            <span>メールアドレスが未認証です。</span>
+            <span>{t('メールアドレスが未認証です。', lang)}</span>
             <Link href="/mypage" className="underline hover:text-gray-800 ml-1">
-              マイページで認証してください
+              {t('マイページで認証してください', lang)}
             </Link>
           </div>
         </div>

@@ -124,6 +124,18 @@ const dict: Record<string, string> = {
   '住所番地を入力してください': 'Please enter street address',
   '電話番号を入力してください': 'Please enter phone number',
   '国を選択してください': 'Please select a country',
+  '利用規約': 'Terms of Service',
+  'プライバシーポリシー': 'Privacy Policy',
+  'メールアドレスが未認証です。': 'Email address is not verified.',
+  'マイページで認証してください': 'Please verify on your My Page',
+  '第1条（適用）': 'Article 1 (Applicability)',
+  '第2条（利用登録）': 'Article 2 (Registration)',
+  '第3条（禁止事項）': 'Article 3 (Prohibited Actions)',
+  '第4条（免責事項）': 'Article 4 (Disclaimer of Warranties)',
+  '第5条（準拠法・裁判管轄）': 'Article 5 (Governing Law and Jurisdiction)',
+  '第1条（個人情報の収集方法）': 'Article 1 (Method of Collecting Personal Information)',
+  '第2条（個人情報を収集・利用する目的）': 'Article 2 (Purpose of Collecting and Using Personal Information)',
+  '第3条（個人情報の第三者提供）': 'Article 3 (Third-Party Provision of Personal Information)',
 }
 
 export function t(key: string, lang: string): string {

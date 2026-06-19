@@ -103,25 +103,6 @@ function HomeContent() {
         </div>
       )}
 
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 border-b border-white/5">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-900/10 via-transparent to-transparent" />
-        <div className="container py-10 relative">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            {t('トレーディングカード専門店', lang)}
-          </h1>
-          <p className="text-gray-400">
-            {searchQuery
-              ? (lang === 'ja'
-                ? `"${searchQuery}" の検索結果: ${totalCards}件`
-                : `Search results for "${searchQuery}": ${totalCards} results`)
-              : (lang === 'ja'
-                ? `${totalCards}枚のカードから選ぼう`
-                : `${totalCards} cards to choose from`)}
-          </p>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="container py-6">
         <div className="flex gap-6">
@@ -138,6 +119,19 @@ function HomeContent() {
 
           {/* Cards */}
           <div className="flex-1 min-w-0">
+            {/* Search results count */}
+            <div className="mb-4">
+              <p className="text-gray-400 text-sm">
+                {searchQuery
+                  ? (lang === 'ja'
+                    ? `"${searchQuery}" の検索結果: ${totalCards}件`
+                    : `Search results for "${searchQuery}": ${totalCards} results`)
+                  : (lang === 'ja'
+                    ? `${totalCards}枚のカードから選ぼう`
+                    : `${totalCards} cards to choose from`)}
+              </p>
+            </div>
+
             {/* Mobile category filter */}
             <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-2">
               <button
