@@ -64,8 +64,8 @@ app.include_router(cards.router)
 app.include_router(cart.router)
 app.include_router(orders.router)
 app.include_router(admin.router)
-app.include_router(translate.router)
-app.include_router(exchange.router)
+app.include_router(translate.router, prefix="/api")
+app.include_router(exchange.router, prefix="/api")
 
 
 @app.get("/api/health")
