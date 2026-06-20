@@ -120,6 +120,7 @@ class CardBase(BaseModel):
     rarity: Optional[str] = None
     set_name: Optional[str] = None
     condition: Optional[str] = None
+    allowed_shipping_methods: Optional[str] = None  # JSON array string
     is_active: bool = True
 
     @field_validator("rarity")
@@ -145,6 +146,7 @@ class CardUpdate(BaseModel):
     rarity: Optional[str] = None
     set_name: Optional[str] = None
     condition: Optional[str] = None
+    allowed_shipping_methods: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -288,3 +290,21 @@ class PaginatedCards(BaseModel):
 class ExchangeRateResponse(BaseModel):
     rate: float
     last_updated: int  # Timestamp
+
+
+# ─────────────────────────── Shipping ────────────────────────
+
+class ShippingRateOut(BaseModel):
+    method_code: str
+    name_ja: str
+    name_en: str
+    fee_jpy: int
+    has_tracking: bool
+    has_insurance: bool
+    max_size: Optional[str] = None
+    max_weight: Optional[str] = None
+    source_url: Optional[str] = None
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

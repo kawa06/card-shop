@@ -171,3 +171,9 @@ export const adminApi = {
 export const exchangeApi = {
   getRate: () => apiClient.get<{ rate: number; last_updated: number }>('/exchange-rate'),
 }
+
+// Shipping API
+export const shippingApi = {
+  getRates: () => apiClient.get<import('./types').ShippingRate[]>('/shipping-rates'),
+  refreshRates: () => apiClient.post('/shipping-rates/refresh'),
+}

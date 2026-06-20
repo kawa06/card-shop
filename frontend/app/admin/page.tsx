@@ -11,11 +11,12 @@ import {
   Bell,
   Users,
   ChevronRight,
+  Truck,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi } from '@/lib/api'
+import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi, shippingApi } from '@/lib/api'
 
 interface Stats {
   cards: number
@@ -23,13 +24,14 @@ interface Stats {
   categories: number
   announcements: number
   users: number
+  shipping: number
 }
 
 export default function AdminPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const { lang } = useLangStore()
-  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, announcements: 0, users: 0 })
+  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, announcements: 0, users: 0, shipping: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -49,7 +51,8 @@ export default function AdminPage() {
       categoriesApi.getAll(),
       announcementsApi.getAll(),
       adminApi.getAllUsers(),
-    ]).then(([cardsRes, ordersRes, catsRes, annsRes, usersRes]) => {
+      shippingApi.getRates(),
+    ]).then(([cardsRes, ordersRes, catsRes, annsRes, usersRes, shippingRes]) => {
       const getCount = (res: PromiseSettledResult<{ data: unknown }>, key = 'length') => {
         if (res.status === 'fulfilled') {
           const d = res.value.data
@@ -64,6 +67,7 @@ export default function AdminPage() {
         categories: getCount(catsRes),
         announcements: getCount(annsRes),
         users: getCount(usersRes),
+        shipping: getCount(shippingRes),
       })
     }).finally(() => setIsLoading(false))
   }, [isMounted, isAuthLoading, isAuthenticated, user, router])
@@ -76,6 +80,7 @@ export default function AdminPage() {
     { href: '/admin/orders', icon: t('注文管理', lang), label: t('注文管理', lang), count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
     { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
     { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
+    { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
   ]
 
   return (

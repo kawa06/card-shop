@@ -177,6 +177,7 @@ const dict: Record<string, string> = {
   'カテゴリー管理': 'Categories',
   'お知らせ管理': 'Announcements',
   'ユーザー管理': 'Users',
+  '送料管理': 'Shipping',
 
   '発送方法': 'Shipping Method',
   'ヤマト 宅急便コンパクト': 'Yamato Takkyubin Compact',

@@ -5,8 +5,8 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Upload, Images, X } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { cardsApi, categoriesApi, adminApi } from '@/lib/api'
-import { Card, Category } from '@/lib/types'
+import { cardsApi, categoriesApi, adminApi, shippingApi } from '@/lib/api'
+import { Card, Category, ShippingRate } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,11 +30,13 @@ interface CardForm {
   condition: string
   category_id: string
   images: string[]  // up to 10 image URLs / data URLs
+  allowed_shipping_methods: string[]
 }
 
 const emptyForm: CardForm = {
   name: '', description: '', price: '', stock: '',
   rarity: 'C', condition: '', category_id: '', images: [''],
+  allowed_shipping_methods: [],
 }
 
 function parseImages(card: Card): string[] {
@@ -49,12 +51,23 @@ function parseImages(card: Card): string[] {
   return urls.length > 0 ? urls : ['']
 }
 
+function parseShippingMethods(card: Card): string[] {
+  if (!card.allowed_shipping_methods) return []
+  try {
+    const parsed = JSON.parse(card.allowed_shipping_methods)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export default function AdminCardsPage() {
   const router = useRouter()
   const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const { formatPrice } = usePrice()
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -80,13 +93,15 @@ export default function AdminCardsPage() {
   const fetchAll = async () => {
     setIsLoading(true)
     try {
-      const [cardsRes, catsRes] = await Promise.all([
+      const [cardsRes, catsRes, shipRes] = await Promise.all([
         cardsApi.getAll({ size: 100 }),
         categoriesApi.getAll(),
+        shippingApi.getRates(),
       ])
       const data = cardsRes.data
       setCards(Array.isArray(data) ? data : (data.items || []))
       setCategories(catsRes.data || [])
+      setShippingRates(shipRes.data || [])
     } finally {
       setIsLoading(false)
     }
@@ -103,6 +118,7 @@ export default function AdminCardsPage() {
       condition: card.condition || '',
       category_id: card.category_id?.toString() || '',
       images: parseImages(card),
+      allowed_shipping_methods: parseShippingMethods(card),
     })
     setShowForm(true)
   }
@@ -134,6 +150,7 @@ export default function AdminCardsPage() {
       category_id: form.category_id ? parseInt(form.category_id) : null,
       image_url,
       image_urls: extra.length > 0 ? JSON.stringify(extra) : null,
+      allowed_shipping_methods: form.allowed_shipping_methods.length > 0 ? JSON.stringify(form.allowed_shipping_methods) : null,
     }
     try {
       if (editingId) {
@@ -152,6 +169,17 @@ export default function AdminCardsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const toggleShippingMethod = (code: string) => {
+    setForm(f => {
+      const current = f.allowed_shipping_methods
+      if (current.includes(code)) {
+        return { ...f, allowed_shipping_methods: current.filter(c => c !== code) }
+      } else {
+        return { ...f, allowed_shipping_methods: [...current, code] }
+      }
+    })
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,6 +297,25 @@ export default function AdminCardsPage() {
                 <div className="sm:col-span-2 space-y-1">
                   <Label className="text-gray-300">説明</Label>
                   <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white resize-none" />
+                </div>
+
+                {/* 発送方法制限 */}
+                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-white/5">
+                  <Label className="text-gray-300">許可する発送方法</Label>
+                  <p className="text-[10px] text-gray-500 mb-2">指定しない場合は全ての発送方法が選択可能 / 例: 高額カードは宅急便コンパクトのみに制限</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {shippingRates.map(rate => (
+                      <label key={rate.method_code} className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={form.allowed_shipping_methods.includes(rate.method_code)}
+                          onChange={() => toggleShippingMethod(rate.method_code)}
+                          className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                        />
+                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors">{rate.name_ja}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import { ordersApi, authApi } from '@/lib/api'
+import { ordersApi, authApi, shippingApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 import { formatPrice, usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -15,6 +15,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ShippingRate } from '@/lib/types'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -37,14 +38,66 @@ export default function CheckoutPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [fullName, setFullName] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
-  const [shippingMethod, setShippingMethod] = useState('yamato')
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
+  const [shippingMethod, setShippingMethod] = useState('')
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
   const isInternational = lang === 'en' && country !== 'Japan'
-  const shippingFee = isInternational ? 0 : (shippingMethod === 'yamato' ? 600 : 200)
+  
+  // Fetch shipping rates
+  useEffect(() => {
+    if (!isMounted) return
+    shippingApi.getRates().then(res => {
+      setShippingRates(res.data)
+    })
+  }, [isMounted])
+
+  // Calculate allowed shipping methods intersection
+  const allowedMethodCodes = (() => {
+    if (!items.length) return null
+    let intersection: Set<string> | null = null
+    
+    for (const item of items) {
+      if (item.card.allowed_shipping_methods) {
+        try {
+          const methods = JSON.parse(item.card.allowed_shipping_methods)
+          if (Array.isArray(methods) && methods.length > 0) {
+            const methodSet = new Set(methods)
+            if (intersection === null) {
+              intersection = methodSet
+            } else {
+              intersection = new Set(Array.from(intersection).filter(x => methodSet.has(x)))
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse allowed_shipping_methods', e)
+        }
+      }
+    }
+    return intersection ? Array.from(intersection) : null
+  })()
+
+  const availableRates = shippingRates.filter(rate => {
+    if (allowedMethodCodes === null) return true
+    return allowedMethodCodes.includes(rate.method_code)
+  })
+
+  // Auto-select first available shipping method
+  useEffect(() => {
+    if (availableRates.length > 0 && !shippingMethod) {
+      // Prefer Takkyubin Compact if available
+      const preferred = availableRates.find(r => r.method_code === 'takkyubin_compact')
+      setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
+    }
+  }, [availableRates, shippingMethod])
+
+  const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
+  const shippingFee = isInternational ? 0 : (selectedRate?.fee_jpy || 0)
   const finalTotal = total + shippingFee
+
+  const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
 
   // Pre-fill address if available
   useEffect(() => {
@@ -107,8 +160,18 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!isInternational && shippingMethod === 'post' && !agreedToNoCompensation) {
+    if (!isInternational && needsCompensationAgreement && !agreedToNoCompensation) {
       toast({ title: t('エラー', lang), description: t('補償が無いことに同意します', lang), variant: 'destructive' })
+      return
+    }
+
+    if (!isInternational && !shippingMethod) {
+      toast({ title: t('エラー', lang), description: t('発送方法を選択してください', lang), variant: 'destructive' })
+      return
+    }
+
+    if (!isInternational && availableRates.length === 0) {
+      toast({ title: t('エラー', lang), description: t('利用可能な発送方法がありません', lang), variant: 'destructive' })
       return
     }
 
@@ -393,37 +456,47 @@ export default function CheckoutPage() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === 'yamato' ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}>
-                      <input
-                        type="radio"
-                        name="shipping"
-                        value="yamato"
-                        checked={shippingMethod === 'yamato'}
-                        onChange={() => setShippingMethod('yamato')}
-                        className="mt-1 accent-yellow-400"
-                      />
-                      <div className="flex-1">
-                        <p className="text-white text-xs font-bold">{t('ヤマト 宅急便コンパクト', lang)}</p>
-                        <p className="text-gray-400 text-[10px]">{t('600円（補償あり、推奨）', lang)}</p>
-                      </div>
-                    </label>
+                    {allowedMethodCodes && (
+                      <p className="text-[10px] text-yellow-400/70 bg-yellow-400/5 p-2 rounded border border-yellow-400/10 mb-2 italic">
+                        ⚠️ {t('カート内商品により発送方法が制限されています', lang)} / This cart restricts shipping options
+                      </p>
+                    )}
+                    
+                    {availableRates.length === 0 ? (
+                      <p className="text-xs text-red-400 p-2 bg-red-400/10 rounded border border-red-400/20">
+                        {t('利用可能な発送方法がありません。商品の組み合わせをご確認ください。', lang)}
+                      </p>
+                    ) : (
+                      availableRates.map(rate => (
+                        <label 
+                          key={rate.method_code}
+                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
+                        >
+                          <input
+                            type="radio"
+                            name="shipping"
+                            value={rate.method_code}
+                            checked={shippingMethod === rate.method_code}
+                            onChange={() => setShippingMethod(rate.method_code)}
+                            className="mt-1 accent-yellow-400"
+                          />
+                          <div className="flex-1">
+                            <p className="text-white text-xs font-bold">
+                              {lang === 'ja' ? rate.name_ja : rate.name_en}
+                              <span className="ml-2 text-[10px] font-normal text-gray-500">
+                                [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
+                                [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
+                              </span>
+                            </p>
+                            <p className="text-gray-400 text-[10px]">
+                              {formatPrice(rate.fee_jpy)}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    )}
 
-                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === 'post' ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}>
-                      <input
-                        type="radio"
-                        name="shipping"
-                        value="post"
-                        checked={shippingMethod === 'post'}
-                        onChange={() => setShippingMethod('post')}
-                        className="mt-1 accent-yellow-400"
-                      />
-                      <div className="flex-1">
-                        <p className="text-white text-xs font-bold">{t('郵便 クリックポスト', lang)}</p>
-                        <p className="text-gray-400 text-[10px]">{t('200円（追跡あり・補償なし、安価）', lang)}</p>
-                      </div>
-                    </label>
-
-                    {shippingMethod === 'post' && (
+                    {needsCompensationAgreement && (
                       <div className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg space-y-2">
                         <p className="text-[10px] text-red-400 leading-tight font-medium">
                           {t('お客様が安価な発送方法（クリックポスト等）を選択された場合、配送中の紛失・破損・遅延について当店は一切の責任を負いません。補償付き発送方法（宅急便コンパクト）の選択を推奨いたします。', lang)}
@@ -468,7 +541,7 @@ export default function CheckoutPage() {
 
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (!isInternational && availableRates.length === 0)}
                 className="w-full h-11 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold"
               >
                 {isSubmitting ? t('注文処理中...', lang) : t('注文を確定する', lang)}

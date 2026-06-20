@@ -73,6 +73,7 @@ class Card(Base):
     rarity = Column(String(50), nullable=True)
     set_name = Column(String(100), nullable=True)
     condition = Column(String(10), nullable=True)  # a/b/c/d/e
+    allowed_shipping_methods = Column(Text, nullable=True)  # JSON array or comma-separated string
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -149,3 +150,18 @@ class TranslationCache(Base):
     target_lang = Column(String(10), nullable=False, index=True)
     translated_text = Column(String(2000), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ShippingRate(Base):
+    __tablename__ = "shipping_rates"
+
+    method_code = Column(String(50), primary_key=True)
+    name_ja = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=False)
+    fee_jpy = Column(Integer, nullable=False)
+    has_tracking = Column(Boolean, default=True)
+    has_insurance = Column(Boolean, default=False)
+    max_size = Column(String(100), nullable=True)
+    max_weight = Column(String(100), nullable=True)
+    source_url = Column(String(500), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

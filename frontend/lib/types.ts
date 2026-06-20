@@ -8,6 +8,7 @@ export interface Card {
   image_urls: string | null  // JSON array string e.g. '["url1","url2"]'
   rarity: string
   condition: string | null   // a/b/c/d/e
+  allowed_shipping_methods: string | null // JSON array string e.g. '["takkyubin_compact"]'
   category_id: number | null
   category?: Category
   created_at: string
@@ -81,6 +82,19 @@ export interface Order {
   shipping_fee: number
   created_at: string
   items: OrderItem[]
+}
+
+export interface ShippingRate {
+  method_code: string
+  name_ja: string
+  name_en: string
+  fee_jpy: number
+  has_tracking: boolean
+  has_insurance: boolean
+  max_size: string | null
+  max_weight: string | null
+  source_url: string | null
+  updated_at: string
 }
 
 export interface PaginatedResponse<T> {

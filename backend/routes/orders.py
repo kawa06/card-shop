@@ -5,6 +5,7 @@ from database import get_db
 from auth import get_current_user
 import models
 import schemas
+import json
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -23,6 +24,49 @@ def create_order(
     if not cart_items:
         raise HTTPException(status_code=400, detail="カートが空です")
 
+    # Validate shipping method intersection
+    allowed_methods_set = None
+    for item in cart_items:
+        card = item.card
+        if card.allowed_shipping_methods:
+            try:
+                methods = json.loads(card.allowed_shipping_methods)
+                if isinstance(methods, list) and methods:
+                    methods_set = set(methods)
+                    if allowed_methods_set is None:
+                        allowed_methods_set = methods_set
+                    else:
+                        allowed_methods_set = allowed_methods_set.intersection(methods_set)
+            except Exception:
+                # If invalid JSON, ignore or treat as no restriction
+                pass
+
+    if allowed_methods_set is not None:
+        if not allowed_methods_set:
+            # Intersection is empty - should not happen if admin UI is correct, but handle it
+            raise HTTPException(
+                status_code=400, 
+                detail="カート内の商品の組み合わせにより、利用可能な発送方法がありません。 / No available shipping methods for this combination of items."
+            )
+        if payload.shipping_method not in allowed_methods_set:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"選択された発送方法（{payload.shipping_method}）はこの注文では利用できません。 / The selected shipping method ({payload.shipping_method}) is not available for this order."
+            )
+
+    # Calculate shipping fee from DB
+    shipping_fee = 0
+    if payload.shipping_method and payload.shipping_method != 'international':
+        rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == payload.shipping_method).first()
+        if rate:
+            shipping_fee = rate.fee_jpy
+        else:
+            # Fallback if not found in DB
+            shipping_fee = payload.shipping_fee or 0
+    else:
+        # International or other
+        shipping_fee = payload.shipping_fee or 0
+
     # Validate stock and calculate total
     total = 0.0
     for item in cart_items:
@@ -36,7 +80,7 @@ def create_order(
     # Create order
     order = models.Order(
         user_id=current_user.id,
-        total_amount=round(total + (payload.shipping_fee or 0), 2),
+        total_amount=round(total + shipping_fee, 2),
         postal_code=payload.postal_code,
         country=payload.country,
         region=payload.region,
@@ -45,7 +89,7 @@ def create_order(
         address_line2=payload.address_line2,
         shipping_address=payload.shipping_address,
         shipping_method=payload.shipping_method,
-        shipping_fee=payload.shipping_fee,
+        shipping_fee=shipping_fee,
         status=models.OrderStatus.pending,
     )
     db.add(order)
