@@ -10,6 +10,8 @@ import { RateInit } from '@/components/RateInit'
 
 const inter = Inter({ subsets: ['latin'] })
 
+export const dynamic = 'force-dynamic'
+
 export const viewport: Viewport = {
   themeColor: '#030712',
   width: 'device-width',

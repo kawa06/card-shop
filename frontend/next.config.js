@@ -16,10 +16,11 @@ const nextConfig = {
     ],
   },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-054e.up.railway.app'
     return [
       {
         source: '/api/:path*',
-        destination: 'https://backend-production-054e.up.railway.app/api/:path*',
+        destination: `${apiUrl}/api/:path*`,
       },
     ]
   },

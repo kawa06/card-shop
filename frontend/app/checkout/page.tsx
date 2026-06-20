@@ -91,7 +91,7 @@ export default function CheckoutPage() {
       return
     }
     if (lang === 'en' && !fullName.trim()) {
-      toast({ title: t('エラー', lang), description: lang === 'ja' ? '氏名を入力してください' : 'Please enter full name', variant: 'destructive' })
+      toast({ title: t('エラー', lang), description: 'Please enter full name', variant: 'destructive' })
       return
     }
 
