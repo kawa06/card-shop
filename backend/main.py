@@ -88,6 +88,7 @@ def add_columns_if_missing():
         existing_rates = get_existing_columns("shipping_rates")
         for col, definition in [
             ("carrier", "VARCHAR(50)"),
+            ("is_individual_available", "BOOLEAN DEFAULT 1"),
         ]:
             if col not in existing_rates:
                 try:

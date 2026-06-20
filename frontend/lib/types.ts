@@ -92,6 +92,7 @@ export interface ShippingRate {
   fee_jpy: number
   has_tracking: boolean
   has_insurance: boolean
+  is_individual_available: boolean
   max_size: string | null
   max_weight: string | null
   source_url: string | null

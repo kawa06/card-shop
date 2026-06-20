@@ -303,6 +303,7 @@ class ShippingRateOut(BaseModel):
     fee_jpy: int
     has_tracking: bool
     has_insurance: bool
+    is_individual_available: bool
     max_size: Optional[str] = None
     max_weight: Optional[str] = None
     source_url: Optional[str] = None

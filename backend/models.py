@@ -164,5 +164,6 @@ class ShippingRate(Base):
     has_insurance = Column(Boolean, default=False)
     max_size = Column(String(100), nullable=True)
     max_weight = Column(String(100), nullable=True)
+    is_individual_available = Column(Boolean, default=True)
     source_url = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -169,6 +169,9 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
+    // Only show rates available for individuals
+    if (!rate.is_individual_available) return false
+
     if (isInternational) {
       return rate.method_code === 'international'
     }
