@@ -148,8 +148,8 @@ app.include_router(exchange_router)
 app.include_router(shipping_router)
 
 
-# Deploy Fix 2026-06-21-v17 (Update shipping rates)
-@app.get("/api/health", summary="Health Check V17")
+# Deploy Fix 2026-06-21-v18 (Update shipping routes structure)
+@app.get("/api/health", summary="Health Check V18")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v17"}
-# Deploy Fix 2026-06-21-v17
+    return {"status": "ok", "version": "deployed-fixed-v18"}
+# Deploy Fix 2026-06-21-v18

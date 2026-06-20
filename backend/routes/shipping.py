@@ -7,9 +7,9 @@ from services.shipping_rates import refresh_all_rates, calculate_shipping_fee
 from auth import get_current_user
 from typing import Optional
 
-router = APIRouter(prefix="/api/shipping-rates", tags=["shipping"])
+router = APIRouter(prefix="/api", tags=["shipping"])
 
-@router.get("")
+@router.get("/shipping-rates")
 def get_shipping_rates(
     method: Optional[str] = None,
     prefecture: Optional[str] = None,
@@ -24,7 +24,7 @@ def get_shipping_rates(
         return []
     return rates
 
-@router.get("/calculate")
+@router.get("/shipping-rates/calculate")
 def get_calculated_shipping(
     method_code: str,
     region: Optional[str] = None,
@@ -34,7 +34,11 @@ def get_calculated_shipping(
     fee = calculate_shipping_fee(method_code, region, country)
     return {"method_code": method_code, "fee_jpy": fee}
 
-@router.post("/refresh", status_code=status.HTTP_200_OK)
+@router.get("/shipping-rates/debug")
+def debug_shipping():
+    return {"status": "shipping routes loaded", "prefix": "/api/shipping-rates"}
+
+@router.post("/shipping-rates/refresh", status_code=status.HTTP_200_OK)
 async def manual_refresh_rates(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
