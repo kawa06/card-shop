@@ -68,8 +68,11 @@ with engine.connect() as conn:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initial refresh on startup
-    with SessionLocal() as db:
-        await refresh_all_rates(db)
+    try:
+        with SessionLocal() as db:
+            await refresh_all_rates(db)
+    except Exception as e:
+        print(f"Initial shipping rates refresh failed: {e}")
     
     # Start background task
     update_task = asyncio.create_task(background_shipping_update_task(SessionLocal))
@@ -113,5 +116,5 @@ app.include_router(shipping_router, prefix="/api")
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v6"}
+    return {"status": "ok", "version": "deployed-fixed-v8"}
 # Deploy Fix 2026-06-20-v5

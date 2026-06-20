@@ -19,6 +19,6 @@ def root_check():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "root-deployed-v7"}
+    return {"status": "ok", "version": "root-deployed-v8"}
 
 __all__ = ["app"]
