@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'

@@ -1,3 +1,5 @@
+'use client'
+
 import { create } from 'zustand'
 import { CartItem } from '@/lib/types'
 import { cartApi } from '@/lib/api'
