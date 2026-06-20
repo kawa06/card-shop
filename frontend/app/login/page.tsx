@@ -38,7 +38,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
             <span className="text-yellow-400">✦</span>
-            <span className="text-white">Oripa_kawa</span>
+            <span className="text-white">KRX TCG</span>
           </Link>
           <p className="text-gray-400 mt-2 text-sm">アカウントにログイン</p>
         </div>

@@ -90,6 +90,10 @@ export const authApi = {
   requestVerification: () => apiClient.post('/auth/request-verification'),
 
   verifyEmail: (token: string) => apiClient.get(`/auth/verify/${token}`),
+
+  sendPhoneOtp: (phone: string) => apiClient.post('/auth/phone/send', { phone }),
+
+  verifyPhoneOtp: (phone: string, code: string) => apiClient.post('/auth/phone/verify', { phone, code }),
 }
 
 // Cart API
@@ -110,6 +114,8 @@ export const ordersApi = {
   create: (data: { 
     shipping_address: string; 
     payment_method: string;
+    shipping_method?: string;
+    shipping_fee?: number;
     postal_code?: string;
     country?: string;
     region?: string;

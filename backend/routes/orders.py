@@ -36,7 +36,7 @@ def create_order(
     # Create order
     order = models.Order(
         user_id=current_user.id,
-        total_amount=round(total, 2),
+        total_amount=round(total + (payload.shipping_fee or 0), 2),
         postal_code=payload.postal_code,
         country=payload.country,
         region=payload.region,
@@ -44,6 +44,8 @@ def create_order(
         address_line1=payload.address_line1,
         address_line2=payload.address_line2,
         shipping_address=payload.shipping_address,
+        shipping_method=payload.shipping_method,
+        shipping_fee=payload.shipping_fee,
         status=models.OrderStatus.pending,
     )
     db.add(order)

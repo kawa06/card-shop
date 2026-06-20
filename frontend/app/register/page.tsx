@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
+import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +18,53 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+
+  // Phone verification
+  const [phone, setPhone] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false)
+  const [showOtpField, setShowOtpField] = useState(false)
+
+  const handleSendOtp = async () => {
+    if (!phone.trim()) {
+      setError('電話番号を入力してください')
+      return
+    }
+    setIsSendingOtp(true)
+    setError('')
+    try {
+      const res = await authApi.sendPhoneOtp(phone)
+      toast({ 
+        title: 'SMSを送信しました', 
+        description: res.data.debug ? `Debug code: 000000` : '認証コードを入力してください' 
+      })
+      setShowOtpField(true)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'SMS送信に失敗しました')
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim() || otpCode.length !== 6) {
+      setError('6桁の認証コードを入力してください')
+      return
+    }
+    setIsVerifyingOtp(true)
+    setError('')
+    try {
+      await authApi.verifyPhoneOtp(phone, otpCode)
+      toast({ title: '認証に成功しました' })
+      setIsPhoneVerified(true)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || '認証に失敗しました')
+    } finally {
+      setIsVerifyingOtp(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +101,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
             <span className="text-yellow-400">✦</span>
-            <span className="text-white">Oripa_kawa</span>
+            <span className="text-white">KRX TCG</span>
           </Link>
           <p className="text-gray-400 mt-2 text-sm">新規会員登録</p>
         </div>
@@ -118,6 +166,55 @@ export default function RegisterPage() {
                 className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
               />
             </div>
+
+            <div className="space-y-2 pt-2 border-t border-white/5">
+              <Label htmlFor="phone" className="text-gray-300">電話番号認証</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+819012345678"
+                  disabled={isPhoneVerified}
+                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                />
+                <Button 
+                  type="button" 
+                  onClick={handleSendOtp} 
+                  disabled={isSendingOtp || isPhoneVerified}
+                  variant="outline"
+                  className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/10"
+                >
+                  {isSendingOtp ? '...' : isPhoneVerified ? '認証済' : 'SMS送信'}
+                </Button>
+              </div>
+            </div>
+
+            {showOtpField && !isPhoneVerified && (
+              <div className="space-y-2 animate-in slide-in-from-top-1">
+                <Label htmlFor="otp" className="text-gray-300">認証コード</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="otp"
+                    type="text"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={handleVerifyOtp} 
+                    disabled={isVerifyingOtp}
+                    className="bg-white text-gray-950 hover:bg-gray-200"
+                  >
+                    {isVerifyingOtp ? '...' : '認証する'}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {error && (
               <p className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded border border-red-400/20">

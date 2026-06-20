@@ -41,6 +41,7 @@ export interface User {
   address_line2: string | null
   address: string | null
   phone_number: string | null
+  phone_verified: boolean
   created_at: string
 }
 
@@ -76,6 +77,8 @@ export interface Order {
   address_line1: string | null
   address_line2: string | null
   shipping_address: string | null
+  shipping_method: string | null
+  shipping_fee: number
   created_at: string
   items: OrderItem[]
 }

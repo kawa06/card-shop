@@ -21,19 +21,19 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL('https://frontend-one-topaz-20.vercel.app/'),
   title: {
-    default: 'Oripa_kawa | トレーディングカード販売サイト',
-    template: '%s | Oripa_kawa',
+    default: 'KRX TCG | トレーディングカード販売サイト',
+    template: '%s | KRX TCG',
   },
   description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
   openGraph: {
     type: 'website',
-    siteName: 'Oripa_kawa',
+    siteName: 'KRX TCG',
     images: [
       {
         url: '/ogp.png',
         width: 1200,
         height: 630,
-        alt: 'Oripa_kawa',
+        alt: 'KRX TCG',
       },
     ],
   },

@@ -14,7 +14,7 @@ export default function Footer() {
           <div>
             <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
               <span className="text-yellow-400">✦</span>
-              Oripa_kawa
+              KRX TCG
             </h3>
             <p className="text-sm leading-relaxed">
               {lang === 'ja' 
@@ -38,13 +38,14 @@ export default function Footer() {
             <ul className="space-y-2 text-sm">
               <li><Link href="/terms" className="hover:text-yellow-400 transition-colors">{t('利用規約', lang)}</Link></li>
               <li><Link href="/privacy" className="hover:text-yellow-400 transition-colors">{t('プライバシーポリシー', lang)}</Link></li>
+              <li><Link href="/shipping-policy" className="hover:text-yellow-400 transition-colors">{t('発送・補償について', lang)}</Link></li>
               <li><Link href="#" className="hover:text-yellow-400 transition-colors opacity-50 cursor-not-allowed">{t('特定商取引法に基づく表記', lang)}</Link></li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm">
-          <p>&copy; {new Date().getFullYear()} Oripa_kawa. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} KRX TCG. All rights reserved.</p>
         </div>
       </div>
     </footer>

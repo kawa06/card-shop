@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe, Mail } from 'lucide-react'
+import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe, Mail, Smartphone } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
@@ -45,11 +45,21 @@ export default function Header() {
 
   return (
     <div className="w-full" key={lang}>
-      {isAuthenticated && user && !user.is_verified && (
+      {isAuthenticated && user && (!user.is_verified || !user.phone_verified) && (
         <div className="bg-yellow-400 text-gray-950 py-2 px-4 text-center text-xs font-bold animate-in fade-in slide-in-from-top duration-500">
-          <div className="container flex items-center justify-center gap-2">
-            <Mail className="h-3 w-3" />
-            <span>{t('メールアドレスが未認証です。', lang)}</span>
+          <div className="container flex items-center justify-center gap-4 flex-wrap">
+            {!user.is_verified && (
+              <div className="flex items-center gap-2">
+                <Mail className="h-3 w-3" />
+                <span>{t('メールアドレスが未認証です。', lang)}</span>
+              </div>
+            )}
+            {!user.phone_verified && (
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-3 w-3" />
+                <span>{t('電話番号未認証', lang)}</span>
+              </div>
+            )}
             <Link href="/mypage" className="underline hover:text-gray-800 ml-1">
               {t('マイページで認証してください', lang)}
             </Link>
@@ -60,7 +70,7 @@ export default function Header() {
         <div className="container flex h-16 items-center gap-4">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl mr-4">
             <span className="text-yellow-400">✦</span>
-            <span className="text-white">Oripa_kawa</span>
+            <span className="text-white">KRX TCG</span>
           </Link>
 
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">

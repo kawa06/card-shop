@@ -35,6 +35,7 @@ class User(Base):
     address_line2 = Column(Text, nullable=True)
     address = Column(Text, nullable=True)
     phone_number = Column(String(20), nullable=True)
+    phone_verified = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
@@ -107,6 +108,8 @@ class Order(Base):
     address_line1 = Column(Text, nullable=True)
     address_line2 = Column(Text, nullable=True)
     shipping_address = Column(Text, nullable=True)
+    shipping_method = Column(String(50), nullable=True)
+    shipping_fee = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="orders")

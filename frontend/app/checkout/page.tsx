@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
@@ -36,8 +37,14 @@ export default function CheckoutPage() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [fullName, setFullName] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
+  const [shippingMethod, setShippingMethod] = useState('yamato')
+  const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
+
+  const isInternational = lang === 'en' && country !== 'Japan'
+  const shippingFee = isInternational ? 0 : (shippingMethod === 'yamato' ? 600 : 200)
+  const finalTotal = total + shippingFee
 
   // Pre-fill address if available
   useEffect(() => {
@@ -100,6 +107,11 @@ export default function CheckoutPage() {
       return
     }
 
+    if (!isInternational && shippingMethod === 'post' && !agreedToNoCompensation) {
+      toast({ title: t('エラー', lang), description: t('補償が無いことに同意します', lang), variant: 'destructive' })
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const currentCountry = lang === 'ja' ? 'Japan' : country
@@ -131,6 +143,8 @@ export default function CheckoutPage() {
         address_line1: addressLine1,
         address_line2: addressLine2,
         shipping_address: shippingAddress,
+        shipping_method: isInternational ? 'international' : shippingMethod,
+        shipping_fee: shippingFee,
         payment_method: paymentMethod,
       })
       
@@ -162,9 +176,19 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
               ))}
+              <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
+                <div className="flex justify-between text-gray-400">
+                  <span>{t('小計', lang)}</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>{t('送料', lang)}</span>
+                  <span>{isInternational ? t('Shipping fee will be quoted separately', lang) : formatPrice(shippingFee)}</span>
+                </div>
+              </div>
               <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
                 <span className="text-gray-400">{t('合計', lang)}</span>
-                <span className="text-yellow-400 text-lg">{formatPrice(total)}</span>
+                <span className="text-yellow-400 text-lg">{formatPrice(finalTotal)}</span>
               </div>
             </div>
           </div>
@@ -353,6 +377,70 @@ export default function CheckoutPage() {
                     {t('この住所を保存して次回から自動入力する', lang)}
                   </Label>
                 </div>
+              </div>
+
+              <div className="space-y-3 border-t border-white/5 pt-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-300 text-sm">{t('発送方法', lang)}</Label>
+                  <Link href="/shipping-policy" className="text-xs text-yellow-400 hover:underline">
+                    {t('補償について詳しく', lang)}
+                  </Link>
+                </div>
+
+                {isInternational ? (
+                  <p className="text-xs text-yellow-400 bg-yellow-400/10 p-2 rounded border border-yellow-400/20">
+                    {t('Shipping fee will be quoted separately', lang)}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === 'yamato' ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}>
+                      <input
+                        type="radio"
+                        name="shipping"
+                        value="yamato"
+                        checked={shippingMethod === 'yamato'}
+                        onChange={() => setShippingMethod('yamato')}
+                        className="mt-1 accent-yellow-400"
+                      />
+                      <div className="flex-1">
+                        <p className="text-white text-xs font-bold">{t('ヤマト 宅急便コンパクト', lang)}</p>
+                        <p className="text-gray-400 text-[10px]">{t('600円（補償あり、推奨）', lang)}</p>
+                      </div>
+                    </label>
+
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === 'post' ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}>
+                      <input
+                        type="radio"
+                        name="shipping"
+                        value="post"
+                        checked={shippingMethod === 'post'}
+                        onChange={() => setShippingMethod('post')}
+                        className="mt-1 accent-yellow-400"
+                      />
+                      <div className="flex-1">
+                        <p className="text-white text-xs font-bold">{t('郵便 クリックポスト', lang)}</p>
+                        <p className="text-gray-400 text-[10px]">{t('200円（追跡あり・補償なし、安価）', lang)}</p>
+                      </div>
+                    </label>
+
+                    {shippingMethod === 'post' && (
+                      <div className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg space-y-2">
+                        <p className="text-[10px] text-red-400 leading-tight font-medium">
+                          {t('お客様が安価な発送方法（クリックポスト等）を選択された場合、配送中の紛失・破損・遅延について当店は一切の責任を負いません。補償付き発送方法（宅急便コンパクト）の選択を推奨いたします。', lang)}
+                        </p>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={agreedToNoCompensation}
+                            onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
+                            className="w-3 h-3 accent-red-400"
+                          />
+                          <span className="text-[10px] text-red-400 font-bold">{t('補償が無いことに同意します', lang)}</span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2 border-t border-white/5 pt-4">

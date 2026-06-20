@@ -46,6 +46,7 @@ class UserOut(UserBase):
     address_line2: Optional[str] = None
     address: Optional[str] = None
     phone_number: Optional[str] = None
+    phone_verified: bool = False
     created_at: datetime
 
     class Config:
@@ -67,6 +68,15 @@ class UserUpdate(BaseModel):
 class PasswordChangeRequest(BaseModel):
     old_password: str
     new_password: str
+
+
+class PhoneAuthRequest(BaseModel):
+    phone: str
+
+
+class PhoneVerifyRequest(BaseModel):
+    phone: str
+    code: str
 
 
 # ─────────────────────────── Category ────────────────────────
@@ -206,6 +216,8 @@ class OrderCreate(BaseModel):
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     shipping_address: Optional[str] = None
+    shipping_method: Optional[str] = None
+    shipping_fee: int = 0
 
 
 class OrderOut(BaseModel):
@@ -220,6 +232,8 @@ class OrderOut(BaseModel):
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     shipping_address: Optional[str]
+    shipping_method: Optional[str] = None
+    shipping_fee: int = 0
     created_at: datetime
     items: List[OrderItemOut] = []
 

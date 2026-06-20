@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2 } from 'lucide-react'
+import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ordersApi, authApi } from '@/lib/api'
 import { Order } from '@/lib/types'
@@ -35,6 +35,19 @@ export default function MypagePage() {
 
   // Email verification state
   const [isRequestingVerify, setIsRequestingVerify] = useState(false)
+
+  // Phone verification state
+  const [phone, setPhone] = useState('')
+  const [otpCode, setOtpCode] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false)
+
+  useEffect(() => {
+    if (user?.phone_number) {
+      setPhone(user.phone_number)
+    }
+  }, [user])
 
   useEffect(() => {
     setIsMounted(true)
@@ -104,6 +117,52 @@ export default function MypagePage() {
     }
   }
 
+  const handleSendOtp = async () => {
+    if (!phone.trim()) {
+      toast({ title: t('エラー', lang), description: t('電話番号を入力してください', lang), variant: 'destructive' })
+      return
+    }
+    setIsSendingOtp(true)
+    try {
+      const res = await authApi.sendPhoneOtp(phone)
+      toast({ 
+        title: t('SMSを送信しました', lang), 
+        description: res.data.debug ? `Debug code: 000000` : t('認証コードを入力してください', lang) 
+      })
+      setShowPhoneVerify(true)
+    } catch (err: any) {
+      toast({ 
+        title: t('エラー', lang), 
+        description: err.response?.data?.detail || t('SMS送信に失敗しました', lang), 
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim() || otpCode.length !== 6) {
+      toast({ title: t('エラー', lang), description: t('6桁のコードを入力', lang), variant: 'destructive' })
+      return
+    }
+    setIsVerifyingOtp(true)
+    try {
+      await authApi.verifyPhoneOtp(phone, otpCode)
+      toast({ title: t('認証に成功しました', lang), description: t('電話番号の認証が完了しました', lang) })
+      setShowPhoneVerify(false)
+      fetchMe()
+    } catch (err: any) {
+      toast({ 
+        title: t('エラー', lang), 
+        description: err.response?.data?.detail || t('認証に失敗しました', lang), 
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsVerifyingOtp(false)
+    }
+  }
+
   if (!isMounted || !isAuthenticated || !user) return null
 
   return (
@@ -134,6 +193,15 @@ export default function MypagePage() {
                     {t('未認証', lang)}
                   </span>
                 )}
+                {user.phone_verified ? (
+                  <span className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20">
+                    <Smartphone className="h-3 w-3" /> {t('電話番号認証', lang)}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] bg-yellow-400/20 text-yellow-400 px-2 py-0.5 rounded border border-yellow-400/20">
+                    <Smartphone className="h-3 w-3" /> {t('電話番号未認証', lang)}
+                  </span>
+                )}
               </div>
               <p className="text-gray-400 text-sm mt-1">{user.email}</p>
               <p className="text-gray-500 text-xs mt-1">
@@ -144,15 +212,25 @@ export default function MypagePage() {
                 <p className="text-gray-500 text-xs mt-1">{user.address}</p>
               )}
               
-              {!user.is_verified && (
-                <button 
-                  onClick={handleRequestVerification}
-                  disabled={isRequestingVerify}
-                  className="text-yellow-400 text-xs mt-2 hover:underline disabled:opacity-50"
-                >
-                  {isRequestingVerify ? t('処理中...', lang) : t('認証メールを再送する', lang)}
-                </button>
-              )}
+              <div className="flex gap-4 mt-2">
+                {!user.is_verified && (
+                  <button 
+                    onClick={handleRequestVerification}
+                    disabled={isRequestingVerify}
+                    className="text-yellow-400 text-xs hover:underline disabled:opacity-50"
+                  >
+                    {isRequestingVerify ? t('処理中...', lang) : t('認証メールを再送する', lang)}
+                  </button>
+                )}
+                {!user.phone_verified && (
+                  <button 
+                    onClick={() => setShowPhoneVerify(!showPhoneVerify)}
+                    className="text-yellow-400 text-xs hover:underline"
+                  >
+                    {t('電話番号認証', lang)}
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex gap-2">
               <Button 
@@ -201,6 +279,56 @@ export default function MypagePage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* Phone Verification Form */}
+          {showPhoneVerify && !user.phone_verified && (
+            <div className="mt-6 pt-6 border-t border-white/5 animate-in slide-in-from-top-2">
+              <div className="max-w-sm space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-gray-400 text-xs">{t('電話番号', lang)} (E.164, e.g. +819012345678)</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="tel" 
+                      value={phone} 
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="+819012345678"
+                      className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
+                    />
+                    <Button 
+                      onClick={handleSendOtp} 
+                      disabled={isSendingOtp}
+                      size="sm"
+                      className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold h-9"
+                    >
+                      {isSendingOtp ? '...' : t('SMS送信', lang)}
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-gray-400 text-xs">{t('認証コード', lang)}</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="text" 
+                      value={otpCode} 
+                      onChange={e => setOtpCode(e.target.value)}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
+                    />
+                    <Button 
+                      onClick={handleVerifyOtp} 
+                      disabled={isVerifyingOtp}
+                      size="sm"
+                      className="bg-white text-gray-950 hover:bg-white/90 font-bold h-9 px-4"
+                    >
+                      {isVerifyingOtp ? '...' : t('認証する', lang)}
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

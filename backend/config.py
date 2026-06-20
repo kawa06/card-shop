@@ -8,6 +8,7 @@ from typing import Optional, List
 class Settings(BaseSettings):
     # App
     APP_NAME: str = "Card Shop API"
+    SITE_NAME: str = "KRX TCG"
     DEBUG: bool = True
 
     # Database (Render provides DATABASE_URL; fallback to SQLite for local dev)
@@ -54,7 +55,7 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "noreply@oripa-kawa.com"
     MAIL_PORT: int = 465
     MAIL_SERVER: str = "smtp.gmail.com"
-    MAIL_FROM_NAME: str = "Oripa_kawa"
+    MAIL_FROM_NAME: str = "KRX TCG"
     MAIL_TLS: bool = False
     MAIL_SSL: bool = True
     USE_CREDENTIALS: bool = True
@@ -67,6 +68,11 @@ class Settings(BaseSettings):
 
     # Exchange Rate (USD -> JPY)
     EXCHANGE_RATE_USD_JPY: float = 150.0
+
+    # Twilio SMS (Verify API)
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[str] = None
+    TWILIO_VERIFY_SERVICE_SID: Optional[str] = None
 
 
 settings = Settings()

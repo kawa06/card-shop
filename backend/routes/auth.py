@@ -174,6 +174,68 @@ def verify_email(
     return {"message": "メール認証が完了しました"}
 
 
+@router.post("/phone/send", status_code=status.HTTP_200_OK)
+async def send_phone_otp(
+    payload: schemas.PhoneAuthRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Twilio Verify API start
+    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_VERIFY_SERVICE_SID:
+        # Fallback for debug/test
+        print(f"--- [TWILIO MOCK] OTP SENT TO {payload.phone} ---")
+        return {"message": "認証コードを送信しました (DEBUG MODE)", "debug": True}
+
+    try:
+        from twilio.rest import Client
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+        verification = client.verify.v2.services(settings.TWILIO_VERIFY_SERVICE_SID) \
+            .verifications \
+            .create(to=payload.phone, channel='sms')
+        return {"message": "認証コードを送信しました", "status": verification.status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SMS送信に失敗しました: {str(e)}")
+
+
+@router.post("/phone/verify", status_code=status.HTTP_200_OK)
+async def verify_phone_otp(
+    payload: schemas.PhoneVerifyRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    # Twilio Verify API check
+    is_verified = False
+    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_VERIFY_SERVICE_SID:
+        # Fallback for debug/test
+        if payload.code == "000000":
+            is_verified = True
+        else:
+            raise HTTPException(status_code=400, detail="認証コードが正しくありません (DEBUG: 000000 を入力してください)")
+    else:
+        try:
+            from twilio.rest import Client
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            verification_check = client.verify.v2.services(settings.TWILIO_VERIFY_SERVICE_SID) \
+                .verification_checks \
+                .create(to=payload.phone, code=payload.code)
+            
+            if verification_check.status == 'approved':
+                is_verified = True
+            else:
+                raise HTTPException(status_code=400, detail="認証コードが正しくありません")
+        except Exception as e:
+            if isinstance(e, HTTPException): raise e
+            raise HTTPException(status_code=500, detail=f"認証に失敗しました: {str(e)}")
+
+    if is_verified:
+        current_user.phone_number = payload.phone
+        current_user.phone_verified = True
+        db.commit()
+        return {"message": "電話番号の認証が完了しました"}
+    
+    raise HTTPException(status_code=400, detail="認証に失敗しました")
+
+
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 def delete_account(
     current_user: models.User = Depends(get_current_user),

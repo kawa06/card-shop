@@ -33,7 +33,7 @@ async def send_verification_email(email: str, token: str):
 
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-        <h2 style="color: #fbbf24;">Oripa_kawa</h2>
+        <h2 style="color: #fbbf24;">KRX TCG</h2>
         <p>会員登録ありがとうございます。以下のボタンをクリックして、メールアドレスの認証を完了してください。</p>
         <div style="text-align: center; margin: 30px 0;">
             <a href="{verification_url}" style="background-color: #fbbf24; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">メールアドレスを認証する</a>
@@ -42,7 +42,7 @@ async def send_verification_email(email: str, token: str):
         <p style="font-size: 12px; color: #666; word-break: break-all;">{verification_url}</p>
         <p style="font-size: 12px; color: #666; margin-top: 20px;">このメールに心当たりがない場合は、破棄してください。</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="font-size: 12px; color: #999;">&copy; Oripa_kawa</p>
+        <p style="font-size: 12px; color: #999;">&copy; KRX TCG</p>
     </div>
     """
 
@@ -57,7 +57,7 @@ async def send_verification_email(email: str, token: str):
                 json={
                     "from": f"{settings.MAIL_FROM_NAME} <onboarding@resend.dev>",
                     "to": [email],
-                    "subject": "【Oripa_kawa】メールアドレス認証のお願い",
+                    "subject": "【KRX TCG】メールアドレス認証のお願い",
                     "html": html_content,
                 },
             )

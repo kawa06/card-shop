@@ -40,9 +40,21 @@ with engine.connect() as conn:
         ("address_line2", "TEXT"),
         ("address", "TEXT"),
         ("phone_number", "VARCHAR(20)"),
+        ("phone_verified", "BOOLEAN DEFAULT 0"),
     ]:
         try:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+
+    # Orders table migrations
+    for col, definition in [
+        ("shipping_method", "VARCHAR(50)"),
+        ("shipping_fee", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
             conn.commit()
         except Exception:
             pass  # column already exists
