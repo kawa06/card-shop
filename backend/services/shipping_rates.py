@@ -189,6 +189,7 @@ async def refresh_all_rates(db: Session):
                 db_rate.carrier = FALLBACK_RATES[code].get("carrier")
                 db_rate.name_ja = FALLBACK_RATES[code].get("name_ja")
                 db_rate.name_en = FALLBACK_RATES[code].get("name_en")
+                db_rate.is_individual_available = FALLBACK_RATES[code].get("is_individual_available", True)
             db_rate.updated_at = datetime.utcnow()
         else:
             # New entry: use fee if available, else FALLBACK_RATES
