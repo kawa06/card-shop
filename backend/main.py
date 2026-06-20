@@ -148,4 +148,8 @@ app.include_router(shipping_router)
 @app.get("/api/health", summary="Health Check V20")
 def health():
     return {"status": "ok", "version": "deployed-fixed-v20"}
+
+@app.get("/api/health20")
+def health20():
+    return {"status": "ok", "version": "v20-direct"}
 # Deploy Fix 2026-06-21-v20
