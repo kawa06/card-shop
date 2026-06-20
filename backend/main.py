@@ -147,8 +147,8 @@ app.include_router(exchange_router, prefix="/api")
 app.include_router(shipping_router, prefix="/api")
 
 
-# Deploy Fix 2026-06-20-v15 (Emergency Fix: Migration & Router)
-@app.get("/api/health", summary="Health Check V15")
+# Deploy Fix 2026-06-20-v16 (Emergency Fix: Migration & Router)
+@app.get("/api/health", summary="Health Check V16")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v15"}
-# Deploy Fix 2026-06-20-v15
+    return {"status": "ok", "version": "deployed-fixed-v16"}
+# Deploy Fix 2026-06-20-v16

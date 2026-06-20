@@ -12,7 +12,7 @@ print("Backend App Loaded Successfully.")
 
 @app.get("/api/test-deploy")
 def test_deploy():
-    return {"status": "deployed-v12-test"}
+    return {"status": "deployed-v16-test"}
 
 if __name__ == "__main__":
     import uvicorn

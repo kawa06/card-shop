@@ -49,7 +49,7 @@ async def register(
         is_admin=(payload.email in ADMIN_EMAILS),
         verification_token=verification_token,
         phone_number=payload.phone_number,
-        phone_verified=payload.phone_number is not None,  # フロントエンドで認証済みとみなす
+        phone_verified=False,  # Always require verification via OTP
     )
     db.add(user)
     db.commit()
