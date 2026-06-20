@@ -213,6 +213,9 @@ const dict: Record<string, string> = {
   'あり': 'Yes',
   '重要免責事項': 'Important Disclaimer',
   'お客様が安価な発送方法（クリックポスト等）を選択された場合、配送中の紛失・破損・遅延について当店は一切の責任を負いません。補償付き発送方法（宅急便コンパクト）の選択を推奨いたします。': 'If you choose a cheaper shipping method without insurance (e.g., Click Post), KRX TCG shall bear no responsibility whatsoever for loss, damage, or delay during transit. We strongly recommend choosing the insured method (Takkyubin Compact).',
+  'カート内商品により発送方法が制限されています': 'Shipping options are restricted by items in cart',
+  '利用可能な発送方法がありません。商品の組み合わせをご確認ください。': 'No available shipping methods for this combination of items.',
+  '一部の商品でこの発送方法は選択できません': 'This shipping method is not allowed for one or more items in your cart',
 }
 
 export function t(key: string, lang: string): string {
