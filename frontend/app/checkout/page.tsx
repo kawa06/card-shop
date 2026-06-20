@@ -16,6 +16,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ShippingRate } from '@/lib/types'
+import { Smartphone, CheckCircle2 } from 'lucide-react'
+
+const PREFECTURES = [
+  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+  "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
+  "岐阜県", "静岡県", "愛知県", "三重県",
+  "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
+  "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+  "徳島県", "香川県", "愛媛県", "高知県",
+  "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
+];
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -55,12 +67,70 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
+  // Phone verification state
+  const [otpCode, setOtpCode] = useState('')
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [showOtpInput, setShowOtpInput] = useState(false)
+  const [isDebugMode, setIsDebugMode] = useState(false)
+
   const normalizePhone = (raw: string) => {
     const cleaned = raw.trim().replace(/[\s-]/g, '')
     if (cleaned.startsWith('0') && cleaned.length > 0) {
       return '+81' + cleaned.slice(1)
     }
     return cleaned
+  }
+
+  const handleSendOtp = async () => {
+    if (!phoneNumber.trim()) {
+      toast({ title: t('エラー', lang), description: t('電話番号を入力してください', lang), variant: 'destructive' })
+      return
+    }
+    setIsSendingOtp(true)
+    try {
+      const normalizedPhone = normalizePhone(phoneNumber)
+      const res = await authApi.sendPhoneOtp(normalizedPhone)
+      setIsDebugMode(res.data.debug || false)
+      toast({
+        title: lang === 'ja' ? '送信しました' : 'Sent',
+        description: res.data.debug
+          ? 'SMSをご確認ください（デモ環境: 認証コードは 000000）'
+          : 'SMSをご確認ください / SMS sent'
+      })
+      setShowOtpInput(true)
+    } catch (err: any) {
+      toast({
+        title: t('エラー', lang),
+        description: err.response?.data?.detail || t('SMS送信に失敗しました', lang),
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim() || otpCode.length !== 6) {
+      toast({ title: t('エラー', lang), description: t('6桁のコードを入力', lang), variant: 'destructive' })
+      return
+    }
+    setIsVerifyingOtp(true)
+    try {
+      const normalizedPhone = normalizePhone(phoneNumber)
+      await authApi.verifyPhoneOtp(normalizedPhone, otpCode)
+      toast({ title: t('認証に成功しました', lang), description: t('電話番号の認証が完了しました', lang) })
+      setShowOtpInput(false)
+      fetchMe()
+    } catch (err: any) {
+      toast({ 
+        title: t('エラー', lang), 
+        description: err.response?.data?.detail || t('認証に失敗しました', lang), 
+        variant: 'destructive' 
+      })
+    } finally {
+      setIsVerifyingOtp(false)
+    }
   }
 
   const isInternational = country !== 'Japan' && country !== ''
@@ -413,14 +483,18 @@ export default function CheckoutPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="region" className="text-gray-300 text-sm">{t('都道府県', lang)}</Label>
-                      <Input
+                      <select
                         id="region"
                         value={region}
                         onChange={(e) => setRegion(e.target.value)}
-                        placeholder="東京都"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-                      />
+                        className="w-full h-10 px-3 bg-gray-800 border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
+                      >
+                        <option value="">{t('都道府県を入力してください', lang)}</option>
+                        {PREFECTURES.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="space-y-2">
@@ -476,21 +550,74 @@ export default function CheckoutPage() {
 
           {/* 2. 連絡先 */}
           <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">2</span>
-              {t('連絡先', lang)}
-            </h2>
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber" className="text-gray-300 text-sm">{t('電話番号', lang)}</Label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder={lang === 'en' ? "+1-000-000-0000" : "090-0000-0000"}
-                required
-                className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-              />
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-semibold flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">2</span>
+                {t('連絡先', lang)}
+              </h2>
+              {user?.phone_verified && (
+                <span className="flex items-center gap-1 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/20">
+                  <CheckCircle2 className="h-3 w-3" /> {t('認証済み', lang)}
+                </span>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber" className="text-gray-300 text-sm">{t('電話番号', lang)}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder={lang === 'en' ? "+1-000-000-0000" : "090-0000-0000"}
+                    required
+                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50 flex-1"
+                  />
+                  {!user?.phone_verified && (
+                    <Button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={isSendingOtp}
+                      className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold px-4"
+                    >
+                      {isSendingOtp ? '...' : t('SMS送信', lang)}
+                    </Button>
+                  )}
+                </div>
+                {user?.phone_verified && user.phone_number !== normalizePhone(phoneNumber) && (
+                  <p className="text-[10px] text-yellow-400/70">
+                    ⚠️ {lang === 'ja' ? '登録済みの番号と異なります。再認証が必要です。' : 'Different from registered number. Re-verification required.'}
+                  </p>
+                )}
+              </div>
+
+              {showOtpInput && !user?.phone_verified && (
+                <div className="p-4 bg-gray-800/50 border border-white/5 rounded-lg space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <Label className="text-gray-300 text-xs">{t('認証コード', lang)}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      placeholder="6桁のコード"
+                      maxLength={6}
+                      className="bg-gray-900 border-gray-700 text-white h-10 flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={isVerifyingOtp}
+                      className="bg-white text-gray-950 hover:bg-white/90 font-bold px-6"
+                    >
+                      {isVerifyingOtp ? '...' : t('認証する', lang)}
+                    </Button>
+                  </div>
+                  {isDebugMode && (
+                    <p className="text-[10px] text-gray-500">デモ環境: 認証コードは 000000</p>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 

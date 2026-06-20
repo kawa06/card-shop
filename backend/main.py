@@ -54,6 +54,17 @@ with engine.connect() as conn:
         except Exception:
             pass  # column already exists
 
+    # Orders table migrations
+    for col, definition in [
+        ("shipping_method", "VARCHAR(50)"),
+        ("shipping_fee", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
+            conn.commit()
+        except Exception:
+            pass
+
     # Shipping rates migrations
     for col, definition in [
         ("carrier", "VARCHAR(50)"),
@@ -113,8 +124,8 @@ app.include_router(exchange_router, prefix="/api")
 app.include_router(shipping_router, prefix="/api")
 
 
-# Deploy Fix 2026-06-20-v12 (Trigger Re-build)
-@app.get("/api/health", summary="Health Check V12")
+# Deploy Fix 2026-06-20-v13 (Trigger Re-build)
+@app.get("/api/health", summary="Health Check V13")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v12"}
-# Deploy Fix 2026-06-20-v11
+    return {"status": "ok", "version": "deployed-fixed-v13"}
+# Deploy Fix 2026-06-20-v12
