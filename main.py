@@ -1,24 +1,5 @@
-import sys
-import os
+from backend.main import app
 
-# Add backend directory to Python path
-backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend")
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
-
-# Import app from backend/main.py
-try:
-    from backend.main import app
-except ImportError:
-    # Fallback for different environment structures
-    from main import app
-
-@app.get("/api/root-check")
-def root_check():
-    return {"source": "root-main-v2"}
-
-@app.get("/api/health")
-def health():
-    return {"status": "ok", "version": "root-deployed-v8"}
-
-__all__ = ["app"]
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

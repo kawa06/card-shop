@@ -114,7 +114,8 @@ app.include_router(exchange_router, prefix="/api")
 app.include_router(shipping_router, prefix="/api")
 
 
-@app.get("/api/health", summary="Health Check V9")
+# Deploy Fix 2026-06-20-v10 (Final Trigger)
+@app.get("/api/health", summary="Health Check V10")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v9"}
+    return {"status": "ok", "version": "deployed-fixed-v10"}
 # Deploy Fix 2026-06-20-v5
