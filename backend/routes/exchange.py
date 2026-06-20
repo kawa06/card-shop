@@ -6,7 +6,7 @@ from config import settings
 from schemas import ExchangeRateResponse
 
 # Exchange rate router (Consolidated)
-router = APIRouter(tags=["exchange"])
+router = APIRouter(prefix="/api/exchange-rate", tags=["exchange"])
 
 # In-memory cache
 _cache = {
@@ -16,7 +16,7 @@ _cache = {
 
 CACHE_DURATION_MINUTES = 40
 
-@router.get("/exchange-rate", response_model=ExchangeRateResponse)
+@router.get("", response_model=ExchangeRateResponse)
 async def get_exchange_rate():
     global _cache
     

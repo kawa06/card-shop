@@ -7,7 +7,7 @@ from services.shipping_rates import refresh_all_rates, calculate_shipping_fee
 from auth import get_current_user
 from typing import Optional
 
-router = APIRouter(prefix="/shipping-rates", tags=["shipping"])
+router = APIRouter(prefix="/api/shipping-rates", tags=["shipping"])
 
 @router.get("")
 def get_shipping_rates(

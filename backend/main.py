@@ -138,14 +138,14 @@ app.add_middleware(
 )
 
 # Routers (Explicit Import 2026-06-20)
-app.include_router(auth_router, prefix="/api")
-app.include_router(cards_router, prefix="/api")
-app.include_router(cart_router, prefix="/api")
-app.include_router(orders_router, prefix="/api")
-app.include_router(admin_router, prefix="/api")
-app.include_router(translate_router, prefix="/api")
-app.include_router(exchange_router, prefix="/api")
-app.include_router(shipping_router, prefix="/api")
+app.include_router(auth_router)
+app.include_router(cards_router)
+app.include_router(cart_router)
+app.include_router(orders_router)
+app.include_router(admin_router)
+app.include_router(translate_router)
+app.include_router(exchange_router)
+app.include_router(shipping_router)
 
 
 # Deploy Fix 2026-06-21-v17 (Update shipping rates)

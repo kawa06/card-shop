@@ -9,7 +9,7 @@ from schemas_translate import TranslateRequest, TranslateResponse
 from config import settings
 
 # Translation router (Consolidated)
-router = APIRouter(tags=["translate"])
+router = APIRouter(prefix="/api/translate", tags=["translate"])
 
 DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"
 
@@ -38,7 +38,7 @@ def deepl_translate(texts: List[str], target_lang: str) -> List[str]:
     return [t["text"] for t in result.get("translations", [])]
 
 
-@router.post("/translate", response_model=TranslateResponse)
+@router.post("", response_model=TranslateResponse)
 def translate(req: TranslateRequest, db: Session = Depends(get_db)):
     if req.target not in ("EN", "JA"):
         raise HTTPException(status_code=400, detail="target must be EN or JA")

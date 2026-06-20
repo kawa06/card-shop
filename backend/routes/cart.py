@@ -6,7 +6,7 @@ from auth import get_current_user
 import models
 import schemas
 
-router = APIRouter(prefix="/cart", tags=["cart"])
+router = APIRouter(prefix="/api/cart", tags=["cart"])
 
 
 @router.get("", response_model=list[schemas.CartItemOut])

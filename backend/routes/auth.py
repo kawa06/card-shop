@@ -11,7 +11,7 @@ import models
 import schemas
 import secrets
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 ADMIN_EMAILS = {"rikukai0609@icloud.com"}
 

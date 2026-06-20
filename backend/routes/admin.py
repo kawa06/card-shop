@@ -9,7 +9,7 @@ from auth import get_current_admin
 import models
 import schemas
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
 # ──────────────────────── Cards ──────────────────────────────

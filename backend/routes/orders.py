@@ -8,7 +8,7 @@ import schemas
 import json
 from services.shipping_rates import calculate_shipping_fee
 
-router = APIRouter(prefix="/orders", tags=["orders"])
+router = APIRouter(prefix="/api/orders", tags=["orders"])
 
 
 @router.post("", response_model=schemas.OrderOut, status_code=status.HTTP_201_CREATED)
