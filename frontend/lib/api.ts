@@ -175,5 +175,7 @@ export const exchangeApi = {
 // Shipping API
 export const shippingApi = {
   getRates: () => apiClient.get<import('./types').ShippingRate[]>('/shipping-rates'),
+  calculateRate: (params: { method_code: string; region?: string; country?: string }) =>
+    apiClient.get<{ method_code: string; fee_jpy: number }>('/shipping-rates/calculate', { params }),
   refreshRates: () => apiClient.post('/shipping-rates/refresh'),
 }

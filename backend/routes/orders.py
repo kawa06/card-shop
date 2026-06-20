@@ -6,6 +6,7 @@ from auth import get_current_user
 import models
 import schemas
 import json
+from services.shipping_rates import calculate_shipping_fee
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -54,18 +55,12 @@ def create_order(
                 detail=f"選択された発送方法（{payload.shipping_method}）はこの注文では利用できません。 / The selected shipping method ({payload.shipping_method}) is not available for this order."
             )
 
-    # Calculate shipping fee from DB
-    shipping_fee = 0
-    if payload.shipping_method and payload.shipping_method != 'international':
-        rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == payload.shipping_method).first()
-        if rate:
-            shipping_fee = rate.fee_jpy
-        else:
-            # Fallback if not found in DB
-            shipping_fee = payload.shipping_fee or 0
-    else:
-        # International or other
-        shipping_fee = payload.shipping_fee or 0
+    # Calculate shipping fee
+    shipping_fee = calculate_shipping_fee(
+        payload.shipping_method, 
+        payload.region, 
+        payload.country
+    )
 
     # Validate stock and calculate total
     total = 0.0

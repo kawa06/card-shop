@@ -40,11 +40,12 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
+  const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
-  const isInternational = lang === 'en' && country !== 'Japan'
+  const isInternational = country !== 'Japan' && country !== ''
   
   // Fetch shipping rates
   useEffect(() => {
@@ -80,6 +81,11 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
+    if (isInternational) {
+      return rate.method_code === 'international'
+    }
+    if (rate.method_code === 'international') return false
+
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)
   })
@@ -93,8 +99,42 @@ export default function CheckoutPage() {
     }
   }, [availableRates, shippingMethod])
 
+  // Fetch dynamic shipping fee when method or destination changes
+  useEffect(() => {
+    if (!shippingMethod) {
+      setDynamicShippingFee(null)
+      return
+    }
+
+    const currentCountry = lang === 'ja' ? 'Japan' : country
+    
+    // For international, it's always handled separately or we use the calculation
+    if (currentCountry !== 'Japan' && lang === 'en') {
+      shippingApi.calculateRate({
+        method_code: 'international',
+        country: currentCountry
+      }).then(res => {
+        setDynamicShippingFee(res.data.fee_jpy)
+      }).catch(() => {
+        setDynamicShippingFee(2000) // Fallback
+      })
+      return
+    }
+
+    shippingApi.calculateRate({
+      method_code: shippingMethod,
+      region: region,
+      country: 'Japan'
+    }).then(res => {
+      setDynamicShippingFee(res.data.fee_jpy)
+    }).catch(() => {
+      const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
+      setDynamicShippingFee(selectedRate?.fee_jpy || 0)
+    })
+  }, [shippingMethod, region, country, lang, shippingRates])
+
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
-  const shippingFee = isInternational ? 0 : (selectedRate?.fee_jpy || 0)
+  const shippingFee = dynamicShippingFee ?? (isInternational ? 0 : (selectedRate?.fee_jpy || 0))
   const finalTotal = total + shippingFee
 
   const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
@@ -246,7 +286,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>{t('送料', lang)}</span>
-                  <span>{isInternational ? t('Shipping fee will be quoted separately', lang) : formatPrice(shippingFee)}</span>
+                  <span>{formatPrice(shippingFee)}</span>
                 </div>
               </div>
               <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
@@ -450,13 +490,8 @@ export default function CheckoutPage() {
                   </Link>
                 </div>
 
-                {isInternational ? (
-                  <p className="text-xs text-yellow-400 bg-yellow-400/10 p-2 rounded border border-yellow-400/20">
-                    {t('Shipping fee will be quoted separately', lang)}
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {allowedMethodCodes && (
+                <div className="space-y-2">
+                  {!isInternational && allowedMethodCodes && (
                       <p className="text-[10px] text-yellow-400/70 bg-yellow-400/5 p-2 rounded border border-yellow-400/10 mb-2 italic">
                         ⚠️ {t('カート内商品により発送方法が制限されています', lang)} / This cart restricts shipping options
                       </p>
@@ -497,23 +532,25 @@ export default function CheckoutPage() {
                     )}
 
                     {needsCompensationAgreement && (
-                      <div className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg space-y-2">
-                        <p className="text-[10px] text-red-400 leading-tight font-medium">
-                          {t('お客様が安価な発送方法（クリックポスト等）を選択された場合、配送中の紛失・破損・遅延について当店は一切の責任を負いません。補償付き発送方法（宅急便コンパクト）の選択を推奨いたします。', lang)}
+                      <div className="p-3 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-2">
+                        <p className="text-[10px] text-gray-300 leading-tight">
+                          {t('この発送方法は、万が一の事故の際の補償が限定的またはありません。', lang)}
+                          <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
+                            {t('補償内容と各社公式規定を確認', lang)}
+                          </Link>
                         </p>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={agreedToNoCompensation}
                             onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
-                            className="w-3 h-3 accent-red-400"
+                            className="w-3 h-3 accent-yellow-400"
                           />
-                          <span className="text-[10px] text-red-400 font-bold">{t('補償が無いことに同意します', lang)}</span>
+                          <span className="text-[10px] text-yellow-400 font-bold">{t('配送会社の補償規定に同意します', lang)}</span>
                         </label>
                       </div>
                     )}
                   </div>
-                )}
               </div>
 
               <div className="space-y-2 border-t border-white/5 pt-4">

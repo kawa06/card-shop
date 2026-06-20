@@ -151,6 +151,17 @@ const dict: Record<string, string> = {
   '不明なカード': 'Unknown Card',
   '注文が完了しました！': 'Order Completed!',
 
+  '補償内容について': 'About Insurance Coverage',
+  '各配送方法の補償内容および利用規約については、以下の各社公式サイトをご確認ください。': 'Please check the following official websites for insurance coverage and terms of service for each shipping method.',
+  'ヤマト運輸（宅急便コンパクト等）': 'Yamato Transport (Takkyubin Compact, etc.)',
+  '日本郵便（クリックポスト・ゆうパック等）': 'Japan Post (Click Post, Yu-Pack, etc.)',
+  '公式サイトで確認': 'Check Official Site',
+  '配送に関するご注意': 'Shipping Precautions',
+  '配送中の事故（紛失・破損等）については、各配送会社の補償規定に基づき対応が行われます。万が一のトラブルの際、当店では各社の規定を超える責任は負いかねますので、補償内容を十分にご確認の上、発送方法をご選択ください。': 'In the event of a shipping accident (loss, damage, etc.), handling will be based on the compensation regulations of each shipping company. We cannot be held responsible beyond the regulations of each company, so please check the compensation coverage thoroughly before selecting a shipping method.',
+  'この発送方法は、万が一の事故の際の補償が限定的またはありません。': 'This shipping method has limited or no insurance in case of an accident.',
+  '補償内容と各社公式規定を確認': 'Check insurance coverage and official regulations',
+  '配送会社の補償規定に同意します': "I agree to the shipping company's compensation regulations",
+
   'プロフィール': 'Profile',
   '認証済み': 'Verified',
   '未認証': 'Unverified',

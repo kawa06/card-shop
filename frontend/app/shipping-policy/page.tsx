@@ -43,40 +43,42 @@ export default function ShippingPolicyPage() {
           <section>
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-yellow-400" />
-              {t('補償内容', lang)}
+              {t('補償内容について', lang)}
             </h2>
-            <div className="overflow-hidden rounded-lg border border-white/10">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-white/5 text-white">
-                  <tr>
-                    <th className="px-4 py-3">{t('発送方法', lang)}</th>
-                    <th className="px-4 py-3">{t('補償内容', lang)}</th>
-                    <th className="px-4 py-3">{t('追跡サービス', lang)}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/10">
-                  <tr>
-                    <td className="px-4 py-3">{t('宅急便コンパクト', lang)}</td>
-                    <td className="px-4 py-3">{t('最大3万円相当（ヤマト運輸規定による）', lang)}</td>
-                    <td className="px-4 py-3">{t('あり', lang)}</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3">{t('クリックポスト', lang)}</td>
-                    <td className="px-4 py-3 text-red-400">{t('補償なし', lang)}</td>
-                    <td className="px-4 py-3">{t('あり', lang)}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="bg-gray-800 rounded-lg border border-white/5 p-6 space-y-4">
+              <p className="text-sm text-gray-400 mb-4">
+                {t('各配送方法の補償内容および利用規約については、以下の各社公式サイトをご確認ください。', lang)}
+              </p>
+              <div className="grid gap-3">
+                <a
+                  href="https://www.kuronekoyamato.co.jp/ytc/customer/send/services/compact/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors group"
+                >
+                  <span className="font-bold text-white">{t('ヤマト運輸（宅急便コンパクト等）', lang)}</span>
+                  <span className="text-xs text-yellow-400 group-hover:underline">{t('公式サイトで確認', lang)}</span>
+                </a>
+                <a
+                  href="https://www.post.japanpost.jp/service/index.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors group"
+                >
+                  <span className="font-bold text-white">{t('日本郵便（クリックポスト・ゆうパック等）', lang)}</span>
+                  <span className="text-xs text-yellow-400 group-hover:underline">{t('公式サイトで確認', lang)}</span>
+                </a>
+              </div>
             </div>
           </section>
 
-          <section className="p-6 bg-red-400/5 rounded-xl border border-red-400/20">
-            <h2 className="text-xl font-bold text-red-400 mb-3 flex items-center gap-2">
+          <section className="p-6 bg-yellow-400/5 rounded-xl border border-yellow-400/20">
+            <h2 className="text-xl font-bold text-yellow-400 mb-3 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              {t('重要免責事項', lang)}
+              {t('配送に関するご注意', lang)}
             </h2>
-            <p className="text-red-400 font-bold leading-relaxed">
-              {t('お客様が安価な発送方法（クリックポスト等）を選択された場合、配送中の紛失・破損・遅延について当店は一切の責任を負いません。補償付き発送方法（宅急便コンパクト）の選択を推奨いたします。', lang)}
+            <p className="text-gray-300 leading-relaxed">
+              {t('配送中の事故（紛失・破損等）については、各配送会社の補償規定に基づき対応が行われます。万が一のトラブルの際、当店では各社の規定を超える責任は負いかねますので、補償内容を十分にご確認の上、発送方法をご選択ください。', lang)}
             </p>
           </section>
         </div>

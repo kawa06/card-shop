@@ -82,6 +82,15 @@ FALLBACK_RATES = {
         "has_insurance": True,
         "max_size": "80cm total",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
+    },
+    "international": {
+        "name_ja": "国際郵便 / 国際配送",
+        "name_en": "International Shipping",
+        "fee_jpy": 2000,
+        "has_tracking": True,
+        "has_insurance": True,
+        "max_size": "Variable",
+        "source_url": "https://www.post.japanpost.jp/int/index.html",
     }
 }
 
@@ -180,6 +189,75 @@ async def refresh_all_rates(db: Session):
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to commit shipping rates: {e}")
+
+def calculate_shipping_fee(method_code: str, region: str = None, country: str = "Japan") -> int:
+    """
+    Calculate shipping fee based on method, region (prefecture) and country.
+    
+    If country is not Japan, it's considered international.
+    If region is provided for Japan, it applies regional pricing for certain methods.
+    """
+    if country != "Japan" or method_code == "international":
+        # International shipping zones (approximate)
+        if not country or country == "Other":
+            return 3000 # Default high fallback
+        
+        zones = {
+            "Asia": ["China", "South Korea", "Taiwan", "Hong Kong", "Singapore", "Thailand"],
+            "North America": ["United States", "Canada", "Mexico"],
+            "Oceania": ["Australia", "New Zealand"],
+            "Europe": ["United Kingdom", "France", "Germany", "Italy", "Spain"]
+        }
+        
+        if any(c in zones["Asia"] for c in [country]): return 1400
+        if any(c in zones["North America"] for c in [country]): return 2500
+        if any(c in zones["Europe"] for c in [country]): return 2800
+        if any(c in zones["Oceania"] for c in [country]): return 2500
+        
+        return 2000 # Base international
+
+    # Japan Domestic
+    base_rate = FALLBACK_RATES.get(method_code, {}).get("fee_jpy", 0)
+    
+    # Flat rate methods
+    if method_code in ["click_post", "nekopos", "letter_pack_light", "letter_pack_plus"]:
+        return base_rate
+    
+    # Regional methods (Takkyubin, Yu-pack)
+    if not region:
+        return base_rate
+        
+    # Simplify prefectures into blocks
+    region = region.replace("都", "").replace("府", "").replace("県", "")
+    
+    hokkaido = ["北海道"]
+    tohoku = ["青森", "岩手", "宮城", "秋田", "山形", "福島"]
+    kanto = ["茨城", "栃木", "群馬", "埼玉", "千葉", "東京", "神奈川", "山梨"]
+    shinetsu = ["新潟", "長野"]
+    hokuriku = ["富山", "石川", "福井"]
+    chubu = ["岐阜", "静岡", "愛知", "三重"]
+    kansai = ["滋賀", "京都", "大阪", "兵庫", "奈良", "和歌山"]
+    chugoku = ["鳥取", "島根", "岡山", "広島", "山口"]
+    shikoku = ["徳島", "香川", "愛媛", "高知"]
+    kyushu = ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島"]
+    okinawa = ["沖縄"]
+
+    # Base is Kanto (approx 600 for compact, 940 for 60)
+    if method_code == "takkyubin_compact":
+        if any(r in region for r in kanto + shinetsu + hokuriku + chubu + kansai): return 600
+        if any(r in region for r in tohoku + chugoku + shikoku): return 650
+        if any(r in region for r in hokkaido + kyushu): return 850
+        if any(r in region for r in okinawa): return 850
+        return 600
+        
+    if method_code in ["takkyubin_60", "yu_pack_60"]:
+        if any(r in region for r in kanto + shinetsu + hokuriku + chubu + kansai): return 940
+        if any(r in region for r in tohoku + chugoku + shikoku): return 1060
+        if any(r in region for r in hokkaido + kyushu): return 1460
+        if any(r in region for r in okinawa): return 1460
+        return 940
+
+    return base_rate
 
 async def background_shipping_update_task(db_factory):
     """Periodic update every 24 hours"""
