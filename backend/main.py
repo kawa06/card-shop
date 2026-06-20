@@ -19,61 +19,84 @@ from routes.shipping import router as shipping_router
 # Create all tables on startup (new columns added if not exists via ALTER)
 Base.metadata.create_all(bind=engine)
 
-# Apply missing column migrations for SQLite
+# Apply missing column migrations for SQLite (More robust PRAGMA check)
 from sqlalchemy import text
-with engine.connect() as conn:
-    # Cards table migrations
-    for col, definition in [
-        ("image_urls", "TEXT"),
-        ("condition", "VARCHAR(10)"),
-        ("allowed_shipping_methods", "TEXT"),
-    ]:
-        try:
-            conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
-            conn.commit()
-        except Exception:
-            pass  # column already exists
 
-    # Users table migrations
-    for col, definition in [
-        ("is_verified", "BOOLEAN DEFAULT 0"),
-        ("verification_token", "VARCHAR(255)"),
-        ("postal_code", "VARCHAR(20)"),
-        ("country", "VARCHAR(100)"),
-        ("region", "VARCHAR(100)"),
-        ("city", "VARCHAR(100)"),
-        ("address_line1", "TEXT"),
-        ("address_line2", "TEXT"),
-        ("address", "TEXT"),
-        ("phone_number", "VARCHAR(20)"),
-        ("phone_verified", "BOOLEAN DEFAULT 0"),
-    ]:
-        try:
-            conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
-            conn.commit()
-        except Exception:
-            pass  # column already exists
+def add_columns_if_missing():
+    with engine.connect() as conn:
+        # Helper to get existing columns
+        def get_existing_columns(table_name):
+            try:
+                result = conn.execute(text(f"PRAGMA table_info({table_name})"))
+                return [row[1] for row in result.fetchall()]
+            except Exception:
+                return []
 
-    # Orders table migrations
-    for col, definition in [
-        ("shipping_method", "VARCHAR(50)"),
-        ("shipping_fee", "INTEGER DEFAULT 0"),
-    ]:
-        try:
-            conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
-            conn.commit()
-        except Exception:
-            pass
+        # Cards table migrations
+        existing_cards = get_existing_columns("cards")
+        for col, definition in [
+            ("image_urls", "TEXT"),
+            ("condition", "VARCHAR(10)"),
+            ("rarity", "VARCHAR(50)"),
+            ("set_name", "VARCHAR(100)"),
+            ("allowed_shipping_methods", "TEXT"),
+        ]:
+            if col not in existing_cards:
+                try:
+                    conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
+                except Exception: pass
+        
+        # Users table migrations
+        existing_users = get_existing_columns("users")
+        for col, definition in [
+            ("is_verified", "BOOLEAN DEFAULT 0"),
+            ("verification_token", "VARCHAR(255)"),
+            ("postal_code", "VARCHAR(20)"),
+            ("country", "VARCHAR(100)"),
+            ("region", "VARCHAR(100)"),
+            ("city", "VARCHAR(100)"),
+            ("address_line1", "TEXT"),
+            ("address_line2", "TEXT"),
+            ("address", "TEXT"),
+            ("phone_number", "VARCHAR(20)"),
+            ("phone_verified", "BOOLEAN DEFAULT 0"),
+        ]:
+            if col not in existing_users:
+                try:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
+                except Exception: pass
 
-    # Shipping rates migrations
-    for col, definition in [
-        ("carrier", "VARCHAR(50)"),
-    ]:
-        try:
-            conn.execute(text(f"ALTER TABLE shipping_rates ADD COLUMN {col} {definition}"))
-            conn.commit()
-        except Exception:
-            pass  # column already exists
+        # Orders table migrations
+        existing_orders = get_existing_columns("orders")
+        for col, definition in [
+            ("postal_code", "VARCHAR(20)"),
+            ("country", "VARCHAR(100)"),
+            ("region", "VARCHAR(100)"),
+            ("city", "VARCHAR(100)"),
+            ("address_line1", "TEXT"),
+            ("address_line2", "TEXT"),
+            ("shipping_address", "TEXT"),
+            ("shipping_method", "VARCHAR(50)"),
+            ("shipping_fee", "INTEGER DEFAULT 0"),
+        ]:
+            if col not in existing_orders:
+                try:
+                    conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
+                except Exception: pass
+
+        # Shipping rates migrations
+        existing_rates = get_existing_columns("shipping_rates")
+        for col, definition in [
+            ("carrier", "VARCHAR(50)"),
+        ]:
+            if col not in existing_rates:
+                try:
+                    conn.execute(text(f"ALTER TABLE shipping_rates ADD COLUMN {col} {definition}"))
+                except Exception: pass
+        
+        conn.commit()
+
+add_columns_if_missing()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -124,8 +147,8 @@ app.include_router(exchange_router, prefix="/api")
 app.include_router(shipping_router, prefix="/api")
 
 
-# Deploy Fix 2026-06-20-v13 (Trigger Re-build)
-@app.get("/api/health", summary="Health Check V13")
+# Deploy Fix 2026-06-20-v15 (Emergency Fix: Migration & Router)
+@app.get("/api/health", summary="Health Check V15")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v13"}
-# Deploy Fix 2026-06-20-v12
+    return {"status": "ok", "version": "deployed-fixed-v15"}
+# Deploy Fix 2026-06-20-v15
