@@ -42,6 +42,15 @@ export default function MypagePage() {
   const [isSendingOtp, setIsSendingOtp] = useState(false)
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [showPhoneVerify, setShowPhoneVerify] = useState(false)
+  const [isDebugMode, setIsDebugMode] = useState(false)
+
+  const normalizePhone = (raw: string) => {
+    const cleaned = raw.trim().replace(/[\s-]/g, '')
+    if (cleaned.startsWith('0') && cleaned.length > 0) {
+      return '+81' + cleaned.slice(1)
+    }
+    return cleaned
+  }
 
   useEffect(() => {
     if (user?.phone_number) {
@@ -124,17 +133,22 @@ export default function MypagePage() {
     }
     setIsSendingOtp(true)
     try {
-      const res = await authApi.sendPhoneOtp(phone)
-      toast({ 
-        title: t('SMSを送信しました', lang), 
-        description: res.data.debug ? `Debug code: 000000` : t('認証コードを入力してください', lang) 
+      const normalizedPhone = normalizePhone(phone)
+      const res = await authApi.sendPhoneOtp(normalizedPhone)
+      setPhone(normalizedPhone)
+      setIsDebugMode(res.data.debug || false)
+      toast({
+        title: lang === 'ja' ? '送信しました' : 'Sent',
+        description: res.data.debug
+          ? 'SMSをご確認ください（デモ環境: 認証コードは 000000）'
+          : 'SMSをご確認ください / SMS sent, please check your phone'
       })
       setShowPhoneVerify(true)
     } catch (err: any) {
-      toast({ 
-        title: t('エラー', lang), 
-        description: err.response?.data?.detail || t('SMS送信に失敗しました', lang), 
-        variant: 'destructive' 
+      toast({
+        title: t('エラー', lang),
+        description: err.response?.data?.detail || t('SMS送信に失敗しました', lang),
+        variant: 'destructive'
       })
     } finally {
       setIsSendingOtp(false)
@@ -287,34 +301,35 @@ export default function MypagePage() {
             <div className="mt-6 pt-6 border-t border-white/5 animate-in slide-in-from-top-2">
               <div className="max-w-sm space-y-4">
                 <div className="space-y-1">
-                  <Label className="text-gray-400 text-xs">{t('電話番号', lang)} (E.164, e.g. +819012345678)</Label>
+                  <Label className="text-gray-400 text-xs">{t('電話番号', lang)} / Phone number</Label>
                   <div className="flex gap-2">
                     <Input 
                       type="tel" 
                       value={phone} 
                       onChange={e => setPhone(e.target.value)}
-                      placeholder="+819012345678"
+                      placeholder="例: 09012345678 / e.g. 09012345678"
                       className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
                     />
                     <Button 
                       onClick={handleSendOtp} 
                       disabled={isSendingOtp}
                       size="sm"
-                      className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold h-9"
+                      className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold h-9 whitespace-nowrap"
                     >
                       {isSendingOtp ? '...' : t('SMS送信', lang)}
                     </Button>
                   </div>
+                  <p className="text-gray-500 text-[10px]">国際形式（+81...）でも入力可 / International format also accepted</p>
                 </div>
                 
                 <div className="space-y-1">
-                  <Label className="text-gray-400 text-xs">{t('認証コード', lang)}</Label>
+                  <Label className="text-gray-400 text-xs">{t('認証コード', lang)} / Verification Code</Label>
                   <div className="flex gap-2">
                     <Input 
                       type="text" 
                       value={otpCode} 
                       onChange={e => setOtpCode(e.target.value)}
-                      placeholder="000000"
+                      placeholder="6桁のコード / 6-digit code"
                       maxLength={6}
                       className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
                     />
@@ -322,11 +337,14 @@ export default function MypagePage() {
                       onClick={handleVerifyOtp} 
                       disabled={isVerifyingOtp}
                       size="sm"
-                      className="bg-white text-gray-950 hover:bg-white/90 font-bold h-9 px-4"
+                      className="bg-white text-gray-950 hover:bg-white/90 font-bold h-9 px-4 whitespace-nowrap"
                     >
                       {isVerifyingOtp ? '...' : t('認証する', lang)}
                     </Button>
                   </div>
+                  {isDebugMode && (
+                    <p className="text-gray-500 text-[10px]">デモ環境: 認証コードは 000000 / Demo: use code 000000</p>
+                  )}
                 </div>
               </div>
             </div>

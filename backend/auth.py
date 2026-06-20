@@ -12,6 +12,7 @@ from database import get_db
 import models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 
 # ─── Password helpers ───────────────────────────────────────────
@@ -63,6 +64,18 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_current_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> Optional[models.User]:
+    if not token:
+        return None
+    user_id = decode_token(token)
+    if user_id is None:
+        return None
+    return db.query(models.User).filter(models.User.id == int(user_id)).first()
 
 
 def get_current_admin(

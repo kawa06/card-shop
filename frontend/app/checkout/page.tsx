@@ -45,6 +45,14 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
+  const normalizePhone = (raw: string) => {
+    const cleaned = raw.trim().replace(/[\s-]/g, '')
+    if (cleaned.startsWith('0') && cleaned.length > 0) {
+      return '+81' + cleaned.slice(1)
+    }
+    return cleaned
+  }
+
   const isInternational = country !== 'Japan' && country !== ''
   
   // Fetch shipping rates
@@ -217,10 +225,11 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true)
     try {
+      const normalizedPhone = normalizePhone(phoneNumber)
       const currentCountry = lang === 'ja' ? 'Japan' : country
       const shippingAddress = lang === 'ja'
-        ? `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2} (Tel: ${phoneNumber})`
-        : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountry} (Tel: ${phoneNumber})`
+        ? `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2} (Tel: ${normalizedPhone})`
+        : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountry} (Tel: ${normalizedPhone})`
 
       // 1. Update user profile if saveAddress is checked
       if (saveAddress) {
@@ -232,7 +241,7 @@ export default function CheckoutPage() {
           city: city,
           address_line1: addressLine1,
           address_line2: addressLine2,
-          phone_number: phoneNumber
+          phone_number: normalizedPhone
         })
         fetchMe() // refresh global state
       }

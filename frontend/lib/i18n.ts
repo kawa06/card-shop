@@ -211,6 +211,7 @@ const dict: Record<string, string> = {
   '電話番号未認証': 'Phone Not Verified',
   'SMSを送信しました': 'SMS Sent',
   '認証に成功しました': 'Verification Successful',
+  '認証に失敗しました': 'Verification failed',
   '国コード': 'Country Code',
 
   '発送・補償ポリシー': 'Shipping & Insurance Policy',

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional
 from database import get_db
 from config import settings
-from auth import hash_password, verify_password, create_access_token, get_current_user
+from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
 import models
 import schemas
@@ -48,6 +48,8 @@ async def register(
         password_hash=hash_password(payload.password),
         is_admin=(payload.email in ADMIN_EMAILS),
         verification_token=verification_token,
+        phone_number=payload.phone_number,
+        phone_verified=payload.phone_number is not None,  # フロントエンドで認証済みとみなす
     )
     db.add(user)
     db.commit()
@@ -177,7 +179,7 @@ def verify_email(
 @router.post("/phone/send", status_code=status.HTTP_200_OK)
 async def send_phone_otp(
     payload: schemas.PhoneAuthRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     # Twilio Verify API start
@@ -200,7 +202,7 @@ async def send_phone_otp(
 @router.post("/phone/verify", status_code=status.HTTP_200_OK)
 async def verify_phone_otp(
     payload: schemas.PhoneVerifyRequest,
-    current_user: models.User = Depends(get_current_user),
+    current_user: Optional[models.User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     # Twilio Verify API check
@@ -228,9 +230,10 @@ async def verify_phone_otp(
             raise HTTPException(status_code=500, detail=f"認証に失敗しました: {str(e)}")
 
     if is_verified:
-        current_user.phone_number = payload.phone
-        current_user.phone_verified = True
-        db.commit()
+        if current_user:
+            current_user.phone_number = payload.phone
+            current_user.phone_verified = True
+            db.commit()
         return {"message": "電話番号の認証が完了しました"}
     
     raise HTTPException(status_code=400, detail="認証に失敗しました")
