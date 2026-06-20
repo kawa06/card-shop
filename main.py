@@ -12,7 +12,11 @@ print("Backend App Loaded Successfully.")
 
 @app.get("/api/health-root")
 def health_root():
-    return {"status": "ok", "source": "root-main", "version": "v17"}
+    return {"status": "ok", "source": "root-main", "version": "v20"}
+
+@app.get("/api/health")
+def health_check_proxy():
+    return {"status": "ok", "version": "v20-root-proxy"}
 
 if __name__ == "__main__":
     import uvicorn
