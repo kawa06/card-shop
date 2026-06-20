@@ -25,13 +25,6 @@ def create_order(
     if not cart_items:
         raise HTTPException(status_code=400, detail="カートが空です")
 
-    # Enforce phone verification
-    if not current_user.phone_verified:
-        raise HTTPException(
-            status_code=400, 
-            detail="電話番号認証が完了していません。マイページまたは注文画面で認証を行ってください。 / Phone number verification is required."
-        )
-
     # Validate shipping method intersection
     allowed_methods_set = None
     for item in cart_items:
