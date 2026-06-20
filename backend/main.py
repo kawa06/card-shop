@@ -16,13 +16,11 @@ from routes.translate import router as translate_router
 from routes.exchange import router as exchange_router
 from routes.shipping import router as shipping_router
 
-# Create all tables on startup (new columns added if not exists via ALTER)
-Base.metadata.create_all(bind=engine)
-
 # Apply missing column migrations for SQLite (More robust PRAGMA check)
 from sqlalchemy import text
 
 def add_columns_if_missing():
+    print("Running database migrations (checking for missing columns)...")
     with engine.connect() as conn:
         # Helper to get existing columns
         def get_existing_columns(table_name):
@@ -42,9 +40,10 @@ def add_columns_if_missing():
             ("allowed_shipping_methods", "TEXT"),
         ]:
             if col not in existing_cards:
+                print(f"Adding missing column cards.{col}")
                 try:
                     conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
-                except Exception: pass
+                except Exception as e: print(f"Failed to add cards.{col}: {e}")
         
         # Users table migrations
         existing_users = get_existing_columns("users")
@@ -55,16 +54,17 @@ def add_columns_if_missing():
             ("country", "VARCHAR(100)"),
             ("region", "VARCHAR(100)"),
             ("city", "VARCHAR(100)"),
-            ("address_line1", "TEXT"),
-            ("address_line2", "TEXT"),
+            ("address_line1", "VARCHAR(255)"),
+            ("address_line2", "VARCHAR(255)"),
             ("address", "TEXT"),
             ("phone_number", "VARCHAR(20)"),
             ("phone_verified", "BOOLEAN DEFAULT 0"),
         ]:
             if col not in existing_users:
+                print(f"Adding missing column users.{col}")
                 try:
                     conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
-                except Exception: pass
+                except Exception as e: print(f"Failed to add users.{col}: {e}")
 
         # Orders table migrations
         existing_orders = get_existing_columns("orders")
@@ -73,16 +73,17 @@ def add_columns_if_missing():
             ("country", "VARCHAR(100)"),
             ("region", "VARCHAR(100)"),
             ("city", "VARCHAR(100)"),
-            ("address_line1", "TEXT"),
-            ("address_line2", "TEXT"),
+            ("address_line1", "VARCHAR(255)"),
+            ("address_line2", "VARCHAR(255)"),
             ("shipping_address", "TEXT"),
             ("shipping_method", "VARCHAR(50)"),
             ("shipping_fee", "INTEGER DEFAULT 0"),
         ]:
             if col not in existing_orders:
+                print(f"Adding missing column orders.{col}")
                 try:
                     conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
-                except Exception: pass
+                except Exception as e: print(f"Failed to add orders.{col}: {e}")
 
         # Shipping rates migrations
         existing_rates = get_existing_columns("shipping_rates")
@@ -91,16 +92,23 @@ def add_columns_if_missing():
             ("is_individual_available", "BOOLEAN DEFAULT 1"),
         ]:
             if col not in existing_rates:
+                print(f"Adding missing column shipping_rates.{col}")
                 try:
                     conn.execute(text(f"ALTER TABLE shipping_rates ADD COLUMN {col} {definition}"))
-                except Exception: pass
+                except Exception as e: print(f"Failed to add shipping_rates.{col}: {e}")
         
         conn.commit()
-
-add_columns_if_missing()
+    print("Database migrations completed.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize database tables and migrations
+    try:
+        Base.metadata.create_all(bind=engine)
+        add_columns_if_missing()
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+
     # Initial refresh on startup
     try:
         with SessionLocal() as db:
