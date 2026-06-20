@@ -104,7 +104,7 @@ async def fetch_page(url):
 def extract_fee(html, regex):
     if not html:
         return None
-    soup = BeautifulSoup(html, 'lxml')
+    soup = BeautifulSoup(html, 'html.parser')
     text = soup.get_text()
     match = re.search(regex, text)
     if match:
