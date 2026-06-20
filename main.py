@@ -17,4 +17,8 @@ except ImportError:
 def root_check():
     return {"source": "root-main-v2"}
 
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "version": "root-deployed-v7"}
+
 __all__ = ["app"]
