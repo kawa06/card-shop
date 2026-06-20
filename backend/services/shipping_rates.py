@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 FALLBACK_RATES = {
     "takkyubin_compact": {
         "carrier": "yamato",
-        "name_ja": "宅急便コンパクト",
+        "name_ja": "ヤマト運輸コンパクト",
         "name_en": "Takkyubin Compact",
         "fee_jpy": 600,
         "has_tracking": True,
