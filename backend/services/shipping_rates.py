@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Fallback values (2024 pricing)
 FALLBACK_RATES = {
     "takkyubin_compact": {
+        "carrier": "yamato",
         "name_ja": "宅急便コンパクト",
         "name_en": "Takkyubin Compact",
         "fee_jpy": 600,
@@ -21,6 +22,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/compact/",
     },
     "click_post": {
+        "carrier": "japan_post",
         "name_ja": "クリックポスト",
         "name_en": "Click Post",
         "fee_jpy": 185,
@@ -30,6 +32,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.post.japanpost.jp/service/click_post/",
     },
     "nekopos": {
+        "carrier": "yamato",
         "name_ja": "ネコポス",
         "name_en": "Nekopos",
         "fee_jpy": 385,
@@ -39,6 +42,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
     },
     "letter_pack_light": {
+        "carrier": "japan_post",
         "name_ja": "レターパックライト",
         "name_en": "Letter Pack Light",
         "fee_jpy": 430,
@@ -48,6 +52,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.post.japanpost.jp/service/letterpack/",
     },
     "letter_pack_plus": {
+        "carrier": "japan_post",
         "name_ja": "レターパックプラス",
         "name_en": "Letter Pack Plus",
         "fee_jpy": 600,
@@ -57,6 +62,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.post.japanpost.jp/service/letterpack/",
     },
     "yu_pack_60": {
+        "carrier": "japan_post",
         "name_ja": "ゆうパック (60サイズ)",
         "name_en": "Yu-Pack (Size 60)",
         "fee_jpy": 970,
@@ -66,6 +72,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.post.japanpost.jp/service/you_pack/",
     },
     "takkyubin_60": {
+        "carrier": "yamato",
         "name_ja": "宅急便 (60サイズ)",
         "name_en": "Takkyubin (Size 60)",
         "fee_jpy": 940,
@@ -75,6 +82,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
     },
     "takkyubin_80": {
+        "carrier": "yamato",
         "name_ja": "宅急便 (80サイズ)",
         "name_en": "Takkyubin (Size 80)",
         "fee_jpy": 1150,
@@ -84,6 +92,7 @@ FALLBACK_RATES = {
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
     },
     "international": {
+        "carrier": "japan_post",
         "name_ja": "国際郵便 / 国際配送",
         "name_en": "International Shipping",
         "fee_jpy": 2000,
@@ -170,8 +179,12 @@ async def refresh_all_rates(db: Session):
         if db_rate:
             if fee is not None:
                 db_rate.fee_jpy = fee
-                db_rate.updated_at = datetime.utcnow()
-            # If fee is None, we maintain the previous value in db_rate.fee_jpy
+            # Update other metadata if changed
+            if code in FALLBACK_RATES:
+                db_rate.carrier = FALLBACK_RATES[code].get("carrier")
+                db_rate.name_ja = FALLBACK_RATES[code].get("name_ja")
+                db_rate.name_en = FALLBACK_RATES[code].get("name_en")
+            db_rate.updated_at = datetime.utcnow()
         else:
             # New entry: use fee if available, else FALLBACK_RATES
             final_fee = fee if fee is not None else FALLBACK_RATES[code]["fee_jpy"]
@@ -242,6 +255,8 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     kyushu = ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島"]
     okinawa = ["沖縄"]
 
+    # All 47 prefectures covered in blocks above.
+    
     # Base is Kanto (approx 600 for compact, 940 for 60)
     if method_code == "takkyubin_compact":
         if any(r in region for r in kanto + shinetsu + hokuriku + chubu + kansai): return 600
@@ -256,6 +271,13 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
         if any(r in region for r in hokkaido + kyushu): return 1460
         if any(r in region for r in okinawa): return 1460
         return 940
+
+    if method_code == "takkyubin_80":
+        if any(r in region for r in kanto + shinetsu + hokuriku + chubu + kansai): return 1150
+        if any(r in region for r in tohoku + chugoku + shikoku): return 1280
+        if any(r in region for r in hokkaido + kyushu): return 1650
+        if any(r in region for r in okinawa): return 1650
+        return 1150
 
     return base_rate
 

@@ -297,6 +297,7 @@ class ExchangeRateResponse(BaseModel):
 
 class ShippingRateOut(BaseModel):
     method_code: str
+    carrier: Optional[str] = None
     name_ja: str
     name_en: str
     fee_jpy: int

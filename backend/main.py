@@ -54,13 +54,12 @@ with engine.connect() as conn:
         except Exception:
             pass  # column already exists
 
-    # Orders table migrations
+    # Shipping rates migrations
     for col, definition in [
-        ("shipping_method", "VARCHAR(50)"),
-        ("shipping_fee", "INTEGER DEFAULT 0"),
+        ("carrier", "VARCHAR(50)"),
     ]:
         try:
-            conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
+            conn.execute(text(f"ALTER TABLE shipping_rates ADD COLUMN {col} {definition}"))
             conn.commit()
         except Exception:
             pass  # column already exists

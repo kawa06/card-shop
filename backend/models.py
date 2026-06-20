@@ -156,6 +156,7 @@ class ShippingRate(Base):
     __tablename__ = "shipping_rates"
 
     method_code = Column(String(50), primary_key=True)
+    carrier = Column(String(50), nullable=True) # yamato, japan_post, etc.
     name_ja = Column(String(100), nullable=False)
     name_en = Column(String(100), nullable=False)
     fee_jpy = Column(Integer, nullable=False)

@@ -95,60 +95,77 @@ export default function AdminShippingPage() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-4">
-            {rates.map((rate) => (
-              <div key={rate.method_code} className="bg-gray-900 rounded-xl border border-white/10 p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h2 className="text-lg font-bold text-white">
-                        {lang === 'ja' ? rate.name_ja : rate.name_en}
-                      </h2>
-                      <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-white/5">
-                        {rate.method_code}
-                      </span>
+          <div className="space-y-8">
+            {Object.entries(
+              rates.reduce((acc, rate) => {
+                const carrier = rate.carrier || 'other'
+                if (!acc[carrier]) acc[carrier] = []
+                acc[carrier].push(rate)
+                return acc
+              }, {} as Record<string, ShippingRate[]>)
+            ).map(([carrier, carrierRates]) => (
+              <div key={carrier} className="space-y-4">
+                <h2 className="text-xs uppercase tracking-[0.2em] text-gray-500 font-black flex items-center gap-2 ml-2">
+                  <div className="h-px w-8 bg-gray-800" />
+                  {carrier === 'yamato' ? 'Yamato Transport' : carrier === 'japan_post' ? 'Japan Post' : 'Other Carriers'}
+                </h2>
+                <div className="grid gap-4">
+                  {carrierRates.map((rate) => (
+                    <div key={rate.method_code} className="bg-gray-900 rounded-xl border border-white/10 p-6 hover:border-white/20 transition-all group">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">
+                              {lang === 'ja' ? rate.name_ja : rate.name_en}
+                            </h3>
+                            <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-white/5">
+                              {rate.method_code}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {rate.has_tracking && (
+                              <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 flex items-center gap-1">
+                                <Globe className="h-3 w-3" /> {t('追跡有', lang)}
+                              </span>
+                            )}
+                            {rate.has_insurance ? (
+                              <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 flex items-center gap-1">
+                                <Shield className="h-3 w-3" /> {t('補償有', lang)}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
+                                <Shield className="h-3 w-3" /> {t('補償無', lang)}
+                              </span>
+                            )}
+                            {rate.max_size && (
+                              <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">
+                                {rate.max_size}
+                              </span>
+                            )}
+                          </div>
+                          {rate.source_url && (
+                            <a
+                              href={rate.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {lang === 'ja' ? '参照元ページ' : 'Source URL'}
+                            </a>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-orange-400">
+                            {formatPrice(rate.fee_jpy)}
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-1">
+                            {t('最終更新', lang)}: {new Date(rate.updated_at).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {rate.has_tracking && (
-                        <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 flex items-center gap-1">
-                          <Globe className="h-3 w-3" /> {t('追跡有', lang)}
-                        </span>
-                      )}
-                      {rate.has_insurance ? (
-                        <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 flex items-center gap-1">
-                          <Shield className="h-3 w-3" /> {t('補償有', lang)}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
-                          <Shield className="h-3 w-3" /> {t('補償無', lang)}
-                        </span>
-                      )}
-                      {rate.max_size && (
-                        <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">
-                          {rate.max_size}
-                        </span>
-                      )}
-                    </div>
-                    {rate.source_url && (
-                      <a
-                        href={rate.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        {lang === 'ja' ? '参照元ページ' : 'Source URL'}
-                      </a>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-orange-400">
-                      {formatPrice(rate.fee_jpy)}
-                    </p>
-                    <p className="text-[10px] text-gray-500 mt-1">
-                      {t('最終更新', lang)}: {new Date(rate.updated_at).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
             ))}

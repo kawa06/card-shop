@@ -31,11 +31,11 @@ export default function ShippingPolicyPage() {
             <div className="grid gap-4">
               <div className="p-4 bg-gray-800 rounded-lg border border-white/5">
                 <h3 className="font-bold text-white mb-1">{t('宅急便コンパクト（ヤマト運輸）', lang)}</h3>
-                <p className="text-sm opacity-80">{t('600円（補償あり、推奨）', lang)}</p>
+                <p className="text-sm opacity-80">{t('補償あり、推奨', lang)}</p>
               </div>
               <div className="p-4 bg-gray-800 rounded-lg border border-white/5">
                 <h3 className="font-bold text-white mb-1">{t('クリックポスト（日本郵便）', lang)}</h3>
-                <p className="text-sm opacity-80">{t('200円（追跡あり・補償なし、安価）', lang)}</p>
+                <p className="text-sm opacity-80">{t('追跡あり・補償なし、安価', lang)}</p>
               </div>
             </div>
           </section>

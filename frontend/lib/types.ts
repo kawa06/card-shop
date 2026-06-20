@@ -86,6 +86,7 @@ export interface Order {
 
 export interface ShippingRate {
   method_code: string
+  carrier?: string
   name_ja: string
   name_en: string
   fee_jpy: number

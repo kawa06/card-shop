@@ -303,17 +303,34 @@ export default function AdminCardsPage() {
                 <div className="sm:col-span-2 space-y-2 pt-2 border-t border-white/5">
                   <Label className="text-gray-300">許可する発送方法</Label>
                   <p className="text-[10px] text-gray-500 mb-2">指定しない場合は全ての発送方法が選択可能 / 例: 高額カードは宅急便コンパクトのみに制限</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {shippingRates.map(rate => (
-                      <label key={rate.method_code} className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                          type="checkbox"
-                          checked={form.allowed_shipping_methods.includes(rate.method_code)}
-                          onChange={() => toggleShippingMethod(rate.method_code)}
-                          className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
-                        />
-                        <span className="text-xs text-gray-400 group-hover:text-white transition-colors">{rate.name_ja}</span>
-                      </label>
+                  
+                  <div className="space-y-4">
+                    {Object.entries(
+                      shippingRates.reduce((acc, rate) => {
+                        const carrier = rate.carrier || 'other'
+                        if (!acc[carrier]) acc[carrier] = []
+                        acc[carrier].push(rate)
+                        return acc
+                      }, {} as Record<string, ShippingRate[]>)
+                    ).map(([carrier, rates]) => (
+                      <div key={carrier} className="space-y-2">
+                        <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-bold ml-1">
+                          {carrier === 'yamato' ? 'ヤマト運輸' : carrier === 'japan_post' ? '日本郵便' : 'その他'}
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {rates.map(rate => (
+                            <label key={rate.method_code} className="flex items-center gap-2 cursor-pointer group p-2 rounded bg-gray-800/50 border border-white/5 hover:border-white/10 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={form.allowed_shipping_methods.includes(rate.method_code)}
+                                onChange={() => toggleShippingMethod(rate.method_code)}
+                                className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                              />
+                              <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors">{rate.name_ja}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

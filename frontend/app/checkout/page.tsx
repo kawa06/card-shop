@@ -37,6 +37,16 @@ export default function CheckoutPage() {
   const [addressLine2, setAddressLine2] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [fullName, setFullName] = useState('')
+
+  // Debounced address state for shipping calculation
+  const [debouncedAddress, setDebouncedAddress] = useState({ region: '', country: 'Japan' })
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAddress({ region, country })
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [region, country])
+
   const [paymentMethod, setPaymentMethod] = useState('credit_card')
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
@@ -114,7 +124,7 @@ export default function CheckoutPage() {
       return
     }
 
-    const currentCountry = lang === 'ja' ? 'Japan' : country
+    const currentCountry = lang === 'ja' ? 'Japan' : debouncedAddress.country
     
     // For international, it's always handled separately or we use the calculation
     if (currentCountry !== 'Japan' && lang === 'en') {
@@ -131,7 +141,7 @@ export default function CheckoutPage() {
 
     shippingApi.calculateRate({
       method_code: shippingMethod,
-      region: region,
+      region: debouncedAddress.region,
       country: 'Japan'
     }).then(res => {
       setDynamicShippingFee(res.data.fee_jpy)
@@ -139,11 +149,19 @@ export default function CheckoutPage() {
       const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
       setDynamicShippingFee(selectedRate?.fee_jpy || 0)
     })
-  }, [shippingMethod, region, country, lang, shippingRates])
+  }, [shippingMethod, debouncedAddress, lang, shippingRates])
 
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
   const shippingFee = dynamicShippingFee ?? (isInternational ? 0 : (selectedRate?.fee_jpy || 0))
   const finalTotal = total + shippingFee
+
+  // Grouped shipping rates
+  const groupedRates = availableRates.reduce((acc, rate) => {
+    const carrier = rate.carrier || 'other'
+    if (!acc[carrier]) acc[carrier] = []
+    acc[carrier].push(rate)
+    return acc
+  }, {} as Record<string, ShippingRate[]>)
 
   const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
 
@@ -277,39 +295,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-950">
-      <div className="container py-8 max-w-4xl">
-        <h1 className="text-2xl font-bold text-white mb-6">{t('注文確認', lang)}</h1>
+      <div className="container py-8 max-w-2xl">
+        <h1 className="text-2xl font-bold text-white mb-6 text-center">{t('注文確認', lang)}</h1>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Order Items */}
-          <div>
-            <h2 className="text-white font-semibold mb-3">{t('注文内容', lang)}</h2>
-            <div className="bg-gray-900 rounded-lg border border-white/10 p-4 space-y-3">
-              {items.map((item) => (
-                <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
-              ))}
-              <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
-                <div className="flex justify-between text-gray-400">
-                  <span>{t('小計', lang)}</span>
-                  <span>{formatPrice(total)}</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>{t('送料', lang)}</span>
-                  <span>{formatPrice(shippingFee)}</span>
-                </div>
-              </div>
-              <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
-                <span className="text-gray-400">{t('合計', lang)}</span>
-                <span className="text-yellow-400 text-lg">{formatPrice(finalTotal)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Checkout Form */}
-          <div>
-            <h2 className="text-white font-semibold mb-3">{t('配送・支払い情報', lang)}</h2>
-            <form onSubmit={handleSubmit} className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-5">
-              <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 1. 配送先住所 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">1</span>
+              {t('配送先住所', lang)}
+            </h2>
+            <div className="grid grid-cols-1 gap-4">
                 {lang === 'en' ? (
                   <>
                     <div className="space-y-2">
@@ -463,21 +459,7 @@ export default function CheckoutPage() {
                     </div>
                   </>
                 )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="phoneNumber" className="text-gray-300 text-sm">{t('電話番号', lang)}</Label>
-                  <Input
-                    id="phoneNumber"
-                    type="tel"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder={lang === 'en' ? "+1-000-000-0000" : "090-0000-0000"}
-                    required
-                    className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-2">
                   <input
                     type="checkbox"
                     id="saveAddress"
@@ -489,112 +471,191 @@ export default function CheckoutPage() {
                     {t('この住所を保存して次回から自動入力する', lang)}
                   </Label>
                 </div>
-              </div>
+            </div>
+          </section>
 
-              <div className="space-y-3 border-t border-white/5 pt-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-gray-300 text-sm">{t('発送方法', lang)}</Label>
-                  <Link href="/shipping-policy" className="text-xs text-yellow-400 hover:underline">
-                    {t('補償について詳しく', lang)}
-                  </Link>
-                </div>
+          {/* 2. 連絡先 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">2</span>
+              {t('連絡先', lang)}
+            </h2>
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber" className="text-gray-300 text-sm">{t('電話番号', lang)}</Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder={lang === 'en' ? "+1-000-000-0000" : "090-0000-0000"}
+                required
+                className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+              />
+            </div>
+          </section>
 
-                <div className="space-y-2">
-                  {!isInternational && allowedMethodCodes && (
-                      <p className="text-[10px] text-yellow-400/70 bg-yellow-400/5 p-2 rounded border border-yellow-400/10 mb-2 italic">
-                        ⚠️ {t('カート内商品により発送方法が制限されています', lang)} / This cart restricts shipping options
-                      </p>
-                    )}
-                    
-                    {availableRates.length === 0 ? (
-                      <p className="text-xs text-red-400 p-2 bg-red-400/10 rounded border border-red-400/20">
-                        {t('利用可能な発送方法がありません。商品の組み合わせをご確認ください。', lang)}
-                      </p>
-                    ) : (
-                      availableRates.map(rate => (
-                        <label 
-                          key={rate.method_code}
-                          className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
-                        >
-                          <input
-                            type="radio"
-                            name="shipping"
-                            value={rate.method_code}
-                            checked={shippingMethod === rate.method_code}
-                            onChange={() => setShippingMethod(rate.method_code)}
-                            className="mt-1 accent-yellow-400"
-                          />
-                          <div className="flex-1">
-                            <p className="text-white text-xs font-bold">
-                              {lang === 'ja' ? rate.name_ja : rate.name_en}
-                              <span className="ml-2 text-[10px] font-normal text-gray-500">
-                                [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
-                                [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
-                              </span>
-                            </p>
-                            <p className="text-gray-400 text-[10px]">
-                              {formatPrice(rate.fee_jpy)}
-                            </p>
-                          </div>
-                        </label>
-                      ))
-                    )}
+          {/* 3. 発送方法 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-white font-semibold flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">3</span>
+                {t('発送方法', lang)}
+              </h2>
+              <Link href="/shipping-policy" className="text-xs text-yellow-400 hover:underline">
+                {t('補償について詳しく', lang)}
+              </Link>
+            </div>
 
-                    {needsCompensationAgreement && (
-                      <div className="p-3 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-2">
-                        <p className="text-[10px] text-gray-300 leading-tight">
-                          {t('この発送方法は、万が一の事故の際の補償が限定的またはありません。', lang)}
-                          <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
-                            {t('補償内容と各社公式規定を確認', lang)}
-                          </Link>
-                        </p>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={agreedToNoCompensation}
-                            onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
-                            className="w-3 h-3 accent-yellow-400"
-                          />
-                          <span className="text-[10px] text-yellow-400 font-bold">{t('配送会社の補償規定に同意します', lang)}</span>
-                        </label>
+            <div className="space-y-4">
+              {!isInternational && allowedMethodCodes && (
+                  <p className="text-[10px] text-yellow-400/70 bg-yellow-400/5 p-2 rounded border border-yellow-400/10 italic">
+                    ⚠️ {t('カート内商品により発送方法が制限されています', lang)}
+                  </p>
+                )}
+                
+                {availableRates.length === 0 ? (
+                  <p className="text-xs text-red-400 p-2 bg-red-400/10 rounded border border-red-400/20">
+                    {t('利用可能な発送方法がありません。商品の組み合わせをご確認ください。', lang)}
+                  </p>
+                ) : (
+                  Object.entries(groupedRates).map(([carrier, rates]) => (
+                    <div key={carrier} className="space-y-2">
+                      <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-bold ml-1">
+                        {carrier === 'yamato' ? t('ヤマト運輸', lang) : carrier === 'japan_post' ? t('日本郵便', lang) : t('その他', lang)}
+                      </h3>
+                      <div className="grid gap-2">
+                        {rates.map(rate => (
+                          <label 
+                            key={rate.method_code}
+                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
+                          >
+                            <input
+                              type="radio"
+                              name="shipping"
+                              value={rate.method_code}
+                              checked={shippingMethod === rate.method_code}
+                              onChange={() => setShippingMethod(rate.method_code)}
+                              className="mt-1 accent-yellow-400"
+                            />
+                            <div className="flex-1">
+                              <p className="text-white text-xs font-bold">
+                                {lang === 'ja' ? rate.name_ja : rate.name_en}
+                                <span className="ml-2 text-[10px] font-normal text-gray-500">
+                                  [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
+                                  [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
+                                </span>
+                              </p>
+                              <p className="text-gray-400 text-[10px]">
+                                {formatPrice(rate.fee_jpy)}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
                       </div>
-                    )}
-                  </div>
-              </div>
+                    </div>
+                  ))
+                )}
+            </div>
+          </section>
 
-              <div className="space-y-2 border-t border-white/5 pt-4">
-                <Label className="text-gray-300 text-sm">{t('支払い方法', lang)}</Label>
-                <div className="space-y-2">
-                  {[
-                    { value: 'credit_card', label: t('クレジットカード（後日実装）', lang) },
-                    { value: 'bank_transfer', label: t('銀行振込', lang) },
-                    { value: 'cod', label: t('代金引換', lang) },
-                  ].map((method) => (
-                    <label key={method.value} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="payment"
-                        value={method.value}
-                        checked={paymentMethod === method.value}
-                        onChange={() => setPaymentMethod(method.value)}
-                        className="accent-yellow-400"
-                      />
-                      <span className="text-gray-300 text-xs">{method.label}</span>
-                    </label>
-                  ))}
+          {/* 4. 注文サマリ */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
+              {t('注文内容確認', lang)}
+            </h2>
+            <div className="space-y-3">
+              {items.map((item) => (
+                <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
+              ))}
+              <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
+                <div className="flex justify-between text-gray-400">
+                  <span>{t('小計', lang)}</span>
+                  <span>{formatPrice(total)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>{t('送料', lang)}</span>
+                  <span>{formatPrice(shippingFee)}</span>
                 </div>
               </div>
+              <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
+                <span className="text-gray-400">{t('合計', lang)}</span>
+                <span className="text-yellow-400 text-lg">{formatPrice(finalTotal)}</span>
+              </div>
+            </div>
+          </section>
 
-              <Button
-                type="submit"
-                disabled={isSubmitting || (!isInternational && availableRates.length === 0)}
-                className="w-full h-11 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold"
-              >
-                {isSubmitting ? t('注文処理中...', lang) : t('注文を確定する', lang)}
-              </Button>
-            </form>
+          {/* 5. 利用規約・補償免責同意 */}
+          {(needsCompensationAgreement || true) && (
+            <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+              <h2 className="text-white font-semibold flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">5</span>
+                {t('同意事項', lang)}
+              </h2>
+              
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-gray-300 text-sm">{t('支払い方法', lang)}</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: 'credit_card', label: t('カード', lang) },
+                      { value: 'bank_transfer', label: t('銀行振込', lang) },
+                      { value: 'cod', label: t('代金引換', lang) },
+                    ].map((method) => (
+                      <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
+                        <input
+                          type="radio"
+                          name="payment"
+                          value={method.value}
+                          checked={paymentMethod === method.value}
+                          onChange={() => setPaymentMethod(method.value)}
+                          className="accent-yellow-400"
+                        />
+                        <span className="text-gray-300 text-xs">{method.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {needsCompensationAgreement && (
+                  <div className="p-4 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-3">
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {t('ご希望の発送方法は、万が一の事故（紛失・破損）の際の補償が限定的、またはありません。', lang)}
+                      <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
+                        {t('発送・補償ポリシーを確認', lang)}
+                      </Link>
+                    </p>
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={agreedToNoCompensation}
+                        onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                      />
+                      <span className="text-sm text-yellow-400 font-bold group-hover:text-yellow-300 transition-colors">
+                        {t('配送会社の補償規定および免責事項に同意します', lang)}
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* 6. 注文確定ボタン */}
+          <div className="pt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting || (!isInternational && availableRates.length === 0)}
+              className="w-full h-14 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-black text-lg shadow-xl shadow-yellow-400/10"
+            >
+              {isSubmitting ? t('注文処理中...', lang) : t('注文を確定する', lang)}
+            </Button>
+            <p className="text-center text-[10px] text-gray-500 mt-4">
+              By clicking confirm, you agree to our Terms of Service and Privacy Policy.
+            </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   )
