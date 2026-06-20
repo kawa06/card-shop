@@ -10,9 +10,9 @@ print("Starting Root Main App...")
 from backend.main import app
 print("Backend App Loaded Successfully.")
 
-@app.get("/api/test-deploy")
-def test_deploy():
-    return {"status": "deployed-v16-test"}
+@app.get("/api/health-root")
+def health_root():
+    return {"status": "ok", "source": "root-main", "version": "v17"}
 
 if __name__ == "__main__":
     import uvicorn
