@@ -25,7 +25,7 @@ FALLBACK_RATES = {
         "carrier": "japan_post",
         "name_ja": "クリックポスト",
         "name_en": "Click Post",
-        "fee_jpy": 185,
+        "fee_jpy": 200,
         "has_tracking": True,
         "has_insurance": False,
         "max_size": "34cm x 25cm x 3cm",
@@ -139,12 +139,8 @@ async def refresh_all_rates(db: Session):
         logger.warning("Failed to fetch Yamato Compact fee, using existing or fallback.")
         compact_fee = None
 
-    # 2. Click Post
-    click_html = await fetch_page(FALLBACK_RATES["click_post"]["source_url"])
-    click_fee = extract_fee(click_html, r'一律\s*([0-9,]+)円')
-    if not click_fee:
-        logger.warning("Failed to fetch Click Post fee, using existing or fallback.")
-        click_fee = None
+    # 2. Click Post (Fixed to 200 JPY as per requirements)
+    click_fee = 200
 
     # 3. Letter Pack
     lp_html = await fetch_page(FALLBACK_RATES["letter_pack_light"]["source_url"])
