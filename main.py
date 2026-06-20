@@ -8,6 +8,10 @@ if backend_dir not in sys.path:
 
 from backend.main import app
 
+@app.get("/api/test-deploy")
+def test_deploy():
+    return {"status": "deployed-7e86c09"}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
