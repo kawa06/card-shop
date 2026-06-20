@@ -151,7 +151,11 @@ export default function CheckoutPage() {
     for (const item of items) {
       if (item.card.allowed_shipping_methods) {
         try {
-          const methods = JSON.parse(item.card.allowed_shipping_methods)
+          // Handle various empty states like "null", "[]", ""
+          const raw = item.card.allowed_shipping_methods
+          if (raw === 'null' || raw === '[]' || raw === '') continue
+
+          const methods = JSON.parse(raw)
           if (Array.isArray(methods) && methods.length > 0) {
             const methodSet = new Set(methods)
             if (intersection === null) {

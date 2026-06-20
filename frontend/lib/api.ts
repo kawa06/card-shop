@@ -38,7 +38,7 @@ apiClient.interceptors.response.use(
 export const cardsApi = {
   getAll: (params?: {
     page?: number
-    size?: number
+    per_page?: number
     category_id?: number
     search?: string
   }) => apiClient.get('/cards', { params }),
@@ -132,6 +132,12 @@ export const ordersApi = {
 // Admin API
 export const adminApi = {
   // Cards
+  getAllCards: (params?: {
+    page?: number
+    per_page?: number
+    q?: string
+    is_active?: boolean
+  }) => apiClient.get('/admin/cards', { params }),
   createCard: (data: Partial<import('./types').Card>) =>
     apiClient.post('/admin/cards', data),
   updateCard: (id: number, data: Partial<import('./types').Card>) =>

@@ -38,7 +38,12 @@ def create_order(
         card = item.card
         if card.allowed_shipping_methods:
             try:
-                methods = json.loads(card.allowed_shipping_methods)
+                # Handle various empty states
+                raw = card.allowed_shipping_methods
+                if raw in ('null', '[]', ''):
+                    continue
+
+                methods = json.loads(raw)
                 if isinstance(methods, list) and methods:
                     methods_set = set(methods)
                     if allowed_methods_set is None:

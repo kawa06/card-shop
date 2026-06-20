@@ -94,7 +94,7 @@ export default function AdminCardsPage() {
     setIsLoading(true)
     try {
       const [cardsRes, catsRes, shipRes] = await Promise.all([
-        cardsApi.getAll({ size: 100 }),
+        adminApi.getAllCards({ per_page: 100 }),
         categoriesApi.getAll(),
         shippingApi.getRates(),
       ])
@@ -450,6 +450,7 @@ export default function AdminCardsPage() {
                     <th className="text-left text-gray-400 font-medium px-4 py-3">カード</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">レアリティ</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">状態</th>
+                    <th className="text-left text-gray-400 font-medium px-4 py-3">ステータス</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">価格</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">在庫</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">操作</th>
@@ -457,7 +458,7 @@ export default function AdminCardsPage() {
                 </thead>
                 <tbody>
                   {cards.map((card) => (
-                    <tr key={card.id} className="border-b border-white/5 hover:bg-white/5">
+                    <tr key={card.id} className={`border-b border-white/5 hover:bg-white/5 ${!card.is_active ? 'opacity-50 bg-black/20' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="relative w-8 h-10 rounded overflow-hidden bg-gray-800 flex-shrink-0">
@@ -472,6 +473,11 @@ export default function AdminCardsPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-400">{card.rarity}</td>
                       <td className="px-4 py-3 text-gray-400">{card.condition ? CONDITION_LABEL[card.condition] ?? card.condition : '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${card.is_active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                          {card.is_active ? '公開中' : '非公開'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right text-yellow-400">{formatPrice(card.price)}</td>
                       <td className="px-4 py-3 text-right text-gray-400">{card.stock}</td>
                       <td className="px-4 py-3 text-right">
