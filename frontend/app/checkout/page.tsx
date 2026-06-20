@@ -49,6 +49,41 @@ export default function CheckoutPage() {
   const [addressLine2, setAddressLine2] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [fullName, setFullName] = useState('')
+  const [isFetchingAddress, setIsFetchingAddress] = useState(false)
+
+  // Fetch address from zipcloud when postal code is 7 digits
+  useEffect(() => {
+    const fetchAddress = async () => {
+      const cleanZip = postalCode.replace(/[^\d]/g, '')
+      if (cleanZip.length === 7) {
+        setIsFetchingAddress(true)
+        try {
+          const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${cleanZip}`)
+          const data = await res.json()
+          if (data.status === 200 && data.results && data.results[0]) {
+            const result = data.results[0]
+            setRegion(result.address1)
+            setCity(result.address2 + result.address3)
+            toast({
+              title: lang === 'ja' ? '住所を自動入力しました' : 'Address auto-filled',
+              description: `${result.address1}${result.address2}${result.address3}`
+            })
+          } else if (data.message) {
+             console.error('Zipcloud API error:', data.message)
+          }
+        } catch (error) {
+          console.error('Failed to fetch address', error)
+        } finally {
+          setIsFetchingAddress(false)
+        }
+      }
+    }
+
+    // Only auto-fetch for Japan
+    if (lang === 'ja' || country === 'Japan') {
+      fetchAddress()
+    }
+  }, [postalCode, lang, country])
 
   // Debounced address state for shipping calculation
   const [debouncedAddress, setDebouncedAddress] = useState({ region: '', country: 'Japan' })
