@@ -200,32 +200,18 @@ export default function CheckoutPage() {
       return
     }
 
-    const currentCountry = lang === 'ja' ? 'Japan' : debouncedAddress.country
-    
-    // For international, it's always handled separately or we use the calculation
-    if (currentCountry !== 'Japan' && lang === 'en') {
-      shippingApi.calculateRate({
-        method_code: 'international',
-        country: currentCountry
-      }).then(res => {
-        setDynamicShippingFee(res.data.fee_jpy)
-      }).catch(() => {
-        setDynamicShippingFee(2000) // Fallback
-      })
-      return
-    }
-
+    // New API format: ?method=xxx&prefecture=yyy
     shippingApi.calculateRate({
-      method_code: shippingMethod,
-      region: debouncedAddress.region,
-      country: 'Japan'
+      method: shippingMethod,
+      prefecture: debouncedAddress.region
     }).then(res => {
-      setDynamicShippingFee(res.data.fee_jpy)
+      setDynamicShippingFee(res.data.fee)
     }).catch(() => {
+      // Fallback to static rate
       const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
       setDynamicShippingFee(selectedRate?.fee_jpy || 0)
     })
-  }, [shippingMethod, debouncedAddress, lang, shippingRates])
+  }, [shippingMethod, debouncedAddress, shippingRates])
 
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
   const shippingFee = dynamicShippingFee ?? (isInternational ? 0 : (selectedRate?.fee_jpy || 0))

@@ -40,7 +40,7 @@ FALLBACK_RATES = {
         "fee_jpy": 385,
         "has_tracking": True,
         "has_insurance": True, # Limited to 3000 yen
-        "is_individual_available": False, # Requires corporate/business contract
+        "is_individual_available": True, # Updated for individual use
         "max_size": "31.2cm x 22.8cm x 3cm",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
     },
@@ -73,7 +73,7 @@ FALLBACK_RATES = {
         "fee_jpy": 970,
         "has_tracking": True,
         "has_insurance": True,
-        "is_individual_available": True,
+        "is_individual_available": False, # Business only
         "max_size": "60cm total",
         "source_url": "https://www.post.japanpost.jp/service/you_pack/",
     },
@@ -84,7 +84,7 @@ FALLBACK_RATES = {
         "fee_jpy": 940,
         "has_tracking": True,
         "has_insurance": True,
-        "is_individual_available": True,
+        "is_individual_available": False, # Business only
         "max_size": "60cm total",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
     },
@@ -95,7 +95,7 @@ FALLBACK_RATES = {
         "fee_jpy": 1150,
         "has_tracking": True,
         "has_insurance": True,
-        "is_individual_available": True,
+        "is_individual_available": False, # Business only
         "max_size": "80cm total",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
     },
@@ -239,7 +239,10 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     base_rate = FALLBACK_RATES.get(method_code, {}).get("fee_jpy", 0)
     
     # Flat rate methods
-    if method_code in ["click_post", "nekopos", "letter_pack_light", "letter_pack_plus"]:
+    if method_code == "click_post":
+        return 200 # National flat rate per requirements
+    
+    if method_code in ["nekopos", "letter_pack_light", "letter_pack_plus"]:
         return base_rate
     
     # Regional methods (Takkyubin, Yu-pack)
@@ -250,6 +253,9 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     region_str = str(region).replace("都", "").replace("府", "").replace("県", "").replace(" ", "").strip()
     
     hokkaido = ["北海道"]
+    okinawa = ["沖縄"]
+    
+    # Prefectures for regional pricing (other than Hokkaido/Okinawa)
     tohoku = ["青森", "岩手", "宮城", "秋田", "山形", "福島"]
     kanto = ["茨城", "栃木", "群馬", "埼玉", "千葉", "東京", "神奈川", "山梨"]
     shinetsu = ["新潟", "長野"]
@@ -259,7 +265,6 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     chugoku = ["鳥取", "島根", "岡山", "広島", "山口"]
     shikoku = ["徳島", "香川", "愛媛", "高知"]
     kyushu = ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島"]
-    okinawa = ["沖縄"]
 
     def match_region(target_list):
         # Match if the region_str starts with any of the prefectures or vice versa
@@ -267,24 +272,19 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
 
     # Base is Kanto (approx 600 for compact, 940 for 60)
     if method_code == "takkyubin_compact":
-        if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 600
-        if match_region(tohoku + chugoku + shikoku): return 650
-        if match_region(hokkaido + kyushu): return 850
-        if match_region(okinawa): return 850
-        return 600
+        if match_region(hokkaido + okinawa): return 850
+        return 600 # "その他は600円" per requirements
         
     if method_code in ["takkyubin_60", "yu_pack_60"]:
         if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 940
         if match_region(tohoku + chugoku + shikoku): return 1060
-        if match_region(hokkaido + kyushu): return 1460
-        if match_region(okinawa): return 1460
+        if match_region(hokkaido + kyushu + okinawa): return 1460
         return 940
 
     if method_code == "takkyubin_80":
         if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 1150
         if match_region(tohoku + chugoku + shikoku): return 1280
-        if match_region(hokkaido + kyushu): return 1650
-        if match_region(okinawa): return 1650
+        if match_region(hokkaido + kyushu + okinawa): return 1650
         return 1150
 
     return base_rate

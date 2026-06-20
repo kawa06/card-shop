@@ -9,11 +9,18 @@ from typing import Optional
 
 router = APIRouter(prefix="/shipping-rates", tags=["shipping"])
 
-@router.get("", response_model=list[schemas.ShippingRateOut])
-def get_shipping_rates(db: Session = Depends(get_db)):
+@router.get("")
+def get_shipping_rates(
+    method: Optional[str] = None,
+    prefecture: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    if method and prefecture:
+        fee = calculate_shipping_fee(method, prefecture)
+        return {"fee": fee, "method": method, "prefecture": prefecture}
+        
     rates = db.query(models.ShippingRate).all()
     if not rates:
-        # If empty, try to refresh once synchronously (or wait for first background task)
         return []
     return rates
 
