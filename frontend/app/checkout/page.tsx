@@ -169,8 +169,11 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
-    // Only show rates available for individuals
-    if (!rate.is_individual_available) return false
+    // Yamato Compact and Click Post are always shown regardless of the individual flag
+    const isAlwaysShown = rate.method_code === 'takkyubin_compact' || rate.method_code === 'click_post'
+    
+    // For others, check if it's available for individuals
+    if (!isAlwaysShown && !rate.is_individual_available) return false
 
     if (isInternational) {
       return rate.method_code === 'international'

@@ -245,8 +245,8 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     if not region:
         return base_rate
         
-    # Simplify prefectures into blocks
-    region_str = str(region).replace("都", "").replace("府", "").replace("県", "")
+    # Simplify prefectures into blocks and remove common suffixes for robust matching
+    region_str = str(region).replace("都", "").replace("府", "").replace("県", "").replace(" ", "").strip()
     
     hokkaido = ["北海道"]
     tohoku = ["青森", "岩手", "宮城", "秋田", "山形", "福島"]
@@ -260,28 +260,30 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     kyushu = ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島"]
     okinawa = ["沖縄"]
 
-    # All 47 prefectures covered in blocks above.
-    
+    def match_region(target_list):
+        # Match if the region_str starts with any of the prefectures or vice versa
+        return any(r in region_str or region_str in r for r in target_list)
+
     # Base is Kanto (approx 600 for compact, 940 for 60)
     if method_code == "takkyubin_compact":
-        if any(r in region_str for r in kanto + shinetsu + hokuriku + chubu + kansai): return 600
-        if any(r in region_str for r in tohoku + chugoku + shikoku): return 650
-        if any(r in region_str for r in hokkaido + kyushu): return 850
-        if any(r in region_str for r in okinawa): return 850
+        if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 600
+        if match_region(tohoku + chugoku + shikoku): return 650
+        if match_region(hokkaido + kyushu): return 850
+        if match_region(okinawa): return 850
         return 600
         
     if method_code in ["takkyubin_60", "yu_pack_60"]:
-        if any(r in region_str for r in kanto + shinetsu + hokuriku + chubu + kansai): return 940
-        if any(r in region_str for r in tohoku + chugoku + shikoku): return 1060
-        if any(r in region_str for r in hokkaido + kyushu): return 1460
-        if any(r in region_str for r in okinawa): return 1460
+        if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 940
+        if match_region(tohoku + chugoku + shikoku): return 1060
+        if match_region(hokkaido + kyushu): return 1460
+        if match_region(okinawa): return 1460
         return 940
 
     if method_code == "takkyubin_80":
-        if any(r in region_str for r in kanto + shinetsu + hokuriku + chubu + kansai): return 1150
-        if any(r in region_str for r in tohoku + chugoku + shikoku): return 1280
-        if any(r in region_str for r in hokkaido + kyushu): return 1650
-        if any(r in region_str for r in okinawa): return 1650
+        if match_region(kanto + shinetsu + hokuriku + chubu + kansai): return 1150
+        if match_region(tohoku + chugoku + shikoku): return 1280
+        if match_region(hokkaido + kyushu): return 1650
+        if match_region(okinawa): return 1650
         return 1150
 
     return base_rate
