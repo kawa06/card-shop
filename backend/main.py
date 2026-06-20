@@ -16,38 +16,23 @@ from routes.translate import router as translate_router
 from routes.exchange import router as exchange_router
 from routes.shipping import router as shipping_router
 
-# Apply missing column migrations for SQLite (More robust PRAGMA check)
-from sqlalchemy import text
+# Apply missing column migrations for SQLite (More robust check using SQLAlchemy Inspector)
+from sqlalchemy import text, inspect
 
 def add_columns_if_missing():
     print("Running database migrations (checking for missing columns)...")
-    with engine.connect() as conn:
-        # Helper to get existing columns
-        def get_existing_columns(table_name):
-            try:
-                result = conn.execute(text(f"PRAGMA table_info({table_name})"))
-                return [row[1] for row in result.fetchall()]
-            except Exception:
-                return []
-
-        # Cards table migrations
-        existing_cards = get_existing_columns("cards")
-        for col, definition in [
+    inspector = inspect(engine)
+    
+    # Define tables and their expected columns
+    tables_to_migrate = {
+        "cards": [
             ("image_urls", "TEXT"),
             ("condition", "VARCHAR(10)"),
             ("rarity", "VARCHAR(50)"),
             ("set_name", "VARCHAR(100)"),
             ("allowed_shipping_methods", "TEXT"),
-        ]:
-            if col not in existing_cards:
-                print(f"Adding missing column cards.{col}")
-                try:
-                    conn.execute(text(f"ALTER TABLE cards ADD COLUMN {col} {definition}"))
-                except Exception as e: print(f"Failed to add cards.{col}: {e}")
-        
-        # Users table migrations
-        existing_users = get_existing_columns("users")
-        for col, definition in [
+        ],
+        "users": [
             ("is_verified", "BOOLEAN DEFAULT 0"),
             ("verification_token", "VARCHAR(255)"),
             ("postal_code", "VARCHAR(20)"),
@@ -59,16 +44,8 @@ def add_columns_if_missing():
             ("address", "TEXT"),
             ("phone_number", "VARCHAR(20)"),
             ("phone_verified", "BOOLEAN DEFAULT 0"),
-        ]:
-            if col not in existing_users:
-                print(f"Adding missing column users.{col}")
-                try:
-                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {definition}"))
-                except Exception as e: print(f"Failed to add users.{col}: {e}")
-
-        # Orders table migrations
-        existing_orders = get_existing_columns("orders")
-        for col, definition in [
+        ],
+        "orders": [
             ("postal_code", "VARCHAR(20)"),
             ("country", "VARCHAR(100)"),
             ("region", "VARCHAR(100)"),
@@ -78,26 +55,37 @@ def add_columns_if_missing():
             ("shipping_address", "TEXT"),
             ("shipping_method", "VARCHAR(50)"),
             ("shipping_fee", "INTEGER DEFAULT 0"),
-        ]:
-            if col not in existing_orders:
-                print(f"Adding missing column orders.{col}")
-                try:
-                    conn.execute(text(f"ALTER TABLE orders ADD COLUMN {col} {definition}"))
-                except Exception as e: print(f"Failed to add orders.{col}: {e}")
-
-        # Shipping rates migrations
-        existing_rates = get_existing_columns("shipping_rates")
-        for col, definition in [
+        ],
+        "shipping_rates": [
             ("carrier", "VARCHAR(50)"),
             ("is_individual_available", "BOOLEAN DEFAULT 1"),
-        ]:
-            if col not in existing_rates:
-                print(f"Adding missing column shipping_rates.{col}")
-                try:
-                    conn.execute(text(f"ALTER TABLE shipping_rates ADD COLUMN {col} {definition}"))
-                except Exception as e: print(f"Failed to add shipping_rates.{col}: {e}")
+        ]
+    }
+
+    with engine.connect() as conn:
+        for table_name, columns in tables_to_migrate.items():
+            print(f"--- Checking table: {table_name} ---")
+            try:
+                # Get existing columns for this table
+                existing_columns = [c["name"] for c in inspector.get_columns(table_name)]
+                print(f"Existing columns in {table_name}: {existing_columns}")
+            except Exception as e:
+                print(f"Could not inspect table {table_name} (it might not exist yet): {e}")
+                continue
+
+            for col_name, col_def in columns:
+                if col_name not in existing_columns:
+                    print(f"Adding missing column {table_name}.{col_name} ({col_def})")
+                    try:
+                        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}"))
+                        conn.commit()  # Commit each change individually
+                        print(f"Successfully added {table_name}.{col_name}")
+                    except Exception as e:
+                        print(f"ERROR: Failed to add {table_name}.{col_name}: {e}")
+                else:
+                    # Optional: Log that it already exists for confirmation
+                    pass
         
-        conn.commit()
     print("Database migrations completed.")
 
 @asynccontextmanager
@@ -156,8 +144,8 @@ app.include_router(exchange_router)
 app.include_router(shipping_router)
 
 
-# Deploy Fix 2026-06-21-v19 (Implement automatic migrations in lifespan)
-@app.get("/api/health", summary="Health Check V19")
+# Deploy Fix 2026-06-21-v20 (Implement automatic migrations in lifespan)
+@app.get("/api/health", summary="Health Check V20")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v19"}
-# Deploy Fix 2026-06-21-v19
+    return {"status": "ok", "version": "deployed-fixed-v20"}
+# Deploy Fix 2026-06-21-v20
