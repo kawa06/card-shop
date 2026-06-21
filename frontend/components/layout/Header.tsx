@@ -69,8 +69,8 @@ export default function Header() {
       )}
       <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/60">
         <div className="container flex h-16 items-center gap-4">
-          <Link href="/" className="flex items-center gap-3 font-bold text-2xl mr-4 group">
-            <div className="relative h-10 w-32 overflow-hidden rounded-md border border-yellow-400/10">
+          <Link href="/" className="flex items-center gap-2 md:gap-3 font-bold mr-2 md:mr-4 group flex-shrink-0">
+            <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-yellow-400/10">
               <Image
                 src="/logo-main.png"
                 alt="KRX TCG"
@@ -79,7 +79,7 @@ export default function Header() {
                 priority
               />
             </div>
-            <span className="text-luxury-gold tracking-widest">KRX TCG</span>
+            <span className="text-luxury-gold tracking-widest text-xl md:text-2xl whitespace-nowrap">KRX TCG</span>
           </Link>
 
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">

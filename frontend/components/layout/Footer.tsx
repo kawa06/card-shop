@@ -13,8 +13,8 @@ export default function Footer() {
       <div className="container py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-3">
-              <div className="relative h-8 w-24 overflow-hidden rounded-md border border-yellow-400/10">
+            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+              <div className="relative h-10 w-10 overflow-hidden rounded-md border border-yellow-400/10 flex-shrink-0">
                 <Image
                   src="/logo-main.png"
                   alt="KRX TCG"
@@ -22,7 +22,7 @@ export default function Footer() {
                   className="object-contain"
                 />
               </div>
-              <span className="text-luxury-gold text-xl">KRX TCG</span>
+              <span className="text-luxury-gold text-lg md:text-xl whitespace-nowrap">KRX TCG</span>
             </h3>
             <p className="text-sm leading-relaxed">
               {lang === 'ja' 
