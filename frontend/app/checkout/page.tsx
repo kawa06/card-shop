@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ShippingRate } from '@/lib/types'
+
 const PREFECTURES = [
   "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
   "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
@@ -96,6 +97,7 @@ export default function CheckoutPage() {
   const [shippingMethod, setShippingMethod] = useState('')
   const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
@@ -117,7 +119,6 @@ export default function CheckoutPage() {
     for (const item of items) {
       if (item.card.allowed_shipping_methods) {
         try {
-          // Handle various empty states like "null", "[]", ""
           const raw = item.card.allowed_shipping_methods
           if (raw === 'null' || raw === '[]' || raw === '') continue
 
@@ -139,17 +140,10 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
-    // Yamato Compact and Click Post are always shown regardless of the individual flag
     const isAlwaysShown = rate.method_code === 'takkyubin_compact' || rate.method_code === 'click_post'
-    
-    // For others, check if it's available for individuals
     if (!isAlwaysShown && !rate.is_individual_available) return false
-
-    if (isInternational) {
-      return rate.method_code === 'international'
-    }
+    if (isInternational) return rate.method_code === 'international'
     if (rate.method_code === 'international') return false
-
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)
   })
@@ -157,7 +151,6 @@ export default function CheckoutPage() {
   // Auto-select first available shipping method
   useEffect(() => {
     if (availableRates.length > 0 && !shippingMethod) {
-      // Prefer Takkyubin Compact if available
       const preferred = availableRates.find(r => r.method_code === 'takkyubin_compact')
       setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
     }
@@ -170,14 +163,12 @@ export default function CheckoutPage() {
       return
     }
 
-    // New API format: ?method=xxx&prefecture=yyy
     shippingApi.calculateRate({
       method: shippingMethod,
       prefecture: debouncedAddress.region
     }).then(res => {
       setDynamicShippingFee(res.data.fee)
     }).catch(() => {
-      // Fallback to static rate
       const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
       setDynamicShippingFee(selectedRate?.fee_jpy || 0)
     })
@@ -186,14 +177,6 @@ export default function CheckoutPage() {
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
   const shippingFee = dynamicShippingFee ?? (isInternational ? 0 : (selectedRate?.fee_jpy || 0))
   const finalTotal = total + shippingFee
-
-  // Grouped shipping rates
-  const groupedRates = availableRates.reduce((acc, rate) => {
-    const carrier = rate.carrier || 'other'
-    if (!acc[carrier]) acc[carrier] = []
-    acc[carrier].push(rate)
-    return acc
-  }, {} as Record<string, ShippingRate[]>)
 
   const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
 
@@ -212,7 +195,6 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!isMounted || isAuthLoading) return
-
     if (!isAuthenticated) {
       router.push('/login')
       return
@@ -253,7 +235,12 @@ export default function CheckoutPage() {
     }
 
     if (!isInternational && needsCompensationAgreement && !agreedToNoCompensation) {
-      toast({ title: t('エラー', lang), description: t('補償が無いことに同意します', lang), variant: 'destructive' })
+      toast({ title: t('エラー', lang), description: t('配送会社の補償規定および免責事項に同意します', lang), variant: 'destructive' })
+      return
+    }
+
+    if (!agreedToTerms) {
+      toast({ title: t('エラー', lang), description: t('利用規約およびプライバシーポリシーに同意します', lang), variant: 'destructive' })
       return
     }
 
@@ -274,7 +261,6 @@ export default function CheckoutPage() {
         ? `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2}`
         : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountry}`
 
-      // 1. Update user profile if saveAddress is checked
       if (saveAddress) {
         await authApi.updateProfile({ 
           name: lang === 'en' ? fullName : user?.name,
@@ -286,10 +272,9 @@ export default function CheckoutPage() {
           address_line2: addressLine2,
           phone_number: ''
         })
-        fetchMe() // refresh global state
+        fetchMe()
       }
 
-      // 2. Create order
       const res = await ordersApi.create({
         postal_code: postalCode,
         country: currentCountry,
@@ -319,16 +304,16 @@ export default function CheckoutPage() {
   if (!isMounted || isAuthLoading || !isAuthenticated || items.length === 0) return null
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-950" key={lang}>
       <div className="container py-8 max-w-2xl">
         <h1 className="text-2xl font-bold text-white mb-6 text-center">{t('注文確認', lang)}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 1. 配送先住所 */}
+          {/* 1. 配送先 */}
           <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
             <h2 className="text-white font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">1</span>
-              {t('配送先住所', lang)}
+              {t('配送先', lang)}
             </h2>
             <div className="grid grid-cols-1 gap-4">
                 {lang === 'en' ? (
@@ -443,11 +428,11 @@ export default function CheckoutPage() {
                         value={region}
                         onChange={(e) => setRegion(e.target.value)}
                         required
-                        className="w-full h-10 px-3 bg-gray-800 border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
+                        className="w-full h-10 px-3 bg-gray-800 border border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
                       >
                         <option value="">{t('都道府県を入力してください', lang)}</option>
                         {PREFECTURES.map(p => (
-                          <option key={p} value={p}>{p}</option>
+                          <option key={p} value={p}>{t(p, lang)}</option>
                         ))}
                       </select>
                     </div>
@@ -486,12 +471,6 @@ export default function CheckoutPage() {
                         className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-gray-300 text-sm">{t('メールアドレス', lang)}</Label>
-                      <div className="w-full h-10 px-3 flex items-center bg-gray-800/50 border border-gray-700 rounded-md text-gray-400 text-sm">
-                        {user?.email}
-                      </div>
-                    </div>
                   </>
                 )}
                 <div className="flex items-center gap-2 pt-2">
@@ -521,7 +500,7 @@ export default function CheckoutPage() {
               </Link>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
               {!isInternational && allowedMethodCodes && (
                   <p className="text-[10px] text-yellow-400/70 bg-yellow-400/5 p-2 rounded border border-yellow-400/10 italic">
                     ⚠️ {t('カート内商品により発送方法が制限されています', lang)}
@@ -533,42 +512,35 @@ export default function CheckoutPage() {
                     {t('利用可能な発送方法がありません。商品の組み合わせをご確認ください。', lang)}
                   </p>
                 ) : (
-                  Object.entries(groupedRates).map(([carrier, rates]) => (
-                    <div key={carrier} className="space-y-2">
-                      <h3 className="text-[10px] uppercase tracking-wider text-gray-500 font-bold ml-1">
-                        {carrier === 'yamato' ? t('ヤマト運輸', lang) : carrier === 'japan_post' ? t('日本郵便', lang) : t('その他', lang)}
-                      </h3>
-                      <div className="grid gap-2">
-                        {rates.map(rate => (
-                          <label 
-                            key={rate.method_code}
-                            className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
-                          >
-                            <input
-                              type="radio"
-                              name="shipping"
-                              value={rate.method_code}
-                              checked={shippingMethod === rate.method_code}
-                              onChange={() => setShippingMethod(rate.method_code)}
-                              className="mt-1 accent-yellow-400"
-                            />
-                            <div className="flex-1">
-                              <p className="text-white text-xs font-bold">
-                                {lang === 'ja' ? rate.name_ja : rate.name_en}
-                                <span className="ml-2 text-[10px] font-normal text-gray-500">
-                                  [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
-                                  [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
-                                </span>
-                              </p>
-                              <p className="text-gray-400 text-[10px]">
-                                {formatPrice(rate.fee_jpy)}
-                              </p>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))
+                  <div className="grid gap-2">
+                    {availableRates.map(rate => (
+                      <label 
+                        key={rate.method_code}
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="shipping"
+                          value={rate.method_code}
+                          checked={shippingMethod === rate.method_code}
+                          onChange={() => setShippingMethod(rate.method_code)}
+                          className="mt-1 accent-yellow-400"
+                        />
+                        <div className="flex-1">
+                          <p className="text-white text-xs font-bold">
+                            {lang === 'ja' ? rate.name_ja : rate.name_en}
+                            <span className="ml-2 text-[10px] font-normal text-gray-500">
+                              [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
+                              [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
+                            </span>
+                          </p>
+                          <p className="text-gray-400 text-[10px]">
+                            {formatPrice(rate.fee_jpy)}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 )}
             </div>
           </section>
@@ -600,64 +572,80 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* 4. 利用規約・補償免責同意 */}
-          {(needsCompensationAgreement || true) && (
-            <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-              <h2 className="text-white font-semibold flex items-center gap-2">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
-                {t('同意事項', lang)}
-              </h2>
-              
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label className="text-gray-300 text-sm">{t('支払い方法', lang)}</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { value: 'credit_card', label: t('カード', lang) },
-                      { value: 'bank_transfer', label: t('銀行振込', lang) },
-                      { value: 'cod', label: t('代金引換', lang) },
-                    ].map((method) => (
-                      <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
-                        <input
-                          type="radio"
-                          name="payment"
-                          value={method.value}
-                          checked={paymentMethod === method.value}
-                          onChange={() => setPaymentMethod(method.value)}
-                          className="accent-yellow-400"
-                        />
-                        <span className="text-gray-300 text-xs">{method.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {needsCompensationAgreement && (
-                  <div className="p-4 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-3">
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      {t('ご希望の発送方法は、万が一の事故（紛失・破損）の際の補償が限定的、またはありません。', lang)}
-                      <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
-                        {t('発送・補償ポリシーを確認', lang)}
-                      </Link>
-                    </p>
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={agreedToNoCompensation}
-                        onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
-                      />
-                      <span className="text-sm text-yellow-400 font-bold group-hover:text-yellow-300 transition-colors">
-                        {t('配送会社の補償規定および免責事項に同意します', lang)}
-                      </span>
-                    </label>
-                  </div>
-                )}
+          {/* 4. 同意事項 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
+              {t('同意事項', lang)}
+            </h2>
+            
+            <div className="space-y-3">
+              <div className="p-4 bg-gray-800/50 border border-white/5 rounded-lg space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                  />
+                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                    {t('利用規約およびプライバシーポリシーに同意します', lang)}
+                  </span>
+                </label>
               </div>
-            </section>
-          )}
 
-          {/* 6. 注文確定ボタン */}
+              {needsCompensationAgreement && (
+                <div className="p-4 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-3">
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {t('ご希望の発送方法は、万が一の事故（紛失・破損）の際の補償が限定的、またはありません。', lang)}
+                    <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
+                      {t('発送・補償ポリシーを確認', lang)}
+                    </Link>
+                  </p>
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={agreedToNoCompensation}
+                      onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                    />
+                    <span className="text-sm text-yellow-400 font-bold group-hover:text-yellow-300 transition-colors">
+                      {t('配送会社の補償規定および免責事項に同意します', lang)}
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 5. 支払い方法 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">5</span>
+              {t('支払い方法', lang)}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { value: 'credit_card', label: t('カード', lang) },
+                { value: 'bank_transfer', label: t('銀行振込', lang) },
+                { value: 'cod', label: t('代金引換', lang) },
+              ].map((method) => (
+                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value={method.value}
+                    checked={paymentMethod === method.value}
+                    onChange={() => setPaymentMethod(method.value)}
+                    className="accent-yellow-400"
+                  />
+                  <span className="text-gray-300 text-xs">{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* 注文確定ボタン */}
           <div className="pt-4">
             <Button
               type="submit"
