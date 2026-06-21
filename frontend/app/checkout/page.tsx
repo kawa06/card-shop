@@ -15,17 +15,27 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ShippingRate } from '@/lib/types'
+import { ShippingRate, User } from '@/lib/types'
+import { Badge } from '@/components/ui/badge'
+import { Check, ShieldCheck, Truck, ExternalLink, Info, RefreshCw } from 'lucide-react'
 
-const PREFECTURES = [
-  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-  "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
-  "岐阜県", "静岡県", "愛知県", "三重県",
-  "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
-  "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-  "徳島県", "香川県", "愛媛県", "高知県",
-  "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
+const COUNTRIES = [
+  { code: 'JP', ja: '日本', en: 'Japan' },
+  { code: 'US', ja: 'アメリカ合衆国', en: 'United States' },
+  { code: 'CN', ja: '中国', en: 'China' },
+  { code: 'KR', ja: '韓国', en: 'South Korea' },
+  { code: 'TW', ja: '台湾', en: 'Taiwan' },
+  { code: 'HK', ja: '香港', en: 'Hong Kong' },
+  { code: 'SG', ja: 'シンガポール', en: 'Singapore' },
+  { code: 'TH', ja: 'タイ', en: 'Thailand' },
+  { code: 'GB', ja: 'イギリス', en: 'United Kingdom' },
+  { code: 'FR', ja: 'フランス', en: 'France' },
+  { code: 'DE', ja: 'ドイツ', en: 'Germany' },
+  { code: 'IT', ja: 'イタリア', en: 'Italy' },
+  { code: 'ES', ja: 'スペイン', en: 'Spain' },
+  { code: 'CA', ja: 'カナダ', en: 'Canada' },
+  { code: 'AU', ja: 'オーストラリア', en: 'Australia' },
+  { code: 'NZ', ja: 'ニュージーランド', en: 'New Zealand' },
 ];
 
 export default function CheckoutPage() {
@@ -41,13 +51,33 @@ export default function CheckoutPage() {
   }, [])
 
   const [postalCode, setPostalCode] = useState('')
-  const [country, setCountry] = useState('Japan')
+  const [country, setCountry] = useState('JP')
   const [region, setRegion] = useState('')
   const [city, setCity] = useState('')
   const [addressLine1, setAddressLine1] = useState('')
   const [addressLine2, setAddressLine2] = useState('')
   const [fullName, setFullName] = useState('')
   const [isFetchingAddress, setIsFetchingAddress] = useState(false)
+
+  const PREFECTURES = [
+    "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県",
+    "岐阜県", "静岡県", "愛知県", "三重県",
+    "滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県",
+    "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+    "徳島県", "香川県", "愛媛県", "高知県",
+    "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
+  ];
+
+  // Language to Default Country sync
+  useEffect(() => {
+    if (lang === 'en') {
+      setCountry('US')
+    } else {
+      setCountry('JP')
+    }
+  }, [lang])
 
   // Fetch address from zipcloud when postal code is 7 digits
   useEffect(() => {
@@ -78,13 +108,13 @@ export default function CheckoutPage() {
     }
 
     // Only auto-fetch for Japan
-    if (lang === 'ja' || country === 'Japan') {
+    if (country === 'JP') {
       fetchAddress()
     }
   }, [postalCode, lang, country])
 
   // Debounced address state for shipping calculation
-  const [debouncedAddress, setDebouncedAddress] = useState({ region: '', country: 'Japan' })
+  const [debouncedAddress, setDebouncedAddress] = useState({ region: '', country: 'JP' })
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedAddress({ region, country })
@@ -101,7 +131,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
 
-  const isInternational = country !== 'Japan' && country !== ''
+  const isInternational = country !== 'JP'
   
   // Fetch shipping rates
   useEffect(() => {
@@ -142,17 +172,20 @@ export default function CheckoutPage() {
   const availableRates = shippingRates.filter(rate => {
     const isAlwaysShown = rate.method_code === 'takkyubin_compact' || rate.method_code === 'click_post'
     if (!isAlwaysShown && !rate.is_individual_available) return false
-    if (isInternational) return rate.method_code === 'international'
-    if (rate.method_code === 'international') return false
+    if (isInternational) return rate.is_international_available
+    if (!isInternational && rate.method_code === 'international') return false
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)
   })
 
   // Auto-select first available shipping method
   useEffect(() => {
-    if (availableRates.length > 0 && !shippingMethod) {
-      const preferred = availableRates.find(r => r.method_code === 'takkyubin_compact')
-      setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
+    if (availableRates.length > 0) {
+      const isCurrentAvailable = availableRates.some(r => r.method_code === shippingMethod)
+      if (!isCurrentAvailable) {
+        const preferred = availableRates.find(r => r.is_recommended) || availableRates.find(r => r.method_code === 'takkyubin_compact')
+        setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
+      }
     }
   }, [availableRates, shippingMethod])
 
@@ -165,9 +198,10 @@ export default function CheckoutPage() {
 
     shippingApi.calculateRate({
       method: shippingMethod,
-      prefecture: debouncedAddress.region
+      prefecture: debouncedAddress.region,
+      country: debouncedAddress.country
     }).then(res => {
-      setDynamicShippingFee(res.data.fee)
+      setDynamicShippingFee(res.data.fee_jpy)
     }).catch(() => {
       const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
       setDynamicShippingFee(selectedRate?.fee_jpy || 0)
@@ -175,7 +209,7 @@ export default function CheckoutPage() {
   }, [shippingMethod, debouncedAddress, shippingRates])
 
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
-  const shippingFee = dynamicShippingFee ?? (isInternational ? 0 : (selectedRate?.fee_jpy || 0))
+  const shippingFee = dynamicShippingFee ?? (selectedRate?.fee_jpy || 0)
   const finalTotal = total + shippingFee
 
   const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
@@ -184,7 +218,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (user) {
       if (user.postal_code) setPostalCode(user.postal_code)
-      if (user.country) setCountry(user.country || 'Japan')
+      if (user.country) setCountry(user.country === 'Japan' ? 'JP' : (user.country || 'JP'))
       if (user.region) setRegion(user.region)
       if (user.city) setCity(user.city)
       if (user.address_line1) setAddressLine1(user.address_line1)
@@ -256,34 +290,35 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true)
     try {
-      const currentCountry = lang === 'ja' ? 'Japan' : country
-      const shippingAddress = lang === 'ja'
+      const currentCountryObj = COUNTRIES.find(c => c.code === country)
+      const currentCountryName = currentCountryObj ? (lang === 'ja' ? currentCountryObj.ja : currentCountryObj.en) : country
+      const shippingAddress = country === 'JP'
         ? `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2}`
-        : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountry}`
+        : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountryName}`
 
       if (saveAddress) {
         await authApi.updateProfile({ 
-          name: lang === 'en' ? fullName : user?.name,
+          name: fullName || user?.name,
           postal_code: postalCode,
-          country: currentCountry,
+          country: currentCountryName,
           region: region,
           city: city,
           address_line1: addressLine1,
           address_line2: addressLine2,
-          phone_number: ''
+          phone_number: user?.phone_number || ''
         })
         fetchMe()
       }
 
       const res = await ordersApi.create({
         postal_code: postalCode,
-        country: currentCountry,
+        country: currentCountryName,
         region: region,
         city: city,
         address_line1: addressLine1,
         address_line2: addressLine2,
         shipping_address: shippingAddress,
-        shipping_method: isInternational ? 'international' : shippingMethod,
+        shipping_method: shippingMethod,
         shipping_fee: shippingFee,
         payment_method: paymentMethod,
       })
@@ -316,26 +351,23 @@ export default function CheckoutPage() {
               {t('配送先', lang)}
             </h2>
             <div className="grid grid-cols-1 gap-4">
-                {lang === 'en' ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="country" className="text-gray-300 text-sm">{t('国', lang)}</Label>
-                      <select
-                        id="country"
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        required
-                        className="w-full h-10 px-3 bg-gray-800 border border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
-                      >
-                        <option value="">{t('国を選択してください', lang)}</option>
-                        <option value="United States">{t('アメリカ合衆国', lang)}</option>
-                        <option value="United Kingdom">{t('イギリス', lang)}</option>
-                        <option value="Canada">{t('カナダ', lang)}</option>
-                        <option value="Australia">{t('オーストラリア', lang)}</option>
-                        <option value="Other">{t('その他', lang)}</option>
-                      </select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="country" className="text-gray-300 text-sm">{t('国', lang)}</Label>
+                    <select
+                      id="country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      required
+                      className="w-full h-10 px-3 bg-gray-800 border border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
+                    >
+                      {COUNTRIES.map(c => (
+                        <option key={c.code} value={c.code}>{lang === 'ja' ? c.ja : c.en}</option>
+                      ))}
+                    </select>
+                  </div>
 
+                {isInternational ? (
+                  <>
                     <div className="space-y-2">
                       <Label htmlFor="fullName" className="text-gray-300 text-sm">{t('氏名', lang)}</Label>
                       <Input
@@ -371,28 +403,30 @@ export default function CheckoutPage() {
                       />
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="city" className="text-gray-300 text-sm">{t('市区町村', lang)}</Label>
-                      <Input
-                        id="city"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="New York"
-                        required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-                      />
-                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="city" className="text-gray-300 text-sm">{t('市区町村', lang)}</Label>
+                        <Input
+                          id="city"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="New York"
+                          required
+                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        />
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="region" className="text-gray-300 text-sm">{t('都道府県', lang)}</Label>
-                      <Input
-                        id="region"
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                        placeholder="NY"
-                        required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-                      />
+                      <div className="space-y-2">
+                        <Label htmlFor="region" className="text-gray-300 text-sm">{t('都道府県', lang)}</Label>
+                        <Input
+                          id="region"
+                          value={region}
+                          onChange={(e) => setRegion(e.target.value)}
+                          placeholder="NY"
+                          required
+                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        />
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -411,14 +445,21 @@ export default function CheckoutPage() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="postalCode" className="text-gray-300 text-sm">{t('郵便番号', lang)}</Label>
-                      <Input
-                        id="postalCode"
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
-                        placeholder="000-0000"
-                        required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="postalCode"
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          placeholder="000-0000"
+                          required
+                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50 pr-10"
+                        />
+                        {isFetchingAddress && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <RefreshCw className="h-4 w-4 text-yellow-400 animate-spin" />
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
@@ -512,32 +553,76 @@ export default function CheckoutPage() {
                     {t('利用可能な発送方法がありません。商品の組み合わせをご確認ください。', lang)}
                   </p>
                 ) : (
-                  <div className="grid gap-2">
+                  <div className="grid gap-3">
                     {availableRates.map(rate => (
                       <label 
                         key={rate.method_code}
-                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${shippingMethod === rate.method_code ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5 hover:border-white/10'}`}
+                        className={`relative flex flex-col gap-1 p-4 rounded-xl border cursor-pointer transition-all ${shippingMethod === rate.method_code ? 'bg-yellow-400/10 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.1)]' : 'bg-gray-800/50 border-white/10 hover:border-white/20'}`}
                       >
-                        <input
-                          type="radio"
-                          name="shipping"
-                          value={rate.method_code}
-                          checked={shippingMethod === rate.method_code}
-                          onChange={() => setShippingMethod(rate.method_code)}
-                          className="mt-1 accent-yellow-400"
-                        />
-                        <div className="flex-1">
-                          <p className="text-white text-xs font-bold">
-                            {lang === 'ja' ? rate.name_ja : rate.name_en}
-                            <span className="ml-2 text-[10px] font-normal text-gray-500">
-                              [{rate.has_tracking ? t('追跡有', lang) : t('追跡無', lang)}] 
-                              [{rate.has_insurance ? t('補償有', lang) : t('補償無', lang)}]
-                            </span>
-                          </p>
-                          <p className="text-gray-400 text-[10px]">
-                            {formatPrice(rate.fee_jpy)}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="radio"
+                              name="shipping"
+                              value={rate.method_code}
+                              checked={shippingMethod === rate.method_code}
+                              onChange={() => setShippingMethod(rate.method_code)}
+                              className="w-4 h-4 accent-yellow-400"
+                            />
+                            <div>
+                              <p className="text-white text-sm font-bold flex items-center gap-2">
+                                {lang === 'ja' ? rate.name_ja : rate.name_en}
+                                {rate.is_recommended && (
+                                  <Badge className="bg-yellow-400 text-gray-950 hover:bg-yellow-400 text-[9px] h-4 px-1 font-bold">
+                                    {t('推奨', lang)}
+                                  </Badge>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-yellow-400 font-bold text-sm">
+                            {formatPrice(rate.fee_jpy || 0)}
                           </p>
                         </div>
+
+                        <div className="ml-7 grid grid-cols-2 gap-2 mt-2">
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                            <Truck className="h-3 w-3 text-gray-500" />
+                            <span>{t('追跡', lang)}: {rate.has_tracking ? t('あり', lang) : t('なし', lang)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                            <ShieldCheck className="h-3 w-3 text-gray-500" />
+                            <span>
+                              {t('補償', lang)}: {rate.has_insurance ? (rate.insurance_max_amount ? `Max ${formatPrice(rate.insurance_max_amount)}` : t('あり', lang)) : t('なし', lang)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                            <Info className="h-3 w-3 text-gray-500" />
+                            <span>
+                              {t('到着目安', lang)}: {rate.estimated_delivery_min_days}〜{rate.estimated_delivery_max_days}{t('日', lang)}
+                            </span>
+                          </div>
+                          {rate.insurance_url && (
+                            <a 
+                              href={rate.insurance_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] text-yellow-400/70 hover:text-yellow-400 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {t('補償詳細', lang)}
+                            </a>
+                          )}
+                        </div>
+
+                        {shippingMethod === rate.method_code && (
+                          <div className="absolute top-3 right-3">
+                            <div className="bg-yellow-400 rounded-full p-0.5">
+                              <Check className="h-3 w-3 text-gray-950 font-bold" />
+                            </div>
+                          </div>
+                        )}
                       </label>
                     ))}
                   </div>

@@ -182,7 +182,15 @@ export const exchangeApi = {
 // Shipping API
 export const shippingApi = {
   getRates: () => apiClient.get<import('./types').ShippingRate[]>('/shipping-rates'),
-  calculateRate: (params: { method: string; prefecture?: string }) =>
-    apiClient.get<{ fee: number; method: string; prefecture: string }>('/shipping-rates', { params }),
+  calculateRate: (params: { method: string; prefecture?: string; country?: string }) =>
+    apiClient.get<{ fee_jpy: number; method_code: string }>('/shipping-rates/calculate', { 
+      params: { 
+        method_code: params.method, 
+        region: params.prefecture,
+        country: params.country 
+      } 
+    }),
   refreshRates: () => apiClient.post('/shipping-rates/refresh'),
+  updateRate: (methodCode: string, data: Partial<import('./types').ShippingRate>) =>
+    apiClient.patch(`/shipping-rates/${methodCode}`, data),
 }

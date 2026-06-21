@@ -167,5 +167,13 @@ class ShippingRate(Base):
     max_weight = Column(String(100), nullable=True)
     regional_rates = Column(Text, nullable=True) # JSON dictionary of prefecture -> fee
     is_individual_available = Column(Boolean, default=True)
+    is_international_available = Column(Boolean, default=False)
+    international_zones = Column(Text, nullable=True) # JSON dictionary of zone -> fee
+    max_weight_international = Column(Float, nullable=True)
+    insurance_max_amount = Column(Integer, nullable=True)
+    insurance_url = Column(String(500), nullable=True)
+    estimated_delivery_min_days = Column(Integer, nullable=True)
+    estimated_delivery_max_days = Column(Integer, nullable=True)
+    is_recommended = Column(Boolean, default=False)
     source_url = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

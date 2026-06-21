@@ -2,15 +2,26 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, RefreshCw, ExternalLink, Shield, Globe, Truck } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ArrowLeft, RefreshCw, ExternalLink, Shield, Globe, Truck, Edit2, Save, X } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { shippingApi } from '@/lib/api'
 import { ShippingRate } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from '@/lib/use-toast'
 import { usePrice } from '@/lib/format'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 export default function AdminShippingPage() {
   const router = useRouter()
@@ -21,6 +32,10 @@ export default function AdminShippingPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+
+  // Edit State
+  const [editingRate, setEditingRate] = useState<ShippingRate | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -57,6 +72,25 @@ export default function AdminShippingPage() {
       toast({ title: 'Error', description: 'Failed to refresh rates', variant: 'destructive' })
     } finally {
       setIsRefreshing(false)
+    }
+  }
+
+  const handleEdit = (rate: ShippingRate) => {
+    setEditingRate({ ...rate })
+  }
+
+  const handleSave = async () => {
+    if (!editingRate) return
+    setIsSaving(true)
+    try {
+      await shippingApi.updateRate(editingRate.method_code, editingRate)
+      toast({ title: 'Success', description: 'Shipping rate updated successfully' })
+      setEditingRate(null)
+      fetchRates()
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update shipping rate', variant: 'destructive' })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -121,47 +155,81 @@ export default function AdminShippingPage() {
                             <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-white/5">
                               {rate.method_code}
                             </span>
+                            {rate.is_recommended && (
+                              <Badge className="bg-yellow-400 text-gray-950 text-[9px] h-4 px-1 font-bold">
+                                RECOMMENDED
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex flex-wrap gap-2 mb-3">
+                            {rate.is_international_available && (
+                              <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 flex items-center gap-1">
+                                <Globe className="h-3 w-3" /> International
+                              </span>
+                            )}
                             {rate.has_tracking && (
                               <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20 flex items-center gap-1">
-                                <Globe className="h-3 w-3" /> {t('追跡有', lang)}
+                                <Truck className="h-3 w-3" /> {t('追跡有', lang)}
                               </span>
                             )}
                             {rate.has_insurance ? (
                               <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 flex items-center gap-1">
-                                <Shield className="h-3 w-3" /> {t('補償有', lang)}
+                                <Shield className="h-3 w-3" /> {t('補償有', lang)} {rate.insurance_max_amount ? `(Max ${formatPrice(rate.insurance_max_amount)})` : ''}
                               </span>
                             ) : (
                               <span className="text-[10px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded border border-red-500/20 flex items-center gap-1">
                                 <Shield className="h-3 w-3" /> {t('補償無', lang)}
                               </span>
                             )}
-                            {rate.max_size && (
-                              <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">
-                                {rate.max_size}
+                            {rate.estimated_delivery_min_days && (
+                              <span className="text-[10px] bg-yellow-500/10 text-yellow-400 px-2 py-0.5 rounded border border-yellow-500/20">
+                                {rate.estimated_delivery_min_days}-{rate.estimated_delivery_max_days} {t('日', lang)}
                               </span>
                             )}
                           </div>
-                          {rate.source_url && (
-                            <a
-                              href={rate.source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              {lang === 'ja' ? '参照元ページ' : 'Source URL'}
-                            </a>
-                          )}
+                          <div className="flex items-center gap-4">
+                            {rate.source_url && (
+                              <a
+                                href={rate.source_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                {lang === 'ja' ? '参照元ページ' : 'Source URL'}
+                              </a>
+                            )}
+                            {rate.insurance_url && (
+                              <a
+                                href={rate.insurance_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-gray-500 hover:text-orange-400 flex items-center gap-1 transition-colors"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                {t('補償詳細', lang)}
+                              </a>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-orange-400">
-                            {formatPrice(rate.fee_jpy)}
-                          </p>
-                          <p className="text-[10px] text-gray-500 mt-1">
-                            {t('最終更新', lang)}: {new Date(rate.updated_at).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
-                          </p>
+                        <div className="flex flex-row md:flex-col items-center md:items-end gap-4 md:gap-2">
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-orange-400">
+                              {formatPrice(rate.fee_jpy)}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-1">
+                              {t('最終更新', lang)}: {new Date(rate.updated_at).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => handleEdit(rate)}
+                            variant="outline"
+                            size="sm"
+                            className="border-white/10 hover:bg-white/5 text-gray-400 hover:text-white"
+                          >
+                            <Edit2 className="h-3 w-3 mr-2" />
+                            {t('編集', lang)}
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -171,6 +239,175 @@ export default function AdminShippingPage() {
             ))}
           </div>
         )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingRate} onOpenChange={(open: boolean) => !open && setEditingRate(null)}>
+          <DialogContent className="bg-gray-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                <Edit2 className="h-5 w-5 text-orange-400" />
+                {editingRate ? (lang === 'ja' ? editingRate.name_ja : editingRate.name_en) : ''}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {editingRate && (
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '名称 (JP)' : 'Name (JP)'}</Label>
+                    <Input
+                      value={editingRate.name_ja}
+                      onChange={(e) => setEditingRate({ ...editingRate, name_ja: e.target.value })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '名称 (EN)' : 'Name (EN)'}</Label>
+                    <Input
+                      value={editingRate.name_en}
+                      onChange={(e) => setEditingRate({ ...editingRate, name_en: e.target.value })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '基本料金 (JPY)' : 'Base Fee (JPY)'}</Label>
+                    <Input
+                      type="number"
+                      value={editingRate.fee_jpy}
+                      onChange={(e) => setEditingRate({ ...editingRate, fee_jpy: parseInt(e.target.value) })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-4 mt-8">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_recommended"
+                        checked={editingRate.is_recommended}
+                        onCheckedChange={(checked: boolean) => setEditingRate({ ...editingRate, is_recommended: !!checked })}
+                      />
+                      <label htmlFor="is_recommended" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        {t('推奨', lang)}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 border-t border-white/5 pt-4">
+                  <h4 className="text-sm font-bold text-orange-400">{lang === 'ja' ? '配送・追跡・補償設定' : 'Shipping & Insurance Settings'}</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_international"
+                        checked={editingRate.is_international_available}
+                        onCheckedChange={(checked: boolean) => setEditingRate({ ...editingRate, is_international_available: !!checked })}
+                      />
+                      <label htmlFor="is_international" className="text-xs font-medium">International</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="has_tracking"
+                        checked={editingRate.has_tracking}
+                        onCheckedChange={(checked: boolean) => setEditingRate({ ...editingRate, has_tracking: !!checked })}
+                      />
+                      <label htmlFor="has_tracking" className="text-xs font-medium">{t('追跡', lang)}</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="has_insurance"
+                        checked={editingRate.has_insurance}
+                        onCheckedChange={(checked: boolean) => setEditingRate({ ...editingRate, has_insurance: !!checked })}
+                      />
+                      <label htmlFor="has_insurance" className="text-xs font-medium">{t('補償', lang)}</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_individual"
+                        checked={editingRate.is_individual_available}
+                        onCheckedChange={(checked: boolean) => setEditingRate({ ...editingRate, is_individual_available: !!checked })}
+                      />
+                      <label htmlFor="is_individual" className="text-xs font-medium">{lang === 'ja' ? '個人利用可' : 'Individual OK'}</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 border-t border-white/5 pt-4">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '補償上限 (JPY)' : 'Max Insurance (JPY)'}</Label>
+                    <Input
+                      type="number"
+                      value={editingRate.insurance_max_amount || 0}
+                      onChange={(e) => setEditingRate({ ...editingRate, insurance_max_amount: parseInt(e.target.value) })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '配達日数 (最小)' : 'Min Delivery Days'}</Label>
+                    <Input
+                      type="number"
+                      value={editingRate.estimated_delivery_min_days || 0}
+                      onChange={(e) => setEditingRate({ ...editingRate, estimated_delivery_min_days: parseInt(e.target.value) })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '配達日数 (最大)' : 'Max Delivery Days'}</Label>
+                    <Input
+                      type="number"
+                      value={editingRate.estimated_delivery_max_days || 0}
+                      onChange={(e) => setEditingRate({ ...editingRate, estimated_delivery_max_days: parseInt(e.target.value) })}
+                      className="bg-gray-800 border-white/5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 border-t border-white/5 pt-4">
+                  <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '補償詳細URL' : 'Insurance Info URL'}</Label>
+                  <Input
+                    value={editingRate.insurance_url || ''}
+                    onChange={(e) => setEditingRate({ ...editingRate, insurance_url: e.target.value })}
+                    className="bg-gray-800 border-white/5 text-white"
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '国際ゾーン料金 (JSON)' : 'International Zone Rates (JSON)'}</Label>
+                  <textarea
+                    value={editingRate.international_zones || ''}
+                    onChange={(e) => setEditingRate({ ...editingRate, international_zones: e.target.value })}
+                    className="w-full h-24 bg-gray-800 border-white/5 rounded-md p-2 text-xs font-mono text-white focus:ring-orange-400/50"
+                    placeholder='{"Asia": 1400, "North America": 2500, ...}'
+                  />
+                  <p className="text-[10px] text-gray-500">
+                    Zones: Asia, North America, Europe, Oceania, South America, Africa, Other
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="border-t border-white/5 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setEditingRate(null)}
+                className="border-white/10 hover:bg-white/5 text-gray-400"
+              >
+                <X className="h-4 w-4 mr-2" />
+                {t('キャンセル', lang)}
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold"
+              >
+                <Save className={`h-4 w-4 mr-2 ${isSaving ? 'animate-spin' : ''}`} />
+                {t('保存', lang)}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

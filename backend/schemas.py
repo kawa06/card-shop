@@ -139,6 +139,7 @@ class CardCreate(CardBase):
 
 class CardUpdate(BaseModel):
     name: Optional[str] = None
+    name_en: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
     stock: Optional[int] = None
@@ -305,6 +306,14 @@ class ShippingRateOut(BaseModel):
     has_tracking: bool
     has_insurance: bool
     is_individual_available: bool
+    is_international_available: bool
+    international_zones: Optional[str] = None
+    max_weight_international: Optional[float] = None
+    insurance_max_amount: Optional[int] = None
+    insurance_url: Optional[str] = None
+    estimated_delivery_min_days: Optional[int] = None
+    estimated_delivery_max_days: Optional[int] = None
+    is_recommended: bool
     regional_rates: Optional[str] = None
     max_size: Optional[str] = None
     max_weight: Optional[str] = None
@@ -313,3 +322,23 @@ class ShippingRateOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ShippingRateUpdate(BaseModel):
+    name_ja: Optional[str] = None
+    name_en: Optional[str] = None
+    fee_jpy: Optional[int] = None
+    has_tracking: Optional[bool] = None
+    has_insurance: Optional[bool] = None
+    is_individual_available: Optional[bool] = None
+    is_international_available: Optional[bool] = None
+    international_zones: Optional[str] = None
+    max_weight_international: Optional[float] = None
+    insurance_max_amount: Optional[int] = None
+    insurance_url: Optional[str] = None
+    estimated_delivery_min_days: Optional[int] = None
+    estimated_delivery_max_days: Optional[int] = None
+    is_recommended: Optional[bool] = None
+    max_size: Optional[str] = None
+    max_weight: Optional[str] = None
+    source_url: Optional[str] = None

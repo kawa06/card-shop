@@ -60,6 +60,14 @@ def add_columns_if_missing():
         "shipping_rates": [
             ("carrier", "VARCHAR(50)"),
             ("is_individual_available", "BOOLEAN DEFAULT 1"),
+            ("is_international_available", "BOOLEAN DEFAULT 0"),
+            ("international_zones", "TEXT"),
+            ("max_weight_international", "FLOAT"),
+            ("insurance_max_amount", "INTEGER"),
+            ("insurance_url", "VARCHAR(500)"),
+            ("estimated_delivery_min_days", "INTEGER"),
+            ("estimated_delivery_max_days", "INTEGER"),
+            ("is_recommended", "BOOLEAN DEFAULT 0"),
         ]
     }
 

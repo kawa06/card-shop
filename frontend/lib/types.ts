@@ -95,6 +95,15 @@ export interface ShippingRate {
   has_tracking: boolean
   has_insurance: boolean
   is_individual_available: boolean
+  is_international_available: boolean
+  international_zones?: string // JSON string
+  max_weight_international?: number
+  insurance_max_amount?: number
+  insurance_url?: string
+  estimated_delivery_min_days?: number
+  estimated_delivery_max_days?: number
+  is_recommended: boolean
+  regional_rates?: string // JSON string
   max_size: string | null
   max_weight: string | null
   source_url: string | null

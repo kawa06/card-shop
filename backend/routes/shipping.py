@@ -4,6 +4,7 @@ from database import get_db
 import models
 import schemas
 from services.shipping_rates import refresh_all_rates, calculate_shipping_fee
+from services.countries import get_all_countries
 from auth import get_current_user
 from typing import Optional
 
@@ -33,6 +34,42 @@ def get_calculated_shipping(
 ):
     fee = calculate_shipping_fee(method_code, region, country, db=db)
     return {"method_code": method_code, "fee_jpy": fee}
+
+@router.post("/shipping-rates/international")
+def post_calculate_international_shipping(
+    data: dict, # {country_code, postal_code, weight, shipping_method}
+    db: Session = Depends(get_db)
+):
+    country = data.get("country_code", "Other")
+    method = data.get("shipping_method", "international")
+    fee = calculate_shipping_fee(method, country=country, db=db)
+    return {"country_code": country, "fee_jpy": fee, "shipping_method": method}
+
+@router.get("/countries")
+def get_countries():
+    return get_all_countries()
+
+@router.patch("/shipping-rates/{method_code}", response_model=schemas.ShippingRateOut)
+def update_shipping_rate(
+    method_code: str,
+    rate_update: schemas.ShippingRateUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can update rates")
+    
+    db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
+    if not db_rate:
+        raise HTTPException(status_code=404, detail="Shipping rate not found")
+    
+    update_data = rate_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_rate, key, value)
+    
+    db.commit()
+    db.refresh(db_rate)
+    return db_rate
 
 @router.get("/shipping-rates/debug")
 def debug_shipping():
