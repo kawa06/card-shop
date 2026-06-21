@@ -164,6 +164,7 @@ class ShippingRate(Base):
     has_insurance = Column(Boolean, default=False)
     max_size = Column(String(100), nullable=True)
     max_weight = Column(String(100), nullable=True)
+    regional_rates = Column(Text, nullable=True) # JSON dictionary of prefecture -> fee
     is_individual_available = Column(Boolean, default=True)
     source_url = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

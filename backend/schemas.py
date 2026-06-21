@@ -304,6 +304,7 @@ class ShippingRateOut(BaseModel):
     has_tracking: bool
     has_insurance: bool
     is_individual_available: bool
+    regional_rates: Optional[str] = None
     max_size: Optional[str] = None
     max_weight: Optional[str] = None
     source_url: Optional[str] = None

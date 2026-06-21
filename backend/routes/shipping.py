@@ -16,7 +16,7 @@ def get_shipping_rates(
     db: Session = Depends(get_db)
 ):
     if method and prefecture:
-        fee = calculate_shipping_fee(method, prefecture)
+        fee = calculate_shipping_fee(method, prefecture, db=db)
         return {"fee": fee, "method": method, "prefecture": prefecture}
         
     rates = db.query(models.ShippingRate).all()
@@ -31,7 +31,7 @@ def get_calculated_shipping(
     country: str = "Japan",
     db: Session = Depends(get_db)
 ):
-    fee = calculate_shipping_fee(method_code, region, country)
+    fee = calculate_shipping_fee(method_code, region, country, db=db)
     return {"method_code": method_code, "fee_jpy": fee}
 
 @router.get("/shipping-rates/debug")
