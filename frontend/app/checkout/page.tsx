@@ -572,10 +572,37 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* 4. 同意事項 */}
+          {/* 4. 支払い方法 */}
           <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
             <h2 className="text-white font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
+              {t('支払い方法', lang)}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { value: 'credit_card', label: t('カード', lang) },
+                { value: 'bank_transfer', label: t('銀行振込', lang) },
+                { value: 'cod', label: t('代金引換', lang) },
+              ].map((method) => (
+                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value={method.value}
+                    checked={paymentMethod === method.value}
+                    onChange={() => setPaymentMethod(method.value)}
+                    className="accent-yellow-400"
+                  />
+                  <span className="text-gray-300 text-xs">{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* 5. 同意事項 */}
+          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">5</span>
               {t('同意事項', lang)}
             </h2>
             
@@ -615,33 +642,6 @@ export default function CheckoutPage() {
                   </label>
                 </div>
               )}
-            </div>
-          </section>
-
-          {/* 5. 支払い方法 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">5</span>
-              {t('支払い方法', lang)}
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { value: 'credit_card', label: t('カード', lang) },
-                { value: 'bank_transfer', label: t('銀行振込', lang) },
-                { value: 'cod', label: t('代金引換', lang) },
-              ].map((method) => (
-                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value={method.value}
-                    checked={paymentMethod === method.value}
-                    onChange={() => setPaymentMethod(method.value)}
-                    className="accent-yellow-400"
-                  />
-                  <span className="text-gray-300 text-xs">{method.label}</span>
-                </label>
-              ))}
             </div>
           </section>
 
