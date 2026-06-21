@@ -1,6 +1,7 @@
 export interface Card {
   id: number
   name: string
+  name_en: string | null
   description: string
   price: number
   stock: number

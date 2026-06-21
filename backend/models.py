@@ -64,6 +64,7 @@ class Card(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, index=True)
+    name_en = Column(String(200), nullable=True, index=True)
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)

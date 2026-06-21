@@ -23,6 +23,7 @@ const MAX_IMAGES = 10
 
 interface CardForm {
   name: string
+  name_en: string
   description: string
   price: string
   stock: string
@@ -34,7 +35,7 @@ interface CardForm {
 }
 
 const emptyForm: CardForm = {
-  name: '', description: '', price: '', stock: '',
+  name: '', name_en: '', description: '', price: '', stock: '',
   rarity: 'C', condition: '', category_id: '', images: [''],
   allowed_shipping_methods: [],
 }
@@ -111,6 +112,7 @@ export default function AdminCardsPage() {
     setEditingId(card.id)
     setForm({
       name: card.name,
+      name_en: card.name_en || '',
       description: card.description || '',
       price: card.price.toString(),
       stock: card.stock.toString(),
@@ -142,6 +144,7 @@ export default function AdminCardsPage() {
     const extra = validImages.slice(1)
     const data = {
       name: form.name,
+      name_en: form.name_en || null,
       description: form.description,
       price: parseFloat(form.price),
       stock: parseInt(form.stock),
@@ -253,6 +256,12 @@ export default function AdminCardsPage() {
                 <div className="space-y-1">
                   <Label className="text-gray-300">カード名 *</Label>
                   <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required className="bg-gray-800 border-gray-700 text-white" />
+                </div>
+
+                {/* 英語名 */}
+                <div className="space-y-1">
+                  <Label className="text-gray-300">英語名</Label>
+                  <Input value={form.name_en} onChange={e => setForm({...form, name_en: e.target.value})} className="bg-gray-800 border-gray-700 text-white" />
                 </div>
 
                 {/* レアリティ */}
@@ -468,7 +477,10 @@ export default function AdminCardsPage() {
                               <div className="flex items-center justify-center h-full text-sm">🃏</div>
                             )}
                           </div>
-                          <span className="text-white">{card.name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-white font-medium">{card.name}</span>
+                            {card.name_en && <span className="text-gray-500 text-[10px]">{card.name_en}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-400">{card.rarity}</td>

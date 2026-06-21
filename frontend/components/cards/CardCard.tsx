@@ -50,7 +50,7 @@ export default function CardCard({ card }: CardCardProps) {
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
   const { formatPrice } = usePrice()
-  const cardName = useTranslation(card.name)
+  const cardName = (lang === 'en' && card.name_en) ? card.name_en : useTranslation(card.name)
   const categoryName = useTranslation(card.category?.name || '')
 
   const handleAddToCart = async (e: React.MouseEvent) => {

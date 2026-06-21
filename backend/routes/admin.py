@@ -25,7 +25,9 @@ def admin_list_cards(
 ):
     query = db.query(models.Card)
     if q:
-        query = query.filter(models.Card.name.ilike(f"%{q}%"))
+        query = query.filter(
+            (models.Card.name.ilike(f"%{q}%")) | (models.Card.name_en.ilike(f"%{q}%"))
+        )
     if is_active is not None:
         query = query.filter(models.Card.is_active == is_active)
     query = query.order_by(models.Card.created_at.desc())

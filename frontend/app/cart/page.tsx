@@ -126,7 +126,7 @@ export default function CartPage() {
 }
 
 function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, lang }: any) {
-  const cardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
   return (
     <div
       className="flex gap-4 bg-gray-900 rounded-lg border border-white/10 p-4"

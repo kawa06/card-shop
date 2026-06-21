@@ -140,7 +140,7 @@ function OrderItemsList({ items, formatPrice, lang }: any) {
 }
 
 function OrderItemRow({ item, formatPrice, lang }: any) {
-  const cardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
   return (
     <div className="flex justify-between items-center text-sm">
       <span className="text-gray-300">{cardName || `${t('カード', lang)} #${item.card_id}`}</span>

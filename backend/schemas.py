@@ -112,6 +112,7 @@ class CategoryOut(CategoryBase):
 
 class CardBase(BaseModel):
     name: str
+    name_en: Optional[str] = None
     description: Optional[str] = None
     price: float
     stock: int = 0

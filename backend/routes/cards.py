@@ -40,7 +40,9 @@ def list_cards(
     if max_price is not None:
         query = query.filter(models.Card.price <= max_price)
     if q:
-        query = query.filter(models.Card.name.ilike(f"%{q}%"))
+        query = query.filter(
+            (models.Card.name.ilike(f"%{q}%")) | (models.Card.name_en.ilike(f"%{q}%"))
+        )
 
     sort_map = {
         "price_asc": models.Card.price.asc(),

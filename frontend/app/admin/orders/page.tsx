@@ -122,12 +122,15 @@ export default function AdminOrdersPage() {
                     </div>
                     {isExpanded && order.items && (
                       <div className="bg-black/20 px-12 pb-4 space-y-2">
-                        {order.items.map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm">
-                            <span className="text-gray-300">{item.card?.name || `カード #${item.card_id}`}</span>
-                            <span className="text-gray-400">{formatPrice(item.unit_price || 0)} × {item.quantity}</span>
-                          </div>
-                        ))}
+                        {order.items.map((item) => {
+                          const displayName = item.card?.name_en ? `${item.card.name} (${item.card.name_en})` : (item.card?.name || `カード #${item.card_id}`)
+                          return (
+                            <div key={item.id} className="flex justify-between text-sm">
+                              <span className="text-gray-300">{displayName}</span>
+                              <span className="text-gray-400">{formatPrice(item.unit_price || 0)} × {item.quantity}</span>
+                            </div>
+                          )
+                        })}
                         {order.shipping_address && (
                           <p className="text-xs text-gray-500 pt-1">配送先: {order.shipping_address}</p>
                         )}

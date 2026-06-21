@@ -115,7 +115,7 @@ export default function CardDetailClient({ id }: { id: string }) {
   const prevImg = useCallback(() => setActiveImg(i => (i - 1 + images.length) % images.length), [images.length])
   const nextImg = useCallback(() => setActiveImg(i => (i + 1) % images.length), [images.length])
 
-  const cardName = useTranslation(card?.name || '')
+  const cardName = (lang === 'en' && card?.name_en) ? card.name_en : useTranslation(card?.name || '')
   const categoryName = useTranslation(card?.category?.name || '')
   const description = useTranslation(card?.description || '')
 

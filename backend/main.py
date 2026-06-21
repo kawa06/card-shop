@@ -26,6 +26,7 @@ def add_columns_if_missing():
     # Define tables and their expected columns
     tables_to_migrate = {
         "cards": [
+            ("name_en", "VARCHAR(200)"),
             ("image_urls", "TEXT"),
             ("condition", "VARCHAR(10)"),
             ("rarity", "VARCHAR(50)"),

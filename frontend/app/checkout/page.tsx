@@ -665,7 +665,7 @@ export default function CheckoutPage() {
 }
 
 function CheckoutItemRow({ item, formatPrice, lang }: any) {
-  const cardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
   return (
     <div className="flex gap-3 items-center">
       <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
