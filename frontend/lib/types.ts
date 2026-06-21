@@ -11,6 +11,7 @@ export interface Card {
   allowed_shipping_methods: string | null // JSON array string e.g. '["takkyubin_compact"]'
   category_id: number | null
   category?: Category
+  is_active: boolean
   created_at: string
 }
 

@@ -7,7 +7,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'backend-production-054e.up.railway.app',
+        hostname: 'web-production-97eff.up.railway.app',
       },
       {
         protocol: 'https',
@@ -16,7 +16,7 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-054e.up.railway.app'
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-97eff.up.railway.app'
     return [
       {
         source: '/api/:path*',

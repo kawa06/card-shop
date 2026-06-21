@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const BASE_URL = '/api'
+const BASE_URL = 'https://web-production-97eff.up.railway.app/api'
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -39,6 +39,7 @@ export const cardsApi = {
   getAll: (params?: {
     page?: number
     per_page?: number
+    size?: number
     category_id?: number
     search?: string
   }) => apiClient.get('/cards', { params }),
