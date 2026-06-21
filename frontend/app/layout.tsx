@@ -1,6 +1,6 @@
 // Version: 2026-06-20-v2
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Shippori_Mincho } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
@@ -8,7 +8,12 @@ import { Toaster } from '@/components/ui/toaster'
 import { LangInit } from '@/components/LangInit'
 import { RateInit } from '@/components/RateInit'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const shippori = Shippori_Mincho({ 
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-shippori'
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +73,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja" className="dark">
-      <body className={`${inter.className} min-h-screen bg-gray-950 text-white`}>
+      <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-gray-950 text-white`}>
         <LangInit />
         <RateInit />
         <div className="flex flex-col min-h-screen">
