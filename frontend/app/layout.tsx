@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: '/favicon.ico',
-    apple: '/logo.png',
+    apple: '/logo-main.png',
   },
   description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
   openGraph: {

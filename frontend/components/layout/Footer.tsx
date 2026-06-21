@@ -14,12 +14,12 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-3">
-              <div className="relative h-8 w-8 overflow-hidden rounded-md border border-yellow-400/20">
+              <div className="relative h-8 w-24 overflow-hidden rounded-md border border-yellow-400/10">
                 <Image
-                  src="/logo.png"
+                  src="/logo-main.png"
                   alt="KRX TCG"
                   fill
-                  className="object-cover"
+                  className="object-contain"
                 />
               </div>
               <span className="text-luxury-gold text-xl">KRX TCG</span>
