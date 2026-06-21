@@ -24,6 +24,10 @@ export const metadata: Metadata = {
     default: 'KRX TCG | トレーディングカード販売サイト',
     template: '%s | KRX TCG',
   },
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/logo.png',
+  },
   description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
   openGraph: {
     type: 'website',

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 
@@ -13,7 +14,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
-              <span className="text-yellow-400">✦</span>
+              <div className="relative h-6 w-6 overflow-hidden rounded-full">
+                <Image
+                  src="/logo.png"
+                  alt="KRX TCG"
+                  fill
+                  className="object-cover"
+                />
+              </div>
               KRX TCG
             </h3>
             <p className="text-sm leading-relaxed">

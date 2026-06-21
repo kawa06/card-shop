@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe, Mail, Smartphone } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -69,7 +70,15 @@ export default function Header() {
       <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-gray-950/95 backdrop-blur supports-[backdrop-filter]:bg-gray-950/60">
         <div className="container flex h-16 items-center gap-4">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl mr-4">
-            <span className="text-yellow-400">✦</span>
+            <div className="relative h-8 w-8 overflow-hidden rounded-full">
+              <Image
+                src="/logo.png"
+                alt="KRX TCG"
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
             <span className="text-white">KRX TCG</span>
           </Link>
 
