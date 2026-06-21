@@ -1,8 +1,9 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from models import OrderStatus, CARD_RARITIES
+from services.pokemon_names import translate_pokemon_name
 
 
 # ─────────────────────────── Token ───────────────────────────
@@ -160,6 +161,14 @@ class CardOut(CardBase):
 
     class Config:
         from_attributes = True
+
+    @model_validator(mode='after')
+    def populate_name_en(self) -> 'CardOut':
+        if self.name_en is None:
+            translated = translate_pokemon_name(self.name)
+            if translated:
+                self.name_en = translated
+        return self
 
 
 # ─────────────────────────── Cart ────────────────────────────
