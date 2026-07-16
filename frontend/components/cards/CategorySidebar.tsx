@@ -32,7 +32,7 @@ export default function CategorySidebar({
           'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
           selectedCategory === null
             ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20'
-            : 'text-gray-300 hover:bg-white/5 hover:text-white'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
         )}
       >
         {t('すべて', lang)}
@@ -45,7 +45,7 @@ export default function CategorySidebar({
             'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
             selectedCategory === category.id
               ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20'
-              : 'text-gray-300 hover:bg-white/5 hover:text-white'
+              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
           )}
         >
           {translatedNames[i] || category.name}

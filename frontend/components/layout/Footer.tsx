@@ -9,12 +9,12 @@ export default function Footer() {
   const { lang } = useLangStore()
 
   return (
-    <footer className="border-t border-white/10 bg-gray-950 text-gray-400">
+    <footer className="border-t border-gray-200 bg-white text-gray-500">
       <div className="container py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-              <div className="relative h-10 w-10 overflow-hidden rounded-md border border-yellow-400/10 flex-shrink-0">
+            <h3 className="text-gray-900 font-bold text-lg mb-4 flex items-center gap-2">
+              <div className="relative h-10 w-10 overflow-hidden rounded-md border border-yellow-400/20 flex-shrink-0">
                 <Image
                   src="/logo-main.png"
                   alt="KRX TCG"
@@ -32,27 +32,27 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-3">{t('ショップ', lang)}</h4>
+            <h4 className="text-gray-900 font-semibold mb-3">{t('ショップ', lang)}</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/" className="hover:text-yellow-400 transition-colors">{t('カード一覧', lang)}</Link></li>
-              <li><Link href="/cart" className="hover:text-yellow-400 transition-colors">{t('カート', lang)}</Link></li>
-              <li><Link href="/orders" className="hover:text-yellow-400 transition-colors">{t('注文履歴', lang)}</Link></li>
-              <li><Link href="/mypage" className="hover:text-yellow-400 transition-colors">{t('マイページ', lang)}</Link></li>
+              <li><Link href="/" className="hover:text-yellow-600 transition-colors">{t('カード一覧', lang)}</Link></li>
+              <li><Link href="/cart" className="hover:text-yellow-600 transition-colors">{t('カート', lang)}</Link></li>
+              <li><Link href="/orders" className="hover:text-yellow-600 transition-colors">{t('注文履歴', lang)}</Link></li>
+              <li><Link href="/mypage" className="hover:text-yellow-600 transition-colors">{t('マイページ', lang)}</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-3">{t('規約・情報', lang)}</h4>
+            <h4 className="text-gray-900 font-semibold mb-3">{t('規約・情報', lang)}</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/terms" className="hover:text-yellow-400 transition-colors">{t('利用規約', lang)}</Link></li>
-              <li><Link href="/privacy" className="hover:text-yellow-400 transition-colors">{t('プライバシーポリシー', lang)}</Link></li>
-              <li><Link href="/shipping-policy" className="hover:text-yellow-400 transition-colors">{t('発送・補償について', lang)}</Link></li>
-              <li><Link href="#" className="hover:text-yellow-400 transition-colors opacity-50 cursor-not-allowed">{t('特定商取引法に基づく表記', lang)}</Link></li>
+              <li><Link href="/terms" className="hover:text-yellow-600 transition-colors">{t('利用規約', lang)}</Link></li>
+              <li><Link href="/privacy" className="hover:text-yellow-600 transition-colors">{t('プライバシーポリシー', lang)}</Link></li>
+              <li><Link href="/shipping-policy" className="hover:text-yellow-600 transition-colors">{t('発送・補償について', lang)}</Link></li>
+              <li><Link href="#" className="hover:text-yellow-600 transition-colors opacity-50 cursor-not-allowed">{t('特定商取引法に基づく表記', lang)}</Link></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm">
+        <div className="border-t border-gray-200 mt-8 pt-6 text-center text-sm">
           <p>&copy; {new Date().getFullYear()} KRX TCG. All rights reserved.</p>
         </div>
       </div>

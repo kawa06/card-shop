@@ -96,16 +96,16 @@ export default function AdminAnnouncementsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <Bell className="h-6 w-6 text-purple-400" />
-          <h1 className="text-2xl font-bold text-white flex-1">お知らせ管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">お知らせ管理</h1>
           <Button
             onClick={() => { setShowForm(true); setEditingId(null); setForm({ title: '', content: '', is_active: true }) }}
             className="bg-purple-600 text-white hover:bg-purple-500 font-bold"
@@ -116,29 +116,29 @@ export default function AdminAnnouncementsPage() {
         </div>
 
         {showForm && (
-          <div className="bg-gray-900 rounded-xl border border-white/10 p-6 mb-8">
-            <h2 className="text-white font-semibold mb-4">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-8">
+            <h2 className="text-gray-900 font-semibold mb-4">
               {editingId ? 'お知らせを編集' : '新規お知らせ作成'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-gray-300">タイトル</Label>
+                <Label className="text-gray-600">タイトル</Label>
                 <Input
                   value={form.title}
                   onChange={e => setForm({...form, title: e.target.value})}
                   required
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white border-gray-300 text-gray-900"
                   placeholder="重要なお知らせ"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-gray-300">内容</Label>
+                <Label className="text-gray-600">内容</Label>
                 <textarea
                   value={form.content}
                   onChange={e => setForm({...form, content: e.target.value})}
                   required
                   rows={3}
-                  className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white resize-none focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 resize-none focus:outline-none focus:ring-1 focus:ring-purple-500"
                   placeholder="お知らせの詳細内容を入力してください"
                 />
               </div>
@@ -148,9 +148,9 @@ export default function AdminAnnouncementsPage() {
                   id="is_active"
                   checked={form.is_active}
                   onChange={e => setForm({...form, is_active: e.target.checked})}
-                  className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-purple-600 focus:ring-purple-500"
+                  className="w-4 h-4 rounded border-gray-300 bg-white text-purple-600 focus:ring-purple-500"
                 />
-                <Label htmlFor="is_active" className="text-gray-300 cursor-pointer">
+                <Label htmlFor="is_active" className="text-gray-600 cursor-pointer">
                   公開する
                 </Label>
               </div>
@@ -166,20 +166,20 @@ export default function AdminAnnouncementsPage() {
           </div>
         )}
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 overflow-hidden">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : announcements.length === 0 ? (
             <div className="p-8 text-center text-gray-500">お知らせはありません</div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-gray-100">
               {announcements.map((ann) => (
-                <div key={ann.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                <div key={ann.id} className="p-4 flex items-center justify-between hover:bg-gray-100 transition-colors">
                   <div className="flex-1 min-w-0 pr-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-white font-medium truncate">{ann.title}</h3>
+                      <h3 className="text-gray-900 font-medium truncate">{ann.title}</h3>
                       {!ann.is_active && (
-                        <span className="text-[10px] bg-gray-800 text-gray-500 px-1.5 py-0.5 rounded border border-white/5">
+                        <span className="text-[10px] bg-white text-gray-500 px-1.5 py-0.5 rounded border border-gray-100">
                           非公開
                         </span>
                       )}

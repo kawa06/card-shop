@@ -28,11 +28,11 @@ export default function VerifyPage({ params }: { params: { token: string } }) {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-gray-900 rounded-2xl border border-white/10 p-8 text-center shadow-2xl">
+      <div className="w-full max-w-md bg-gray-50 rounded-2xl border border-gray-200 p-8 text-center shadow-2xl">
         {status === 'loading' && (
           <div className="space-y-4">
             <Loader2 className="h-12 w-12 text-yellow-400 animate-spin mx-auto" />
-            <h1 className="text-xl font-bold text-white">メールアドレスを認証中...</h1>
+            <h1 className="text-xl font-bold text-gray-900">メールアドレスを認証中...</h1>
             <p className="text-gray-400 text-sm">少々お待ちください</p>
           </div>
         )}
@@ -43,7 +43,7 @@ export default function VerifyPage({ params }: { params: { token: string } }) {
               <CheckCircle2 className="h-10 w-10 text-green-500" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-white">認証が完了しました！</h1>
+              <h1 className="text-2xl font-bold text-gray-900">認証が完了しました！</h1>
               <p className="text-gray-400 text-sm">{message}</p>
             </div>
             <Link href="/login">
@@ -61,12 +61,12 @@ export default function VerifyPage({ params }: { params: { token: string } }) {
               <XCircle className="h-10 w-10 text-red-500" />
             </div>
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-white">認証エラー</h1>
+              <h1 className="text-2xl font-bold text-gray-900">認証エラー</h1>
               <p className="text-red-400/80 text-sm">{message}</p>
             </div>
             <div className="pt-4 flex flex-col gap-3">
               <Link href="/mypage">
-                <Button variant="outline" className="w-full border-white/10 text-gray-300">
+                <Button variant="outline" className="w-full border-gray-200 text-gray-600">
                   マイページへ
                 </Button>
               </Link>

@@ -57,7 +57,7 @@ export default function OrdersPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-gray-400 animate-pulse">{t('読み込み中...', lang)}</div>
       </div>
     )
@@ -65,18 +65,18 @@ export default function OrdersPage() {
 
   if (orders.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <Package className="h-16 w-16 text-gray-700" />
-        <h2 className="text-xl font-bold text-white">{t('注文履歴はありません', lang)}</h2>
+        <h2 className="text-xl font-bold text-gray-900">{t('注文履歴はありません', lang)}</h2>
         <p className="text-gray-400 text-sm">{t('まだ注文がありません', lang)}</p>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-3xl">
-        <h1 className="text-2xl font-bold text-white mb-6">{t('注文履歴', lang)}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('注文履歴', lang)}</h1>
 
         <div className="space-y-3">
           {orders.map((order) => {
@@ -85,14 +85,14 @@ export default function OrdersPage() {
             const isExpanded = expandedId === order.id
 
             return (
-              <div key={order.id} className="bg-gray-900 rounded-lg border border-white/10">
+              <div key={order.id} className="bg-gray-50 rounded-lg border border-gray-200">
                 <button
                   onClick={() => setExpandedId(isExpanded ? null : order.id)}
                   className="w-full flex items-center justify-between p-4 text-left"
                 >
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-white font-medium">{t('注文番号', lang)} #{order.id}</p>
+                      <p className="text-gray-900 font-medium">{t('注文番号', lang)} #{order.id}</p>
                       <p className="text-gray-500 text-sm">
                         {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')}
                       </p>
@@ -110,12 +110,12 @@ export default function OrdersPage() {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t border-white/10 p-4 space-y-3">
+                  <div className="border-t border-gray-200 p-4 space-y-3">
                     <OrderItemsList items={order.items} formatPrice={formatPrice} lang={lang} />
                     {order.shipping_address && (
-                      <div className="border-t border-white/10 pt-3 text-sm">
+                      <div className="border-t border-gray-200 pt-3 text-sm">
                         <span className="text-gray-500">{t('配送先', lang)}: </span>
-                        <span className="text-gray-300">{order.shipping_address}</span>
+                        <span className="text-gray-600">{order.shipping_address}</span>
                       </div>
                     )}
                   </div>
@@ -140,10 +140,11 @@ function OrderItemsList({ items, formatPrice, lang }: any) {
 }
 
 function OrderItemRow({ item, formatPrice, lang }: any) {
-  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
+  const translatedCardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
   return (
     <div className="flex justify-between items-center text-sm">
-      <span className="text-gray-300">{cardName || `${t('カード', lang)} #${item.card_id}`}</span>
+      <span className="text-gray-600">{cardName || `${t('カード', lang)} #${item.card_id}`}</span>
       <span className="text-gray-400">
         {formatPrice(item.unit_price || 0)} × {item.quantity}
       </span>

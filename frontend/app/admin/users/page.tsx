@@ -34,24 +34,24 @@ export default function AdminUsersPage() {
   if (!isMounted || isAuthLoading || !isAuthenticated) return null
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-white">ユーザー管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900">ユーザー管理</h1>
         </div>
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 overflow-hidden">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b border-white/10">
+                <thead className="border-b border-gray-200">
                   <tr>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">名前</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">メール</th>
@@ -61,8 +61,8 @@ export default function AdminUsersPage() {
                 </thead>
                 <tbody>
                   {users.map((u) => (
-                    <tr key={u.id} className="border-b border-white/5 hover:bg-white/5">
-                      <td className="px-4 py-3 text-white">{u.name}</td>
+                    <tr key={u.id} className="border-b border-gray-100 hover:bg-gray-100">
+                      <td className="px-4 py-3 text-gray-900">{u.name}</td>
                       <td className="px-4 py-3 text-gray-400">{u.email}</td>
                       <td className="px-4 py-3">
                         {u.is_admin ? (

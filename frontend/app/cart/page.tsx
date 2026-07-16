@@ -58,7 +58,7 @@ export default function CartPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-gray-400 animate-pulse">{t('読み込み中...', lang)}</div>
       </div>
     )
@@ -66,9 +66,9 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
         <ShoppingBag className="h-16 w-16 text-gray-700" />
-        <h2 className="text-xl font-bold text-white">{t('カートは空です', lang)}</h2>
+        <h2 className="text-xl font-bold text-gray-900">{t('カートは空です', lang)}</h2>
         <p className="text-gray-400 text-sm">{lang === 'ja' ? 'カードを選んでカートに追加しましょう' : 'Let\'s choose some cards and add them to your cart'}</p>
         <Link href="/">
           <Button className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold mt-2">
@@ -80,9 +80,9 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-4xl">
-        <h1 className="text-2xl font-bold text-white mb-6">{t('ショッピングカート', lang)}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('ショッピングカート', lang)}</h1>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Items */}
@@ -94,8 +94,8 @@ export default function CartPage() {
 
           {/* Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-gray-900 rounded-lg border border-white/10 p-5 sticky top-24">
-              <h2 className="text-white font-bold text-lg mb-4">{t('注文サマリー', lang)}</h2>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-5 sticky top-24">
+              <h2 className="text-gray-900 font-bold text-lg mb-4">{t('注文サマリー', lang)}</h2>
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm text-gray-400">
                   <span>{t('商品数', lang)}</span>
@@ -105,7 +105,7 @@ export default function CartPage() {
                   <span>{t('小計', lang)}</span>
                   <span>{formatPrice(total)}</span>
                 </div>
-                <div className="border-t border-white/10 pt-2 flex justify-between font-bold text-white">
+                <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900">
                   <span>{t('合計', lang)}</span>
                   <span className="text-yellow-400">{formatPrice(total)}</span>
                 </div>
@@ -126,13 +126,14 @@ export default function CartPage() {
 }
 
 function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, lang }: any) {
-  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
+  const translatedCardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
   return (
     <div
-      className="flex gap-4 bg-gray-900 rounded-lg border border-white/10 p-4"
+      className="flex gap-4 bg-gray-50 rounded-lg border border-gray-200 p-4"
     >
       {/* Image */}
-      <div className="relative w-16 h-20 flex-shrink-0 overflow-hidden rounded bg-gray-800">
+      <div className="relative w-16 h-20 flex-shrink-0 overflow-hidden rounded bg-white">
         {item.card?.image_url ? (
           <Image
             src={item.card.image_url}
@@ -149,7 +150,7 @@ function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, la
       <div className="flex-1 min-w-0">
         <Link
           href={`/cards/${item.card?.id}`}
-          className="text-white font-medium hover:text-yellow-400 transition-colors truncate block"
+          className="text-gray-900 font-medium hover:text-yellow-400 transition-colors truncate block"
         >
           {cardName || t('不明なカード', lang)}
         </Link>
@@ -167,21 +168,21 @@ function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, la
         >
           <Trash2 className="h-4 w-4" />
         </button>
-        <div className="flex items-center border border-white/20 rounded overflow-hidden">
+        <div className="flex items-center border border-gray-300 rounded overflow-hidden">
           <button
             onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
             disabled={item.quantity <= 1}
-            className="px-2 py-1 text-gray-300 hover:bg-white/10 disabled:opacity-30 transition-colors"
+            className="px-2 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="px-3 py-1 text-white text-sm min-w-[2.5rem] text-center">
+          <span className="px-3 py-1 text-gray-900 text-sm min-w-[2.5rem] text-center">
             {item.quantity}
           </span>
           <button
             onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
             disabled={item.card?.stock !== undefined && item.quantity >= item.card.stock}
-            className="px-2 py-1 text-gray-300 hover:bg-white/10 disabled:opacity-30 transition-colors"
+            className="px-2 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 transition-colors"
           >
             <Plus className="h-3 w-3" />
           </button>

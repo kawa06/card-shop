@@ -18,7 +18,7 @@ const shippori = Shippori_Mincho({
 export const dynamic = 'force-dynamic'
 
 export const viewport: Viewport = {
-  themeColor: '#030712',
+  themeColor: '#ffffff',
   width: 'device-width',
   initialScale: 1,
 }
@@ -72,8 +72,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja" className="dark">
-      <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-gray-950 text-white`}>
+    <html lang="ja">
+      <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-white text-gray-900`}>
         <LangInit />
         <RateInit />
         <div className="flex flex-col min-h-screen">

@@ -88,7 +88,7 @@ function HomeContent() {
   const mobileCategoryNames = useBatchTranslation(categories.map((c) => c.name))
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       {/* Announcements Banner */}
       {announcements.length > 0 && (
         <div className="bg-yellow-400/10 border-b border-yellow-400/20">
@@ -126,7 +126,7 @@ function HomeContent() {
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
                   categoryId === null
                     ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
-                    : 'border-white/10 text-gray-400 hover:text-white'
+                    : 'border-gray-200 text-gray-500 hover:text-gray-900'
                 }`}
               >
                 {t('すべて', lang)}
@@ -138,7 +138,7 @@ function HomeContent() {
                   className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
                     categoryId === cat.id
                       ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
-                      : 'border-white/10 text-gray-400 hover:text-white'
+                      : 'border-gray-200 text-gray-500 hover:text-gray-900'
                   }`}
                 >
                   {mobileCategoryNames[idx] || cat.name}
@@ -163,7 +163,7 @@ function TranslatedAnnouncement({ announcement, i }: { announcement: Announcemen
   const title = useTranslation(announcement.title)
   const content = useTranslation(announcement.content)
   return (
-    <span className="flex items-center gap-2 text-sm text-yellow-200/80 whitespace-nowrap">
+    <span className="flex items-center gap-2 text-sm text-yellow-700 whitespace-nowrap">
       {i > 0 && <span className="text-yellow-400/30">|</span>}
       <span className="text-yellow-400 font-medium">{title}</span>
       <ChevronRight className="h-3 w-3 text-yellow-400/50" />
@@ -175,7 +175,7 @@ function TranslatedAnnouncement({ announcement, i }: { announcement: Announcemen
 export default function HomeClient() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-gray-400 animate-pulse">{t('読み込み中...', 'ja')}</div>
       </div>
     }>

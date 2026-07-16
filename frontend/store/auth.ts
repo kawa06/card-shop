@@ -10,8 +10,10 @@ interface AuthState {
   token: string | null
   isLoading: boolean
   isAuthenticated: boolean
+  hasHydrated: boolean
+  setHasHydrated: (state: boolean) => void
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name: string, phone_number?: string) => Promise<void>
+  register: (email: string, password: string, name: string, phone?: { number: string; code: string }) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
 }
@@ -23,8 +25,14 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isLoading: false,
       isAuthenticated: false,
+      hasHydrated: false,
+
+      setHasHydrated: (state: boolean) => {
+        set({ hasHydrated: state })
+      },
 
       login: async (email: string, password: string) => {
+        await useAuthStore.persist.rehydrate()
         set({ isLoading: true })
         try {
           const res = await authApi.login({ email, password })
@@ -32,17 +40,23 @@ export const useAuthStore = create<AuthState>()(
           if (typeof window !== 'undefined') {
             localStorage.setItem('auth_token', access_token)
           }
-          set({ token: access_token, user, isAuthenticated: true, isLoading: false })
+          set({ token: access_token, user, isAuthenticated: true, isLoading: false, hasHydrated: true })
         } catch (error) {
           set({ isLoading: false })
           throw error
         }
       },
 
-      register: async (email: string, password: string, name: string, phone_number?: string) => {
+      register: async (email: string, password: string, name: string, phone?: { number: string; code: string }) => {
         set({ isLoading: true })
         try {
-          const res = await authApi.register({ email, password, name, phone_number })
+          const res = await authApi.register({
+            email,
+            password,
+            name,
+            phone_number: phone?.number,
+            phone_verification_code: phone?.code,
+          })
           const { access_token, user } = res.data
           if (typeof window !== 'undefined') {
             localStorage.setItem('auth_token', access_token)
@@ -76,6 +90,8 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      version: 1,
+      skipHydration: true,
       partialize: (state) => ({ token: state.token, user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )

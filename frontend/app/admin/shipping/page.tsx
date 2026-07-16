@@ -97,17 +97,17 @@ export default function AdminShippingPage() {
   if (!isMounted || !isAuthenticated || (user && !user.is_admin)) return null
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-5xl">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/admin')}
-              className="p-2 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Truck className="h-6 w-6 text-orange-400" />
               {t('送料管理', lang)}
             </h1>
@@ -125,7 +125,7 @@ export default function AdminShippingPage() {
         {isLoading ? (
           <div className="grid gap-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-gray-900 rounded-xl border border-white/5 animate-pulse" />
+              <div key={i} className="h-32 bg-gray-50 rounded-xl border border-gray-100 animate-pulse" />
             ))}
           </div>
         ) : (
@@ -140,19 +140,19 @@ export default function AdminShippingPage() {
             ).map(([carrier, carrierRates]) => (
               <div key={carrier} className="space-y-4">
                 <h2 className="text-xs uppercase tracking-[0.2em] text-gray-500 font-black flex items-center gap-2 ml-2">
-                  <div className="h-px w-8 bg-gray-800" />
+                  <div className="h-px w-8 bg-gray-200" />
                   {carrier === 'yamato' ? 'Yamato Transport' : carrier === 'japan_post' ? 'Japan Post' : 'Other Carriers'}
                 </h2>
                 <div className="grid gap-4">
                   {carrierRates.map((rate) => (
-                    <div key={rate.method_code} className="bg-gray-900 rounded-xl border border-white/10 p-6 hover:border-white/20 transition-all group">
+                    <div key={rate.method_code} className="bg-gray-50 rounded-xl border border-gray-200 p-6 hover:border-gray-300 transition-all group">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
-                            <h3 className="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">
+                            <h3 className="text-lg font-bold text-gray-900 group-hover:text-orange-400 transition-colors">
                               {lang === 'ja' ? rate.name_ja : rate.name_en}
                             </h3>
-                            <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-white/5">
+                            <span className="text-[10px] bg-white text-gray-400 px-2 py-0.5 rounded border border-gray-100">
                               {rate.method_code}
                             </span>
                             {rate.is_recommended && (
@@ -225,7 +225,7 @@ export default function AdminShippingPage() {
                             onClick={() => handleEdit(rate)}
                             variant="outline"
                             size="sm"
-                            className="border-white/10 hover:bg-white/5 text-gray-400 hover:text-white"
+                            className="border-gray-200 hover:bg-gray-100 text-gray-400 hover:text-gray-900"
                           >
                             <Edit2 className="h-3 w-3 mr-2" />
                             {t('編集', lang)}
@@ -242,7 +242,7 @@ export default function AdminShippingPage() {
 
         {/* Edit Dialog */}
         <Dialog open={!!editingRate} onOpenChange={(open: boolean) => !open && setEditingRate(null)}>
-          <DialogContent className="bg-gray-900 border-white/10 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-gray-50 border-gray-200 text-gray-900 max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold flex items-center gap-2">
                 <Edit2 className="h-5 w-5 text-orange-400" />
@@ -258,7 +258,7 @@ export default function AdminShippingPage() {
                     <Input
                       value={editingRate.name_ja}
                       onChange={(e) => setEditingRate({ ...editingRate, name_ja: e.target.value })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                   <div className="space-y-2">
@@ -266,7 +266,7 @@ export default function AdminShippingPage() {
                     <Input
                       value={editingRate.name_en}
                       onChange={(e) => setEditingRate({ ...editingRate, name_en: e.target.value })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                 </div>
@@ -278,7 +278,7 @@ export default function AdminShippingPage() {
                       type="number"
                       value={editingRate.fee_jpy}
                       onChange={(e) => setEditingRate({ ...editingRate, fee_jpy: parseInt(e.target.value) })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                   <div className="flex items-center gap-4 mt-8">
@@ -295,7 +295,7 @@ export default function AdminShippingPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 border-t border-white/5 pt-4">
+                <div className="space-y-4 border-t border-gray-100 pt-4">
                   <h4 className="text-sm font-bold text-orange-400">{lang === 'ja' ? '配送・追跡・補償設定' : 'Shipping & Insurance Settings'}</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="flex items-center space-x-2">
@@ -333,14 +333,14 @@ export default function AdminShippingPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 border-t border-white/5 pt-4">
+                <div className="grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
                   <div className="space-y-2">
                     <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '補償上限 (JPY)' : 'Max Insurance (JPY)'}</Label>
                     <Input
                       type="number"
                       value={editingRate.insurance_max_amount || 0}
                       onChange={(e) => setEditingRate({ ...editingRate, insurance_max_amount: parseInt(e.target.value) })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                   <div className="space-y-2">
@@ -349,7 +349,7 @@ export default function AdminShippingPage() {
                       type="number"
                       value={editingRate.estimated_delivery_min_days || 0}
                       onChange={(e) => setEditingRate({ ...editingRate, estimated_delivery_min_days: parseInt(e.target.value) })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                   <div className="space-y-2">
@@ -358,17 +358,17 @@ export default function AdminShippingPage() {
                       type="number"
                       value={editingRate.estimated_delivery_max_days || 0}
                       onChange={(e) => setEditingRate({ ...editingRate, estimated_delivery_max_days: parseInt(e.target.value) })}
-                      className="bg-gray-800 border-white/5 text-white"
+                      className="bg-white border-gray-100 text-gray-900"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2 border-t border-white/5 pt-4">
+                <div className="space-y-2 border-t border-gray-100 pt-4">
                   <Label className="text-gray-400 text-xs uppercase tracking-wider font-black">{lang === 'ja' ? '補償詳細URL' : 'Insurance Info URL'}</Label>
                   <Input
                     value={editingRate.insurance_url || ''}
                     onChange={(e) => setEditingRate({ ...editingRate, insurance_url: e.target.value })}
-                    className="bg-gray-800 border-white/5 text-white"
+                    className="bg-white border-gray-100 text-gray-900"
                     placeholder="https://..."
                   />
                 </div>
@@ -378,7 +378,7 @@ export default function AdminShippingPage() {
                   <textarea
                     value={editingRate.international_zones || ''}
                     onChange={(e) => setEditingRate({ ...editingRate, international_zones: e.target.value })}
-                    className="w-full h-24 bg-gray-800 border-white/5 rounded-md p-2 text-xs font-mono text-white focus:ring-orange-400/50"
+                    className="w-full h-24 bg-white border-gray-100 rounded-md p-2 text-xs font-mono text-gray-900 focus:ring-orange-400/50"
                     placeholder='{"Asia": 1400, "North America": 2500, ...}'
                   />
                   <p className="text-[10px] text-gray-500">
@@ -388,11 +388,11 @@ export default function AdminShippingPage() {
               </div>
             )}
 
-            <DialogFooter className="border-t border-white/5 pt-4">
+            <DialogFooter className="border-t border-gray-100 pt-4">
               <Button
                 variant="outline"
                 onClick={() => setEditingRate(null)}
-                className="border-white/10 hover:bg-white/5 text-gray-400"
+                className="border-gray-200 hover:bg-gray-100 text-gray-400"
               >
                 <X className="h-4 w-4 mr-2" />
                 {t('キャンセル', lang)}

@@ -1,6 +1,9 @@
 import axios from 'axios'
 
-const BASE_URL = 'https://web-production-97eff.up.railway.app/api'
+const BASE_URL =
+  typeof window !== 'undefined'
+    ? '/api'
+    : `${process.env.NEXT_PUBLIC_API_URL || 'https://web-production-97eff.up.railway.app'}/api`
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -25,9 +28,20 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
+      const requestUrl = error.config?.url || ''
+      if (requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')) {
+        return Promise.reject(error)
+      }
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token')
-        // Zustand store will be updated by the catch block in fetchMe or direct logout
+        // Don't clear storage if we're in the first 5 seconds of page load
+        // This prevents logout due to race conditions during hydration
+        const pageLoadTime = window.performance.now()
+        if (pageLoadTime > 5000) {
+          localStorage.removeItem('auth_token')
+          // Zustand store will be updated by the catch block in fetchMe or direct logout
+        } else {
+          console.warn('401 error detected during initial page load, skipping localStorage clear')
+        }
       }
     }
     return Promise.reject(error)
@@ -67,7 +81,7 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     apiClient.post('/auth/login', data),
 
-  register: (data: { email: string; password: string; name: string; phone_number?: string }) =>
+  register: (data: { email: string; password: string; name: string; phone_number?: string; phone_verification_code?: string }) =>
     apiClient.post('/auth/register', data),
 
   me: () => apiClient.get('/auth/me'),
@@ -193,4 +207,6 @@ export const shippingApi = {
   refreshRates: () => apiClient.post('/shipping-rates/refresh'),
   updateRate: (methodCode: string, data: Partial<import('./types').ShippingRate>) =>
     apiClient.patch(`/shipping-rates/${methodCode}`, data),
+  getOrigin: () => apiClient.get<{ key: string; value: string }>('/site-settings/shipping-origin'),
+  updateOrigin: (value: string) => apiClient.post('/site-settings/shipping-origin', { value }),
 }

@@ -27,6 +27,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     phone_number: Optional[str] = None
+    phone_verification_code: Optional[str] = None
 
     @field_validator("password")
     @classmethod

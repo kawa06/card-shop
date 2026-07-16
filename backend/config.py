@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Card Shop API"
     SITE_NAME: str = "KRX TCG"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     # Database (Render provides DATABASE_URL; fallback to SQLite for local dev)
     DATABASE_URL: str = "sqlite:///./card_shop.db"

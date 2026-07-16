@@ -339,26 +339,26 @@ export default function CheckoutPage() {
   if (!isMounted || isAuthLoading || !isAuthenticated || items.length === 0) return null
 
   return (
-    <div className="min-h-screen bg-gray-950" key={lang}>
+    <div className="min-h-screen bg-white" key={lang}>
       <div className="container py-8 max-w-2xl">
-        <h1 className="text-2xl font-bold text-white mb-6 text-center">{t('注文確認', lang)}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">{t('注文確認', lang)}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* 1. 配送先 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+          <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">1</span>
               {t('配送先', lang)}
             </h2>
             <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="country" className="text-gray-300 text-sm">{t('国', lang)}</Label>
+                    <Label htmlFor="country" className="text-gray-600 text-sm">{t('国', lang)}</Label>
                     <select
                       id="country"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
                       required
-                      className="w-full h-10 px-3 bg-gray-800 border border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
+                      className="w-full h-10 px-3 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-yellow-400/50"
                     >
                       {COUNTRIES.map(c => (
                         <option key={c.code} value={c.code}>{lang === 'ja' ? c.ja : c.en}</option>
@@ -369,82 +369,82 @@ export default function CheckoutPage() {
                 {isInternational ? (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="fullName" className="text-gray-300 text-sm">{t('氏名', lang)}</Label>
+                      <Label htmlFor="fullName" className="text-gray-600 text-sm">{t('氏名', lang)}</Label>
                       <Input
                         id="fullName"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         placeholder="John Doe"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="addressLine1" className="text-gray-300 text-sm">{t('住所番地', lang)}</Label>
+                      <Label htmlFor="addressLine1" className="text-gray-600 text-sm">{t('住所番地', lang)}</Label>
                       <Input
                         id="addressLine1"
                         value={addressLine1}
                         onChange={(e) => setAddressLine1(e.target.value)}
                         placeholder="123 Main St"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="addressLine2" className="text-gray-300 text-sm">{t('建物名・部屋番号（任意）', lang)}</Label>
+                      <Label htmlFor="addressLine2" className="text-gray-600 text-sm">{t('建物名・部屋番号（任意）', lang)}</Label>
                       <Input
                         id="addressLine2"
                         value={addressLine2}
                         onChange={(e) => setAddressLine2(e.target.value)}
                         placeholder="Apt 101"
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="city" className="text-gray-300 text-sm">{t('市区町村', lang)}</Label>
+                        <Label htmlFor="city" className="text-gray-600 text-sm">{t('市区町村', lang)}</Label>
                         <Input
                           id="city"
                           value={city}
                           onChange={(e) => setCity(e.target.value)}
                           placeholder="New York"
                           required
-                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                          className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="region" className="text-gray-300 text-sm">{t('都道府県', lang)}</Label>
+                        <Label htmlFor="region" className="text-gray-600 text-sm">{t('都道府県', lang)}</Label>
                         <Input
                           id="region"
                           value={region}
                           onChange={(e) => setRegion(e.target.value)}
                           placeholder="NY"
                           required
-                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                          className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="postalCode" className="text-gray-300 text-sm">{t('郵便番号', lang)}</Label>
+                      <Label htmlFor="postalCode" className="text-gray-600 text-sm">{t('郵便番号', lang)}</Label>
                       <Input
                         id="postalCode"
                         value={postalCode}
                         onChange={(e) => setPostalCode(e.target.value)}
                         placeholder="10001"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
                   </>
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="postalCode" className="text-gray-300 text-sm">{t('郵便番号', lang)}</Label>
+                      <Label htmlFor="postalCode" className="text-gray-600 text-sm">{t('郵便番号', lang)}</Label>
                       <div className="relative">
                         <Input
                           id="postalCode"
@@ -452,7 +452,7 @@ export default function CheckoutPage() {
                           onChange={(e) => setPostalCode(e.target.value)}
                           placeholder="000-0000"
                           required
-                          className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50 pr-10"
+                          className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50 pr-10"
                         />
                         {isFetchingAddress && (
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -463,13 +463,13 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="region" className="text-gray-300 text-sm">{t('都道府県', lang)}</Label>
+                      <Label htmlFor="region" className="text-gray-600 text-sm">{t('都道府県', lang)}</Label>
                       <select
                         id="region"
                         value={region}
                         onChange={(e) => setRegion(e.target.value)}
                         required
-                        className="w-full h-10 px-3 bg-gray-800 border border-gray-700 rounded-md text-white focus:ring-yellow-400/50"
+                        className="w-full h-10 px-3 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-yellow-400/50"
                       >
                         <option value="">{t('都道府県を入力してください', lang)}</option>
                         {PREFECTURES.map(p => (
@@ -479,37 +479,37 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="city" className="text-gray-300 text-sm">{t('市区町村', lang)}</Label>
+                      <Label htmlFor="city" className="text-gray-600 text-sm">{t('市区町村', lang)}</Label>
                       <Input
                         id="city"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder="渋谷区"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="addressLine1" className="text-gray-300 text-sm">{t('住所番地', lang)}</Label>
+                      <Label htmlFor="addressLine1" className="text-gray-600 text-sm">{t('住所番地', lang)}</Label>
                       <Input
                         id="addressLine1"
                         value={addressLine1}
                         onChange={(e) => setAddressLine1(e.target.value)}
                         placeholder="神南1-1-1"
                         required
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="addressLine2" className="text-gray-300 text-sm">{t('建物名・部屋番号（任意）', lang)}</Label>
+                      <Label htmlFor="addressLine2" className="text-gray-600 text-sm">{t('建物名・部屋番号（任意）', lang)}</Label>
                       <Input
                         id="addressLine2"
                         value={addressLine2}
                         onChange={(e) => setAddressLine2(e.target.value)}
                         placeholder="〇〇ビル 101"
-                        className="bg-gray-800 border-gray-700 text-white focus:ring-yellow-400/50"
+                        className="bg-white border-gray-300 text-gray-900 focus:ring-yellow-400/50"
                       />
                     </div>
                   </>
@@ -520,7 +520,7 @@ export default function CheckoutPage() {
                     id="saveAddress"
                     checked={saveAddress}
                     onChange={(e) => setSaveAddress(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                    className="w-4 h-4 rounded border-gray-300 bg-white text-yellow-400 focus:ring-yellow-400"
                   />
                   <Label htmlFor="saveAddress" className="text-gray-400 text-xs cursor-pointer">
                     {t('この住所を保存して次回から自動入力する', lang)}
@@ -530,9 +530,9 @@ export default function CheckoutPage() {
           </section>
 
           {/* 2. 発送方法 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
+          <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-white font-semibold flex items-center gap-2">
+              <h2 className="text-gray-900 font-semibold flex items-center gap-2">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">2</span>
                 {t('発送方法', lang)}
               </h2>
@@ -557,7 +557,7 @@ export default function CheckoutPage() {
                     {availableRates.map(rate => (
                       <label 
                         key={rate.method_code}
-                        className={`relative flex flex-col gap-1 p-4 rounded-xl border cursor-pointer transition-all ${shippingMethod === rate.method_code ? 'bg-yellow-400/10 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.1)]' : 'bg-gray-800/50 border-white/10 hover:border-white/20'}`}
+                        className={`relative flex flex-col gap-1 p-4 rounded-xl border cursor-pointer transition-all ${shippingMethod === rate.method_code ? 'bg-yellow-400/10 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.1)]' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3">
@@ -570,7 +570,7 @@ export default function CheckoutPage() {
                               className="w-4 h-4 accent-yellow-400"
                             />
                             <div>
-                              <p className="text-white text-sm font-bold flex items-center gap-2">
+                              <p className="text-gray-900 text-sm font-bold flex items-center gap-2">
                                 {lang === 'ja' ? rate.name_ja : rate.name_en}
                                 {rate.is_recommended && (
                                   <Badge className="bg-yellow-400 text-gray-950 hover:bg-yellow-400 text-[9px] h-4 px-1 font-bold">
@@ -631,8 +631,8 @@ export default function CheckoutPage() {
           </section>
 
           {/* 3. 注文内容確認 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+          <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">3</span>
               {t('注文内容確認', lang)}
             </h2>
@@ -640,7 +640,7 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
               ))}
-              <div className="border-t border-white/10 pt-3 space-y-1 text-sm">
+              <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
                 <div className="flex justify-between text-gray-400">
                   <span>{t('小計', lang)}</span>
                   <span>{formatPrice(total)}</span>
@@ -650,7 +650,7 @@ export default function CheckoutPage() {
                   <span>{formatPrice(shippingFee)}</span>
                 </div>
               </div>
-              <div className="border-t border-white/10 pt-3 flex justify-between font-bold">
+              <div className="border-t border-gray-200 pt-3 flex justify-between font-bold">
                 <span className="text-gray-400">{t('合計', lang)}</span>
                 <span className="text-yellow-400 text-lg">{formatPrice(finalTotal)}</span>
               </div>
@@ -658,8 +658,8 @@ export default function CheckoutPage() {
           </section>
 
           {/* 4. 支払い方法 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+          <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
               {t('支払い方法', lang)}
             </h2>
@@ -669,7 +669,7 @@ export default function CheckoutPage() {
                 { value: 'bank_transfer', label: t('銀行振込', lang) },
                 { value: 'cod', label: t('代金引換', lang) },
               ].map((method) => (
-                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-800/50 border-white/5'}`}>
+                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-50 border-gray-100'}`}>
                   <input
                     type="radio"
                     name="payment"
@@ -678,29 +678,29 @@ export default function CheckoutPage() {
                     onChange={() => setPaymentMethod(method.value)}
                     className="accent-yellow-400"
                   />
-                  <span className="text-gray-300 text-xs">{method.label}</span>
+                  <span className="text-gray-600 text-xs">{method.label}</span>
                 </label>
               ))}
             </div>
           </section>
 
           {/* 5. 同意事項 */}
-          <section className="bg-gray-900 rounded-lg border border-white/10 p-5 space-y-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+          <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">5</span>
               {t('同意事項', lang)}
             </h2>
             
             <div className="space-y-3">
-              <div className="p-4 bg-gray-800/50 border border-white/5 rounded-lg space-y-3">
+              <div className="p-4 bg-gray-50 border border-gray-100 rounded-lg space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={agreedToTerms}
                     onChange={(e) => setAgreedToTerms(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                    className="w-4 h-4 rounded border-gray-300 bg-white text-yellow-400 focus:ring-yellow-400"
                   />
-                  <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                  <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
                     {t('利用規約およびプライバシーポリシーに同意します', lang)}
                   </span>
                 </label>
@@ -708,7 +708,7 @@ export default function CheckoutPage() {
 
               {needsCompensationAgreement && (
                 <div className="p-4 bg-yellow-400/5 border border-yellow-400/20 rounded-lg space-y-3">
-                  <p className="text-xs text-gray-300 leading-relaxed">
+                  <p className="text-xs text-gray-600 leading-relaxed">
                     {t('ご希望の発送方法は、万が一の事故（紛失・破損）の際の補償が限定的、またはありません。', lang)}
                     <Link href="/shipping-policy" className="text-yellow-400 hover:underline ml-1">
                       {t('発送・補償ポリシーを確認', lang)}
@@ -719,7 +719,7 @@ export default function CheckoutPage() {
                       type="checkbox"
                       checked={agreedToNoCompensation}
                       onChange={(e) => setAgreedToNoCompensation(e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                      className="w-4 h-4 rounded border-gray-300 bg-white text-yellow-400 focus:ring-yellow-400"
                     />
                     <span className="text-sm text-yellow-400 font-bold group-hover:text-yellow-300 transition-colors">
                       {t('配送会社の補償規定および免責事項に同意します', lang)}
@@ -750,10 +750,11 @@ export default function CheckoutPage() {
 }
 
 function CheckoutItemRow({ item, formatPrice, lang }: any) {
-  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : useTranslation(item.card?.name)
+  const translatedCardName = useTranslation(item.card?.name)
+  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
   return (
     <div className="flex gap-3 items-center">
-      <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-gray-800">
+      <div className="relative w-12 h-16 flex-shrink-0 rounded overflow-hidden bg-white">
         {item.card?.image_url ? (
           <Image src={item.card.image_url} alt={cardName} fill className="object-cover" />
         ) : (
@@ -761,7 +762,7 @@ function CheckoutItemRow({ item, formatPrice, lang }: any) {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-white text-sm font-medium truncate">{cardName || t('不明なカード', lang)}</p>
+        <p className="text-gray-900 text-sm font-medium truncate">{cardName || t('不明なカード', lang)}</p>
         <p className="text-gray-500 text-xs">{item.card?.rarity} × {item.quantity}</p>
       </div>
       <p className="text-yellow-400 font-bold text-sm">

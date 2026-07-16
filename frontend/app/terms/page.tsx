@@ -11,21 +11,21 @@ export default function TermsPage() {
   const { lang } = useLangStore()
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-3xl">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-gray-900 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('戻る', lang)}
         </button>
 
-        <h1 className="text-3xl font-bold text-white mb-8">{t('利用規約', lang)}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('利用規約', lang)}</h1>
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 p-8 space-y-6 text-gray-300 leading-relaxed">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-8 space-y-6 text-gray-600 leading-relaxed">
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第1条（適用）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第1条（適用）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '本規約は，ユーザーと当ショップ（以下，「当ショップ」といいます。）との間の本サービスの利用に関わる一切の関係に適用されるものとします。'
@@ -34,7 +34,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第2条（利用登録）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第2条（利用登録）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '登録希望者が当ショップの定める方法によって利用登録を申請し，当ショップがこれを承認することによって，利用登録が完了するものとします。'
@@ -43,7 +43,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第3条（禁止事項）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第3条（禁止事項）', lang)}</h2>
             <p>{lang === 'ja' ? 'ユーザーは，本サービスの利用にあたり，以下の行為をしてはなりません。' : 'In using this service, the user must not engage in the following acts:'}</p>
             <ul className="list-disc ml-6 mt-2 space-y-1">
               <li>{lang === 'ja' ? '法令または公序良俗に違反する行為' : 'Acts that violate laws or public order and morals'}</li>
@@ -55,7 +55,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第4条（免責事項）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第4条（免責事項）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '当ショップの債務不履行責任は，当ショップの故意または重過失によらない場合には免責されるものとします。'
@@ -64,7 +64,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第5条（準拠法・裁判管轄）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第5条（準拠法・裁判管轄）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '本規約の解釈にあたっては，日本法を準拠法とします。本サービスに関して紛争が生じた場合には，当ショップの本店所在地を管轄する裁判所を専属的合意管轄とします。'

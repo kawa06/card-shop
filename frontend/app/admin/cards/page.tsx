@@ -227,15 +227,15 @@ export default function AdminCardsPage() {
   const existingImages = cards.filter(c => c.image_url && !c.image_url.startsWith('data:'))
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-white flex-1">カード管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">カード管理</h1>
           <Button
             onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm) }}
             className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold"
@@ -246,48 +246,48 @@ export default function AdminCardsPage() {
 
         {/* フォーム */}
         {showForm && (
-          <div className="bg-gray-900 rounded-xl border border-white/10 p-6 mb-6">
-            <h2 className="text-white font-semibold mb-4">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-6">
+            <h2 className="text-gray-900 font-semibold mb-4">
               {editingId ? 'カードを編集' : '新規カード作成'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* カード名 */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">カード名 *</Label>
-                  <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required className="bg-gray-800 border-gray-700 text-white" />
+                  <Label className="text-gray-600">カード名 *</Label>
+                  <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} required className="bg-white border-gray-300 text-gray-900" />
                 </div>
 
                 {/* 英語名 */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">英語名</Label>
-                  <Input value={form.name_en} onChange={e => setForm({...form, name_en: e.target.value})} className="bg-gray-800 border-gray-700 text-white" />
+                  <Label className="text-gray-600">英語名</Label>
+                  <Input value={form.name_en} onChange={e => setForm({...form, name_en: e.target.value})} className="bg-white border-gray-300 text-gray-900" />
                 </div>
 
                 {/* レアリティ */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">レアリティ *</Label>
-                  <select value={form.rarity} onChange={e => setForm({...form, rarity: e.target.value})} className="w-full h-10 rounded-md border border-gray-700 bg-gray-800 px-3 text-white text-sm">
+                  <Label className="text-gray-600">レアリティ *</Label>
+                  <select value={form.rarity} onChange={e => setForm({...form, rarity: e.target.value})} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-gray-900 text-sm">
                     {RARITIES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
 
                 {/* 価格 */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">価格 *</Label>
-                  <Input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required min="0" className="bg-gray-800 border-gray-700 text-white" />
+                  <Label className="text-gray-600">価格 *</Label>
+                  <Input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required min="0" className="bg-white border-gray-300 text-gray-900" />
                 </div>
 
                 {/* 在庫 */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">在庫数 *</Label>
-                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} required min="0" className="bg-gray-800 border-gray-700 text-white" />
+                  <Label className="text-gray-600">在庫数 *</Label>
+                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} required min="0" className="bg-white border-gray-300 text-gray-900" />
                 </div>
 
                 {/* 状態 */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">状態</Label>
-                  <select value={form.condition} onChange={e => setForm({...form, condition: e.target.value})} className="w-full h-10 rounded-md border border-gray-700 bg-gray-800 px-3 text-white text-sm">
+                  <Label className="text-gray-600">状態</Label>
+                  <select value={form.condition} onChange={e => setForm({...form, condition: e.target.value})} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-gray-900 text-sm">
                     <option value="">-- 選択 --</option>
                     {CONDITIONS.map(c => <option key={c} value={c}>{CONDITION_LABEL[c]}</option>)}
                   </select>
@@ -295,8 +295,8 @@ export default function AdminCardsPage() {
 
                 {/* カテゴリー */}
                 <div className="space-y-1">
-                  <Label className="text-gray-300">カテゴリー</Label>
-                  <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} className="w-full h-10 rounded-md border border-gray-700 bg-gray-800 px-3 text-white text-sm">
+                  <Label className="text-gray-600">カテゴリー</Label>
+                  <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-gray-900 text-sm">
                     <option value="">-- 選択 --</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
@@ -304,13 +304,13 @@ export default function AdminCardsPage() {
 
                 {/* 説明 */}
                 <div className="sm:col-span-2 space-y-1">
-                  <Label className="text-gray-300">説明</Label>
-                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white resize-none" />
+                  <Label className="text-gray-600">説明</Label>
+                  <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 resize-none" />
                 </div>
 
                 {/* 発送方法制限 */}
-                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-white/5">
-                  <Label className="text-gray-300">許可する発送方法</Label>
+                <div className="sm:col-span-2 space-y-2 pt-2 border-t border-gray-100">
+                  <Label className="text-gray-600">許可する発送方法</Label>
                   <p className="text-[10px] text-gray-500 mb-2">指定しない場合は全ての発送方法が選択可能 / 例: 高額カードは宅急便コンパクトのみに制限</p>
                   
                   <div className="space-y-4">
@@ -328,14 +328,14 @@ export default function AdminCardsPage() {
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {rates.map(rate => (
-                            <label key={rate.method_code} className="flex items-center gap-2 cursor-pointer group p-2 rounded bg-gray-800/50 border border-white/5 hover:border-white/10 transition-colors">
+                            <label key={rate.method_code} className="flex items-center gap-2 cursor-pointer group p-2 rounded bg-gray-50 border border-gray-100 hover:border-gray-200 transition-colors">
                               <input
                                 type="checkbox"
                                 checked={form.allowed_shipping_methods.includes(rate.method_code)}
                                 onChange={() => toggleShippingMethod(rate.method_code)}
-                                className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-yellow-400 focus:ring-yellow-400"
+                                className="w-4 h-4 rounded border-gray-300 bg-white text-yellow-400 focus:ring-yellow-400"
                               />
-                              <span className="text-[11px] text-gray-400 group-hover:text-white transition-colors">{rate.name_ja}</span>
+                              <span className="text-[11px] text-gray-400 group-hover:text-gray-900 transition-colors">{rate.name_ja}</span>
                             </label>
                           ))}
                         </div>
@@ -348,7 +348,7 @@ export default function AdminCardsPage() {
               {/* 画像スロット (最大10枚) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-gray-300">画像（最大{MAX_IMAGES}枚）</Label>
+                  <Label className="text-gray-600">画像（最大{MAX_IMAGES}枚）</Label>
                   <span className="text-xs text-gray-500">{form.images.filter(u => u).length}/{MAX_IMAGES}枚</span>
                 </div>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
@@ -359,14 +359,14 @@ export default function AdminCardsPage() {
                       <div className="relative">
                         {/* プレビュー or プレースホルダー */}
                         {url ? (
-                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-white/10 bg-gray-800">
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-200 bg-white">
                             <Image src={url} alt={`画像 ${idx + 1}`} fill className="object-cover" unoptimized={url.startsWith('data:')} />
                             <button type="button" onClick={() => removeImageAt(idx)} className="absolute top-1 right-1 bg-red-600/80 hover:bg-red-600 rounded-full p-0.5">
                               <X className="h-3 w-3 text-white" />
                             </button>
                           </div>
                         ) : (
-                          <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-white/20 bg-gray-800/50 flex flex-col items-center justify-center gap-2 text-gray-500 text-xs">
+                          <div className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center gap-2 text-gray-500 text-xs">
                             <span>画像 {idx + 1}</span>
                           </div>
                         )}
@@ -376,14 +376,14 @@ export default function AdminCardsPage() {
                           value={url.startsWith('data:') ? '' : url}
                           onChange={e => setImageAt(idx, e.target.value)}
                           placeholder="URL"
-                          className="bg-gray-800 border-gray-700 text-white text-xs h-7 flex-1"
+                          className="bg-white border-gray-300 text-gray-900 text-xs h-7 flex-1"
                         />
-                        <Button type="button" variant="outline" size="icon" className="h-7 w-7 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 shrink-0"
+                        <Button type="button" variant="outline" size="icon" className="h-7 w-7 border-gray-300 text-gray-400 hover:text-gray-900 hover:bg-gray-100 shrink-0"
                           onClick={() => { setUploadSlot(idx); fileInputRef.current?.click() }} title="ファイルを選択">
                           <Upload className="h-3 w-3" />
                         </Button>
                         {existingImages.length > 0 && (
-                          <Button type="button" variant="outline" size="icon" className="h-7 w-7 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700 shrink-0"
+                          <Button type="button" variant="outline" size="icon" className="h-7 w-7 border-gray-300 text-gray-400 hover:text-gray-900 hover:bg-gray-100 shrink-0"
                             onClick={() => setShowImagePicker(idx)} title="既存画像から選ぶ">
                             <Images className="h-3 w-3" />
                           </Button>
@@ -395,7 +395,7 @@ export default function AdminCardsPage() {
                   {/* 追加ボタン */}
                   {form.images.length < MAX_IMAGES && (
                     <button type="button" onClick={addImageSlot}
-                      className="aspect-[3/4] rounded-lg border-2 border-dashed border-white/20 hover:border-yellow-400/50 bg-gray-800/30 flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-yellow-400 transition-colors text-xs">
+                      className="aspect-[3/4] rounded-lg border-2 border-dashed border-gray-300 hover:border-yellow-400/50 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-500 hover:text-yellow-400 transition-colors text-xs">
                       <Plus className="h-5 w-5" />
                       <span>追加</span>
                     </button>
@@ -418,10 +418,10 @@ export default function AdminCardsPage() {
         {/* 既存画像ピッカー モーダル */}
         {showImagePicker !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setShowImagePicker(null)}>
-            <div className="bg-gray-900 rounded-xl border border-white/10 p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-white font-semibold">既存の画像から選択</h3>
-                <Button variant="ghost" size="icon" onClick={() => setShowImagePicker(null)} className="text-gray-400 hover:text-white">
+                <h3 className="text-gray-900 font-semibold">既存の画像から選択</h3>
+                <Button variant="ghost" size="icon" onClick={() => setShowImagePicker(null)} className="text-gray-400 hover:text-gray-900">
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -432,7 +432,7 @@ export default function AdminCardsPage() {
                       setImageAt(showImagePicker, card.image_url!)
                       setShowImagePicker(null)
                     }}
-                    className="group relative aspect-[2/3] rounded-md overflow-hidden border-2 border-transparent hover:border-yellow-400 transition-all bg-gray-800"
+                    className="group relative aspect-[2/3] rounded-md overflow-hidden border-2 border-transparent hover:border-yellow-400 transition-all bg-white"
                     title={card.name}
                   >
                     <Image src={card.image_url!} alt={card.name} fill className="object-cover" />
@@ -448,13 +448,13 @@ export default function AdminCardsPage() {
         )}
 
         {/* テーブル */}
-        <div className="bg-gray-900 rounded-xl border border-white/10 overflow-hidden">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b border-white/10">
+                <thead className="border-b border-gray-200">
                   <tr>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">カード</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">レアリティ</th>
@@ -467,10 +467,10 @@ export default function AdminCardsPage() {
                 </thead>
                 <tbody>
                   {cards.map((card) => (
-                    <tr key={card.id} className={`border-b border-white/5 hover:bg-white/5 ${!card.is_active ? 'opacity-50 bg-black/20' : ''}`}>
+                    <tr key={card.id} className={`border-b border-gray-100 hover:bg-gray-100 ${!card.is_active ? 'opacity-50 bg-black/20' : ''}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative w-8 h-10 rounded overflow-hidden bg-gray-800 flex-shrink-0">
+                          <div className="relative w-8 h-10 rounded overflow-hidden bg-white flex-shrink-0">
                             {card.image_url ? (
                               <Image src={card.image_url} alt={card.name} fill className="object-cover" unoptimized={card.image_url.startsWith('data:')} />
                             ) : (
@@ -478,7 +478,7 @@ export default function AdminCardsPage() {
                             )}
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-white font-medium">{card.name}</span>
+                            <span className="text-gray-900 font-medium">{card.name}</span>
                             {card.name_en && <span className="text-gray-500 text-[10px]">{card.name_en}</span>}
                           </div>
                         </div>

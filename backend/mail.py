@@ -1,35 +1,22 @@
 import httpx
 from config import settings
-import os
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 旧 SMTP 設定 (コメントアウト)
-# from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-# conf = ConnectionConfig(
-#     MAIL_USERNAME=settings.MAIL_USERNAME or "",
-#     MAIL_PASSWORD=settings.MAIL_PASSWORD or "",
-#     MAIL_FROM=settings.MAIL_FROM,
-#     MAIL_PORT=settings.MAIL_PORT,
-#     MAIL_SERVER=settings.MAIL_SERVER,
-#     MAIL_FROM_NAME=settings.MAIL_FROM_NAME,
-#     MAIL_STARTTLS=settings.MAIL_TLS,
-#     MAIL_SSL_TLS=settings.MAIL_SSL,
-#     USE_CREDENTIALS=settings.USE_CREDENTIALS,
-#     VALIDATE_CERTS=True
-# )
 
-async def send_verification_email(email: str, token: str):
+async def send_verification_email(email: str, token: str) -> bool:
     verification_url = f"{settings.FRONTEND_URL}/verify/{token}"
-    
-    # Resend API Key が未設定の場合はログ出力のみ (開発用フォールバック)
+
     if not settings.RESEND_API_KEY:
-        print(f"--- [RESEND MOCK] EMAIL SENT TO {email} ---")
-        print(f"Verification link: {verification_url}")
-        print(f"Token: {token}")
-        print("------------------------------------------")
-        return
+        if settings.DEBUG:
+            print(f"--- [RESEND MOCK] EMAIL SENT TO {email} ---")
+            print(f"Verification link: {verification_url}")
+            print(f"Token: {token}")
+            print("------------------------------------------")
+            return True
+        logger.error("RESEND_API_KEY is not configured")
+        return False
 
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -55,20 +42,23 @@ async def send_verification_email(email: str, token: str):
                     "Content-Type": "application/json",
                 },
                 json={
-                    "from": f"{settings.MAIL_FROM_NAME} <onboarding@resend.dev>",
+                    "from": f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>",
                     "to": [email],
                     "subject": "【KRX TCG】メールアドレス認証のお願い",
                     "html": html_content,
                 },
             )
-            
+
             if response.status_code != 200:
                 logger.error(f"Resend API Error: {response.status_code} - {response.text}")
-                # 失敗してもトークン自体はログに出しておく (救済用)
-                print(f"FAILED TO SEND EMAIL. Token for {email}: {token}")
-            else:
-                logger.info(f"Email sent successfully to {email}")
+                if settings.DEBUG:
+                    print(f"FAILED TO SEND EMAIL. Token for {email}: {token}")
+                return False
+
+            logger.info(f"Email sent successfully to {email}")
+            return True
     except Exception as e:
         logger.error(f"Error sending email via Resend: {str(e)}")
-        print(f"EXCEPTION DURING EMAIL SEND. Token for {email}: {token}")
-
+        if settings.DEBUG:
+            print(f"EXCEPTION DURING EMAIL SEND. Token for {email}: {token}")
+        return False

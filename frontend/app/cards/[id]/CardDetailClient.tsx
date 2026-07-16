@@ -17,13 +17,13 @@ import { Button } from '@/components/ui/button'
 import CardCard from '@/components/cards/CardCard'
 
 const rarityColors: Record<string, string> = {
-  C:    'bg-gray-500/20 text-gray-300 border-gray-500/40',
+  C:    'bg-gray-500/20 text-gray-600 border-gray-500/40',
   U:    'bg-green-500/20 text-green-300 border-green-500/40',
   R:    'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RR:   'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
   AR:   'bg-teal-500/20 text-teal-300 border-teal-500/40',
   SR:   'bg-purple-500/20 text-purple-300 border-purple-500/40',
-  SAR:  'bg-violet-500/20 text-violet-300 border-violet-300 border-violet-500/40',
+  SAR:  'bg-violet-500/20 text-violet-300 border-violet-500/40',
   MUR:  'bg-orange-500/20 text-orange-300 border-orange-500/40',
   SSR:  'bg-pink-500/20 text-pink-300 border-pink-500/40',
   ミラー: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
@@ -115,7 +115,8 @@ export default function CardDetailClient({ id }: { id: string }) {
   const prevImg = useCallback(() => setActiveImg(i => (i - 1 + images.length) % images.length), [images.length])
   const nextImg = useCallback(() => setActiveImg(i => (i + 1) % images.length), [images.length])
 
-  const cardName = (lang === 'en' && card?.name_en) ? card.name_en : useTranslation(card?.name || '')
+  const translatedCardName = useTranslation(card?.name || '')
+  const cardName = (lang === 'en' && card?.name_en) ? card.name_en : translatedCardName
   const categoryName = useTranslation(card?.category?.name || '')
   const description = useTranslation(card?.description || '')
 
@@ -123,12 +124,12 @@ export default function CardDetailClient({ id }: { id: string }) {
     return (
       <div className="container py-8 animate-pulse">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="aspect-[3/4] bg-gray-800 rounded-lg" />
+          <div className="aspect-[3/4] bg-gray-200 rounded-lg" />
           <div className="space-y-4">
-            <div className="h-8 bg-gray-800 rounded w-3/4" />
-            <div className="h-6 bg-gray-800 rounded w-1/4" />
-            <div className="h-20 bg-gray-800 rounded" />
-            <div className="h-12 bg-gray-800 rounded" />
+            <div className="h-8 bg-gray-200 rounded w-3/4" />
+            <div className="h-6 bg-gray-200 rounded w-1/4" />
+            <div className="h-20 bg-gray-200 rounded" />
+            <div className="h-12 bg-gray-200 rounded" />
           </div>
         </div>
       </div>
@@ -140,11 +141,11 @@ export default function CardDetailClient({ id }: { id: string }) {
   const rarityClass = rarityColors[card.rarity] || rarityColors['C']
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-gray-900 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('戻る', lang)}
@@ -155,7 +156,7 @@ export default function CardDetailClient({ id }: { id: string }) {
           <div className="space-y-3">
             {/* メイン画像 */}
             <div
-              className="relative aspect-[3/4] overflow-hidden rounded-lg border border-white/10 bg-gray-900 cursor-zoom-in"
+              className="relative aspect-[3/4] overflow-hidden rounded-lg border border-gray-200 bg-gray-50 cursor-zoom-in"
               onClick={() => images.length > 0 && setIsZoomed(true)}
             >
               {images.length > 0 ? (
@@ -203,7 +204,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                   <button
                     key={i}
                     onClick={() => setActiveImg(i)}
-                    className={`relative flex-shrink-0 w-14 h-18 aspect-[3/4] rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? 'border-yellow-400' : 'border-white/10 hover:border-white/30'}`}
+                    className={`relative flex-shrink-0 w-14 h-18 aspect-[3/4] rounded-md overflow-hidden border-2 transition-all ${i === activeImg ? 'border-yellow-400' : 'border-gray-200 hover:border-gray-400'}`}
                   >
                     <Image src={url} alt={`${cardName} ${i + 1}`} fill className="object-cover" unoptimized={url.startsWith('data:')} />
                   </button>
@@ -218,7 +219,7 @@ export default function CardDetailClient({ id }: { id: string }) {
               {card.category && (
                 <p className="text-sm text-gray-500 mb-1">{categoryName}</p>
               )}
-              <h1 className="text-3xl font-bold text-white mb-3">{cardName}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">{cardName}</h1>
               <div className="flex flex-wrap gap-2">
                 {card.rarity && (
                   <span className={`text-sm font-bold px-3 py-1 rounded border ${rarityClass}`}>
@@ -226,7 +227,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                   </span>
                 )}
                 {card.condition && (
-                  <span className="text-sm font-medium px-3 py-1 rounded border bg-white/5 text-gray-300 border-white/20">
+                  <span className="text-sm font-medium px-3 py-1 rounded border bg-gray-100 text-gray-600 border-gray-300">
                     {t('状態', lang)}: {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
                   </span>
                 )}
@@ -244,7 +245,7 @@ export default function CardDetailClient({ id }: { id: string }) {
             </div>
 
             {card.description && (
-              <p className="text-gray-300 leading-relaxed border-t border-white/10 pt-4">
+              <p className="text-gray-600 leading-relaxed border-t border-gray-200 pt-4">
                 {description}
               </p>
             )}
@@ -252,10 +253,10 @@ export default function CardDetailClient({ id }: { id: string }) {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-400">{t('数量', lang)}:</span>
-                <div className="flex items-center border border-white/20 rounded-md overflow-hidden">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30" disabled={quantity <= 1}>-</button>
-                  <span className="px-4 py-2 text-white min-w-[3rem] text-center">{quantity}</span>
-                  <button onClick={() => setQuantity(Math.min(card.stock, quantity + 1))} className="px-3 py-2 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30" disabled={quantity >= card.stock}>+</button>
+                <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-30" disabled={quantity <= 1}>-</button>
+                  <span className="px-4 py-2 text-gray-900 min-w-[3rem] text-center">{quantity}</span>
+                  <button onClick={() => setQuantity(Math.min(card.stock, quantity + 1))} className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-30" disabled={quantity >= card.stock}>+</button>
                 </div>
               </div>
 
@@ -274,7 +275,7 @@ export default function CardDetailClient({ id }: { id: string }) {
         {/* 関連カード */}
         {relatedCards.length > 0 && (
           <div>
-            <h2 className="text-xl font-bold text-white mb-4">{t('関連カード', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('関連カード', lang)}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {relatedCards.map((rc) => (
                 <CardCard key={rc.id} card={rc} />

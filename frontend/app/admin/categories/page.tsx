@@ -99,16 +99,16 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-4xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <Tag className="h-6 w-6 text-blue-400" />
-          <h1 className="text-2xl font-bold text-white flex-1">カテゴリー管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">カテゴリー管理</h1>
           <Button
             onClick={() => { setShowForm(true); setEditingId(null); setForm({ name: '', description: '' }) }}
             className="bg-blue-600 text-white hover:bg-blue-500 font-bold"
@@ -119,27 +119,27 @@ export default function AdminCategoriesPage() {
         </div>
 
         {showForm && (
-          <div className="bg-gray-900 rounded-xl border border-white/10 p-6 mb-8">
-            <h2 className="text-white font-semibold mb-4">
+          <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-8">
+            <h2 className="text-gray-900 font-semibold mb-4">
               {editingId ? 'カテゴリーを編集' : '新規カテゴリー作成'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1">
-                <Label className="text-gray-300">カテゴリー名</Label>
+                <Label className="text-gray-600">カテゴリー名</Label>
                 <Input
                   value={form.name}
                   onChange={e => setForm({...form, name: e.target.value})}
                   required
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white border-gray-300 text-gray-900"
                   placeholder="例: ポケモンカード"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-gray-300">説明</Label>
+                <Label className="text-gray-600">説明</Label>
                 <Input
                   value={form.description}
                   onChange={e => setForm({...form, description: e.target.value})}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-white border-gray-300 text-gray-900"
                   placeholder="カテゴリーの説明（任意）"
                 />
               </div>
@@ -155,17 +155,17 @@ export default function AdminCategoriesPage() {
           </div>
         )}
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 overflow-hidden">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : categories.length === 0 ? (
             <div className="p-8 text-center text-gray-500">カテゴリーはありません</div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-gray-100">
               {categories.map((cat) => (
-                <div key={cat.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                <div key={cat.id} className="p-4 flex items-center justify-between hover:bg-gray-100 transition-colors">
                   <div className="flex-1 min-w-0 pr-4">
-                    <h3 className="text-white font-medium truncate">{cat.name}</h3>
+                    <h3 className="text-gray-900 font-medium truncate">{cat.name}</h3>
                     {cat.description && (
                       <p className="text-gray-400 text-sm truncate">{cat.description}</p>
                     )}

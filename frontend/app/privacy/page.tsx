@@ -10,19 +10,19 @@ export default function PrivacyPage() {
   const { lang } = useLangStore()
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-3xl">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-gray-900 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           {t('戻る', lang)}
         </button>
 
-        <h1 className="text-3xl font-bold text-white mb-8">{t('プライバシーポリシー', lang)}</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">{t('プライバシーポリシー', lang)}</h1>
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 p-8 space-y-6 text-gray-300 leading-relaxed">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-8 space-y-6 text-gray-600 leading-relaxed">
           <p>
             {lang === 'ja'
               ? '当ショップは，本ウェブサイト上で提供するサービス（以下,「本サービス」といいます。）における，ユーザーの個人情報の取扱いについて，以下のとおりプライバシーポリシー（以下，「本ポリシー」といいます。）を定めます。'
@@ -30,7 +30,7 @@ export default function PrivacyPage() {
           </p>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第1条（個人情報の収集方法）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第1条（個人情報の収集方法）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '当ショップは，ユーザーが利用登録をする際に氏名，生年月日，住所，電話番号，メールアドレス，銀行口座番号，クレジットカード番号などの個人情報をお尋ねすることがあります。'
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第2条（個人情報を収集・利用する目的）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第2条（個人情報を収集・利用する目的）', lang)}</h2>
             <p>{lang === 'ja' ? '当ショップが個人情報を収集・利用する目的は，以下のとおりです。' : 'The purposes for which the Shop collects and uses personal information are as follows:'}</p>
             <ul className="list-disc ml-6 mt-2 space-y-1">
               <li>{lang === 'ja' ? '当ショップサービスの提供・運営のため' : 'For the provision and operation of the Shop\'s services'}</li>
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-white mb-3">{t('第3条（個人情報の第三者提供）', lang)}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">{t('第3条（個人情報の第三者提供）', lang)}</h2>
             <p>
               {lang === 'ja'
                 ? '当ショップは，次に掲げる場合を除いて，あらかじめユーザーの同意を得ることなく，第三者に個人情報を提供することはありません。'

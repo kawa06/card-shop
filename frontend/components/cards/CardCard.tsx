@@ -10,8 +10,7 @@ import { useLangStore } from '@/store/lang'
 import { toast } from '@/lib/use-toast'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
-import { formatPrice, usePrice } from '@/lib/format'
-import { Badge } from '@/components/ui/badge'
+import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 
 interface CardCardProps {
@@ -19,7 +18,7 @@ interface CardCardProps {
 }
 
 const rarityColors: Record<string, string> = {
-  C:    'bg-gray-500/20 text-gray-300 border-gray-500/40',
+  C:    'bg-gray-500/20 text-gray-600 border-gray-500/40',
   U:    'bg-green-500/20 text-green-300 border-green-500/40',
   R:    'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RR:   'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
@@ -50,11 +49,13 @@ export default function CardCard({ card }: CardCardProps) {
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
   const { formatPrice } = usePrice()
-  const cardName = (lang === 'en' && card.name_en) ? card.name_en : useTranslation(card.name)
+  const translatedCardName = useTranslation(card.name)
+  const cardName = (lang === 'en' && card.name_en) ? card.name_en : translatedCardName
   const categoryName = useTranslation(card.category?.name || '')
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     if (!isAuthenticated) {
       toast({
         title: t('ログインが必要です', lang),
@@ -82,16 +83,15 @@ export default function CardCard({ card }: CardCardProps) {
   const rarityClass = rarityColors[card.rarity] || rarityColors['C']
 
   return (
-    <Link href={`/cards/${card.id}`} className="group block">
-      <div className="relative overflow-hidden rounded-lg border border-white/10 bg-gray-900 transition-all duration-300 hover:border-yellow-400/30 hover:shadow-lg hover:shadow-yellow-400/5 hover:-translate-y-1">
-        {/* Card Image */}
-        <div className="relative aspect-[3/4] overflow-hidden bg-gray-800">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-colors duration-300 hover:border-yellow-400/30 hover:shadow-lg hover:shadow-yellow-400/5">
+      <Link href={`/cards/${card.id}`} className="block">
+        <div className="relative aspect-[3/4] overflow-hidden bg-white">
           {card.image_url ? (
             <Image
               src={card.image_url}
               alt={cardName}
               fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
               unoptimized={card.image_url.startsWith('data:')}
             />
@@ -100,21 +100,18 @@ export default function CardCard({ card }: CardCardProps) {
               <span className="text-4xl opacity-20">🃏</span>
             </div>
           )}
-          {/* Rarity Badge (Top Right) */}
           <div className="absolute top-2 right-2 z-10">
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rarityClass}`}>
               {card.rarity}
             </span>
           </div>
-          {/* Condition Badge (Top Left) */}
           {card.condition && (
             <div className="absolute top-2 left-2 z-10">
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-white/20 backdrop-blur-sm">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-gray-300 backdrop-blur-sm">
                 {t('状態', lang)} {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
               </span>
             </div>
           )}
-          {/* Out of stock overlay */}
           {card.stock === 0 && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <span className="text-white font-bold text-sm bg-red-600/80 px-3 py-1 rounded">
@@ -124,9 +121,8 @@ export default function CardCard({ card }: CardCardProps) {
           )}
         </div>
 
-        {/* Card Info */}
         <div className="p-3">
-          <h3 className="text-white font-medium text-sm truncate mb-1">{cardName}</h3>
+          <h3 className="text-gray-900 font-medium text-sm truncate mb-1">{cardName}</h3>
           <div className="flex items-center justify-between">
             <span className="text-yellow-400 font-bold">
               {formatPrice(card.price)}
@@ -139,20 +135,19 @@ export default function CardCard({ card }: CardCardProps) {
             <span className="text-xs text-gray-500 mt-1 block">{categoryName}</span>
           )}
         </div>
+      </Link>
 
-        {/* Add to cart button */}
-        <div className="px-3 pb-3">
-          <Button
-            onClick={handleAddToCart}
-            disabled={card.stock === 0}
-            size="sm"
-            className="w-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 hover:bg-yellow-400 hover:text-gray-950 transition-colors disabled:opacity-50"
-          >
-            <ShoppingCart className="h-3 w-3 mr-1" />
-            {card.stock === 0 ? t('在庫なし', lang) : t('カートに追加', lang)}
-          </Button>
-        </div>
+      <div className="px-3 pb-3">
+        <Button
+          onClick={handleAddToCart}
+          disabled={card.stock === 0}
+          size="sm"
+          className="w-full bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 hover:bg-yellow-400 hover:text-gray-950 transition-colors disabled:opacity-50"
+        >
+          <ShoppingCart className="h-4 w-4 shrink-0 mr-2" />
+          {card.stock === 0 ? t('在庫なし', lang) : t('カートに追加', lang)}
+        </Button>
       </div>
-    </Link>
+    </div>
   )
 }

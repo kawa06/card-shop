@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import { authApi } from '@/lib/api'
@@ -19,12 +20,9 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
 
-  // Phone verification
   const [phone, setPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [isSendingOtp, setIsSendingOtp] = useState(false)
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false)
   const [showOtpField, setShowOtpField] = useState(false)
   const [isDebugMode, setIsDebugMode] = useState(false)
 
@@ -48,36 +46,18 @@ export default function RegisterPage() {
       const res = await authApi.sendPhoneOtp(normalizedPhone)
       setPhone(normalizedPhone)
       setIsDebugMode(res.data.debug || false)
-      toast({ 
+      toast({
         title: '送信しました',
-        description: res.data.debug 
-          ? 'SMSをご確認ください（デモ環境: 認証コードは 000000）' 
-          : 'SMSをご確認ください / SMS sent, please check your phone' 
+        description: res.data.debug
+          ? 'SMSをご確認ください（デモ環境: 認証コードは 000000）'
+          : 'SMSをご確認ください / SMS sent, please check your phone',
       })
       setShowOtpField(true)
+      setOtpCode('')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'SMS送信に失敗しました')
     } finally {
       setIsSendingOtp(false)
-    }
-  }
-
-  const handleVerifyOtp = async () => {
-    if (!otpCode.trim() || otpCode.length !== 6) {
-      setError('6桁の認証コードを入力してください')
-      return
-    }
-    setIsVerifyingOtp(true)
-    setError('')
-    try {
-      await authApi.verifyPhoneOtp(phone, otpCode)
-      toast({ title: '認証に成功しました' })
-      setIsPhoneVerified(true)
-      setOtpCode('')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || '認証に失敗しました')
-    } finally {
-      setIsVerifyingOtp(false)
     }
   }
 
@@ -94,11 +74,22 @@ export default function RegisterPage() {
       return
     }
 
+    const wantsPhoneVerify = showOtpField && phone.trim()
+    if (wantsPhoneVerify && otpCode.length !== 6) {
+      setError('6桁の認証コードを入力してください')
+      return
+    }
+
     try {
-      await register(email, password, name, isPhoneVerified ? phone : undefined)
-      toast({ 
-        title: '会員登録が完了しました', 
-        description: '認証メールを送信しました。メールをご確認ください。' 
+      await register(
+        email,
+        password,
+        name,
+        wantsPhoneVerify ? { number: phone, code: otpCode } : undefined
+      )
+      toast({
+        title: '会員登録が完了しました',
+        description: '認証メールを送信しました。メールをご確認ください。',
       })
       router.push('/mypage')
     } catch (err: unknown) {
@@ -110,21 +101,28 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
-            <span className="text-yellow-400">✦</span>
-            <span className="text-white">KRX TCG</span>
+            <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-yellow-400/20">
+              <Image
+                src="/logo-main.png"
+                alt="KRX TCG"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <span className="text-gray-900">KRX TCG</span>
           </Link>
           <p className="text-gray-400 mt-2 text-sm">新規会員登録</p>
         </div>
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 p-8">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-300">お名前</Label>
+              <Label htmlFor="name" className="text-gray-600">お名前</Label>
               <Input
                 id="name"
                 type="text"
@@ -132,12 +130,12 @@ export default function RegisterPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="山田 太郎"
                 required
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300">メールアドレス</Label>
+              <Label htmlFor="email" className="text-gray-600">メールアドレス</Label>
               <Input
                 id="email"
                 name="email"
@@ -147,12 +145,12 @@ export default function RegisterPage() {
                 placeholder="example@email.com"
                 required
                 autoComplete="email"
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300">パスワード</Label>
+              <Label htmlFor="password" className="text-gray-600">パスワード</Label>
               <Input
                 id="password"
                 name="new-password"
@@ -163,12 +161,12 @@ export default function RegisterPage() {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-gray-300">パスワード（確認）</Label>
+              <Label htmlFor="confirmPassword" className="text-gray-600">パスワード（確認）</Label>
               <Input
                 id="confirmPassword"
                 name="confirm-password"
@@ -178,12 +176,12 @@ export default function RegisterPage() {
                 placeholder="••••••••"
                 required
                 autoComplete="new-password"
-                className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
               />
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-white/5">
-              <Label htmlFor="phone" className="text-gray-300">電話番号 / Phone number</Label>
+            <div className="space-y-2 pt-2 border-t border-gray-100">
+              <Label htmlFor="phone" className="text-gray-600">電話番号 / Phone number（任意）</Label>
               <div className="flex gap-2">
                 <Input
                   id="phone"
@@ -191,44 +189,34 @@ export default function RegisterPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="例: 09012345678 / e.g. 09012345678"
-                  disabled={isPhoneVerified}
-                  className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
                 />
-                <Button 
-                  type="button" 
-                  onClick={handleSendOtp} 
-                  disabled={isSendingOtp || isPhoneVerified}
+                <Button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={isSendingOtp || !phone.trim()}
                   variant="outline"
                   className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/10 whitespace-nowrap"
                 >
-                  {isSendingOtp ? '...' : isPhoneVerified ? '認証済' : 'SMS送信'}
+                  {isSendingOtp ? '...' : 'SMS送信'}
                 </Button>
               </div>
               <p className="text-gray-500 text-xs">国際形式（+81...）でも入力可 / International format also accepted</p>
             </div>
 
-            {showOtpField && !isPhoneVerified && (
+            {showOtpField && (
               <div className="space-y-2 animate-in slide-in-from-top-1">
-                <Label htmlFor="otp" className="text-gray-300">認証コード / Verification Code</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="otp"
-                    type="text"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value)}
-                    placeholder="6桁のコード / 6-digit code"
-                    maxLength={6}
-                    className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500 focus:border-yellow-400/50"
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={handleVerifyOtp} 
-                    disabled={isVerifyingOtp}
-                    className="bg-white text-gray-950 hover:bg-gray-200 whitespace-nowrap"
-                  >
-                    {isVerifyingOtp ? '...' : '認証する'}
-                  </Button>
-                </div>
+                <Label htmlFor="otp" className="text-gray-600">認証コード / Verification Code</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value)}
+                  placeholder="6桁のコード / 6-digit code"
+                  maxLength={6}
+                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
+                />
+                <p className="text-gray-500 text-xs">会員登録時に電話番号を認証します / Phone is verified when you register</p>
                 {isDebugMode && (
                   <p className="text-gray-500 text-xs">デモ環境: 認証コードは 000000 / Demo: use code 000000</p>
                 )}

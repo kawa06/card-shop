@@ -7,6 +7,12 @@ from database import get_db
 from config import settings
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
+from services.verification import (
+    email_configured,
+    normalize_phone,
+    send_phone_otp as dispatch_phone_otp,
+    verify_phone_code,
+)
 import models
 import schemas
 import secrets
@@ -33,13 +39,21 @@ class AuthResponse(BaseModel):
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
-    payload: schemas.UserCreate, 
+    payload: schemas.UserCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="このメールアドレスは既に使用されています")
+
+    phone_number = normalize_phone(payload.phone_number) if payload.phone_number else None
+    phone_verified = False
+
+    if phone_number and payload.phone_verification_code:
+        if not verify_phone_code(phone_number, payload.phone_verification_code):
+            raise HTTPException(status_code=400, detail="電話番号の認証コードが正しくありません")
+        phone_verified = True
 
     verification_token = secrets.token_urlsafe(32)
     user = models.User(
@@ -48,19 +62,26 @@ async def register(
         password_hash=hash_password(payload.password),
         is_admin=(payload.email in ADMIN_EMAILS),
         verification_token=verification_token,
-        phone_number=payload.phone_number,
-        phone_verified=False,  # Always require verification via OTP
+        phone_number=phone_number,
+        phone_verified=phone_verified,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
 
-    # メール送信をバックグラウンドで実行
-    background_tasks.add_task(send_verification_email, user.email, verification_token)
+    if email_configured():
+        background_tasks.add_task(send_verification_email, user.email, verification_token)
+    elif settings.DEBUG:
+        background_tasks.add_task(send_verification_email, user.email, verification_token)
+    else:
+        raise HTTPException(
+            status_code=503,
+            detail="メール認証の設定が完了していません。管理者にお問い合わせください。",
+        )
 
     token = create_access_token({"sub": str(user.id)})
     res = {"access_token": token, "token_type": "bearer", "user": user}
-    if not settings.RESEND_API_KEY:
+    if settings.DEBUG and not email_configured():
         res["debug_token"] = verification_token
     return res
 
@@ -73,12 +94,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",
         )
-    
-    # 認証済みチェック (必要に応じて制限)
-    # if not user.is_verified:
-    #     raise HTTPException(status_code=403, detail="メールアドレスの認証が完了していません")
 
-    # 管理者メールアドレスなら is_admin を自動的に True にする
     if user.email in ADMIN_EMAILS and not user.is_admin:
         user.is_admin = True
         db.commit()
@@ -116,7 +132,7 @@ def update_profile(
         current_user.address = payload.address
     if payload.phone_number is not None:
         current_user.phone_number = payload.phone_number
-    
+
     db.commit()
     db.refresh(current_user)
     return current_user
@@ -146,18 +162,23 @@ async def request_verification(
 ):
     if current_user.is_verified:
         return {"message": "既に認証済みです"}
-    
+
+    if not email_configured() and not settings.DEBUG:
+        raise HTTPException(
+            status_code=503,
+            detail="メール認証の設定が完了していません。管理者にお問い合わせください。",
+        )
+
     token = secrets.token_urlsafe(32)
     current_user.verification_token = token
     db.commit()
-    
-    # 実際にメールを送信
+
     background_tasks.add_task(send_verification_email, current_user.email, token)
-    
+
     response = {"message": "認証メールを送信しました"}
-    if not settings.RESEND_API_KEY:
+    if settings.DEBUG and not email_configured():
         response["debug_token"] = token
-    
+
     return response
 
 
@@ -169,7 +190,7 @@ def verify_email(
     user = db.query(models.User).filter(models.User.verification_token == token).first()
     if not user:
         raise HTTPException(status_code=400, detail="無効なトークンです")
-    
+
     user.is_verified = True
     user.verification_token = None
     db.commit()
@@ -182,21 +203,8 @@ async def send_phone_otp(
     current_user: Optional[models.User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
-    # Twilio Verify API start
-    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_VERIFY_SERVICE_SID:
-        # Fallback for debug/test
-        print(f"--- [TWILIO MOCK] OTP SENT TO {payload.phone} ---")
-        return {"message": "認証コードを送信しました (DEBUG MODE)", "debug": True}
-
-    try:
-        from twilio.rest import Client
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-        verification = client.verify.v2.services(settings.TWILIO_VERIFY_SERVICE_SID) \
-            .verifications \
-            .create(to=payload.phone, channel='sms')
-        return {"message": "認証コードを送信しました", "status": verification.status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"SMS送信に失敗しました: {str(e)}")
+    phone = normalize_phone(payload.phone)
+    return dispatch_phone_otp(phone)
 
 
 @router.post("/phone/verify", status_code=status.HTTP_200_OK)
@@ -205,38 +213,17 @@ async def verify_phone_otp(
     current_user: Optional[models.User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
-    # Twilio Verify API check
-    is_verified = False
-    if not settings.TWILIO_ACCOUNT_SID or not settings.TWILIO_AUTH_TOKEN or not settings.TWILIO_VERIFY_SERVICE_SID:
-        # Fallback for debug/test
-        if payload.code == "000000":
-            is_verified = True
-        else:
-            raise HTTPException(status_code=400, detail="認証コードが正しくありません (DEBUG: 000000 を入力してください)")
-    else:
-        try:
-            from twilio.rest import Client
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            verification_check = client.verify.v2.services(settings.TWILIO_VERIFY_SERVICE_SID) \
-                .verification_checks \
-                .create(to=payload.phone, code=payload.code)
-            
-            if verification_check.status == 'approved':
-                is_verified = True
-            else:
-                raise HTTPException(status_code=400, detail="認証コードが正しくありません")
-        except Exception as e:
-            if isinstance(e, HTTPException): raise e
-            raise HTTPException(status_code=500, detail=f"認証に失敗しました: {str(e)}")
+    phone = normalize_phone(payload.phone)
 
-    if is_verified:
-        if current_user:
-            current_user.phone_number = payload.phone
-            current_user.phone_verified = True
-            db.commit()
-        return {"message": "電話番号の認証が完了しました"}
-    
-    raise HTTPException(status_code=400, detail="認証に失敗しました")
+    if not verify_phone_code(phone, payload.code):
+        raise HTTPException(status_code=400, detail="認証コードが正しくありません")
+
+    if current_user:
+        current_user.phone_number = phone
+        current_user.phone_verified = True
+        db.commit()
+
+    return {"message": "電話番号の認証が完了しました"}
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -244,11 +231,9 @@ def delete_account(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # カート、注文などの関連データも削除（Cascade設定がない場合）
     db.query(models.CartItem).filter(models.CartItem.user_id == current_user.id).delete()
-    # 注文は履歴として残すか削除するか検討が必要だが、ここではアカウント削除に伴い削除
     db.query(models.Order).filter(models.Order.user_id == current_user.id).delete()
-    
+
     db.delete(current_user)
     db.commit()
     return None

@@ -27,7 +27,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         size="icon"
         disabled={currentPage === 1}
         onClick={() => onPageChange(currentPage - 1)}
-        className="text-gray-300 hover:text-white disabled:opacity-30"
+        className="text-gray-600 hover:text-gray-900 disabled:opacity-30"
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
@@ -38,7 +38,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             variant="ghost"
             size="sm"
             onClick={() => onPageChange(1)}
-            className="text-gray-300 hover:text-white"
+            className="text-gray-600 hover:text-gray-900"
           >
             1
           </Button>
@@ -56,7 +56,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             'min-w-[36px]',
             page === currentPage
               ? 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 hover:bg-yellow-400/20'
-              : 'text-gray-300 hover:text-white'
+              : 'text-gray-600 hover:text-gray-900'
           )}
         >
           {page}
@@ -72,7 +72,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             variant="ghost"
             size="sm"
             onClick={() => onPageChange(totalPages)}
-            className="text-gray-300 hover:text-white"
+            className="text-gray-600 hover:text-gray-900"
           >
             {totalPages}
           </Button>
@@ -84,7 +84,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         size="icon"
         disabled={currentPage === totalPages}
         onClick={() => onPageChange(currentPage + 1)}
-        className="text-gray-300 hover:text-white disabled:opacity-30"
+        className="text-gray-600 hover:text-gray-900 disabled:opacity-30"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>

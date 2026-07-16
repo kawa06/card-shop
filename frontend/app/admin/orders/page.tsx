@@ -75,24 +75,24 @@ export default function AdminOrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin">
-            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+            <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-white">注文管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900">注文管理</h1>
         </div>
 
-        <div className="bg-gray-900 rounded-xl border border-white/10 overflow-hidden">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400 animate-pulse">読み込み中...</div>
           ) : orders.length === 0 ? (
             <div className="p-8 text-center text-gray-500">注文はありません</div>
           ) : (
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-gray-200">
               {orders.map((order) => {
                 const isExpanded = expandedId === order.id
                 return (
@@ -102,7 +102,7 @@ export default function AdminOrdersPage() {
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
                       <div className="flex-1">
-                        <p className="text-white font-medium">注文 #{order.id}</p>
+                        <p className="text-gray-900 font-medium">注文 #{order.id}</p>
                         <p className="text-gray-500 text-xs">
                           {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '不明'}
                         </p>
@@ -114,7 +114,7 @@ export default function AdminOrdersPage() {
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className="rounded-md border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-white"
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -126,7 +126,7 @@ export default function AdminOrdersPage() {
                           const displayName = item.card?.name_en ? `${item.card.name} (${item.card.name_en})` : (item.card?.name || `カード #${item.card_id}`)
                           return (
                             <div key={item.id} className="flex justify-between text-sm">
-                              <span className="text-gray-300">{displayName}</span>
+                              <span className="text-gray-600">{displayName}</span>
                               <span className="text-gray-400">{formatPrice(item.unit_price || 0)} × {item.quantity}</span>
                             </div>
                           )

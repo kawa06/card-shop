@@ -84,11 +84,11 @@ export default function AdminPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-5xl">
         <div className="flex items-center gap-3 mb-8">
           <LayoutDashboard className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-bold text-white">{t('管理ダッシュボード', lang)}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('管理ダッシュボード', lang)}</h1>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -101,7 +101,7 @@ export default function AdminPage() {
                 </div>
                 <p className="text-gray-400 text-sm">{label}</p>
                 {isLoading ? (
-                  <div className="h-8 w-16 bg-gray-800 rounded animate-pulse mt-1" />
+                  <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mt-1" />
                 ) : (
                   <p className={`text-3xl font-bold mt-1 ${color}`}>{count}</p>
                 )}

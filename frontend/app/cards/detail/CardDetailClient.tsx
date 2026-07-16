@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import CardCard from '@/components/cards/CardCard'
 
 const rarityColors: Record<string, string> = {
-  C:    'bg-gray-500/20 text-gray-300 border-gray-500/40',
+  C:    'bg-gray-500/20 text-gray-600 border-gray-500/40',
   U:    'bg-green-500/20 text-green-300 border-green-500/40',
   R:    'bg-blue-500/20 text-blue-300 border-blue-500/40',
   RR:   'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
@@ -104,12 +104,12 @@ export default function CardDetailClient({ id }: { id: string }) {
     return (
       <div className="container py-8 animate-pulse">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="aspect-[3/4] bg-gray-800 rounded-lg" />
+          <div className="aspect-[3/4] bg-gray-200 rounded-lg" />
           <div className="space-y-4">
-            <div className="h-8 bg-gray-800 rounded w-3/4" />
-            <div className="h-6 bg-gray-800 rounded w-1/4" />
-            <div className="h-20 bg-gray-800 rounded" />
-            <div className="h-12 bg-gray-800 rounded" />
+            <div className="h-8 bg-gray-200 rounded w-3/4" />
+            <div className="h-6 bg-gray-200 rounded w-1/4" />
+            <div className="h-20 bg-gray-200 rounded" />
+            <div className="h-12 bg-gray-200 rounded" />
           </div>
         </div>
       </div>
@@ -121,11 +121,11 @@ export default function CardDetailClient({ id }: { id: string }) {
   const rarityClass = rarityColors[card.rarity] || rarityColors['C']
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-6">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="flex items-center gap-2 text-gray-400 hover:text-gray-900 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           戻る
@@ -134,7 +134,7 @@ export default function CardDetailClient({ id }: { id: string }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           <div className="relative">
             <div
-              className="relative aspect-[3/4] overflow-hidden rounded-lg border border-white/10 bg-gray-900 cursor-zoom-in"
+              className="relative aspect-[3/4] overflow-hidden rounded-lg border border-gray-200 bg-gray-50 cursor-zoom-in"
               onClick={() => setIsZoomed(true)}
             >
               {card.image_url ? (
@@ -161,7 +161,7 @@ export default function CardDetailClient({ id }: { id: string }) {
               {card.category && (
                 <p className="text-sm text-gray-500 mb-1">{card.category.name}</p>
               )}
-              <h1 className="text-3xl font-bold text-white mb-2">{card.name}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{card.name}</h1>
               <span className={`inline-block text-sm font-bold px-3 py-1 rounded border ${rarityClass}`}>
                 {card.rarity}
               </span>
@@ -178,7 +178,7 @@ export default function CardDetailClient({ id }: { id: string }) {
             </div>
 
             {card.description && (
-              <p className="text-gray-300 leading-relaxed border-t border-white/10 pt-4">
+              <p className="text-gray-600 leading-relaxed border-t border-gray-200 pt-4">
                 {card.description}
               </p>
             )}
@@ -186,18 +186,18 @@ export default function CardDetailClient({ id }: { id: string }) {
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-400">数量:</span>
-                <div className="flex items-center border border-white/20 rounded-md overflow-hidden">
+                <div className="flex items-center border border-gray-300 rounded-md overflow-hidden">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-3 py-2 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30"
+                    className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-30"
                     disabled={quantity <= 1}
                   >
                     -
                   </button>
-                  <span className="px-4 py-2 text-white min-w-[3rem] text-center">{quantity}</span>
+                  <span className="px-4 py-2 text-gray-900 min-w-[3rem] text-center">{quantity}</span>
                   <button
                     onClick={() => setQuantity(Math.min(card.stock, quantity + 1))}
-                    className="px-3 py-2 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30"
+                    className="px-3 py-2 text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-30"
                     disabled={quantity >= card.stock}
                   >
                     +
@@ -219,7 +219,7 @@ export default function CardDetailClient({ id }: { id: string }) {
 
         {relatedCards.length > 0 && (
           <div>
-            <h2 className="text-xl font-bold text-white mb-4">関連カード</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">関連カード</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {relatedCards.map((rc) => (
                 <CardCard key={rc.id} card={rc} />

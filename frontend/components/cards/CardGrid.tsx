@@ -12,12 +12,12 @@ interface CardGridProps {
 
 function CardSkeleton() {
   return (
-    <div className="rounded-lg border border-white/10 bg-gray-900 overflow-hidden animate-pulse">
-      <div className="aspect-[3/4] bg-gray-800" />
+    <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden animate-pulse">
+      <div className="aspect-[3/4] bg-gray-200" />
       <div className="p-3 space-y-2">
-        <div className="h-4 bg-gray-800 rounded w-3/4" />
-        <div className="h-4 bg-gray-800 rounded w-1/2" />
-        <div className="h-8 bg-gray-800 rounded mt-2" />
+        <div className="h-4 bg-gray-200 rounded w-3/4" />
+        <div className="h-4 bg-gray-200 rounded w-1/2" />
+        <div className="h-8 bg-gray-200 rounded mt-2" />
       </div>
     </div>
   )

@@ -115,9 +115,9 @@ export default function MypagePage() {
     setIsRequestingVerify(true)
     try {
       const res = await authApi.requestVerification()
-      toast({ 
-        title: lang === 'ja' ? 'リクエスト送信' : 'Request Sent', 
-        description: res.data.message + (res.data.debug_token ? ` (Token: ${res.data.debug_token})` : '') 
+      toast({
+        title: lang === 'ja' ? 'リクエスト送信' : 'Request Sent',
+        description: res.data.message,
       })
     } catch {
       toast({ title: t('エラー', lang), description: lang === 'ja' ? '認証リクエストに失敗しました。' : 'Failed to request verification.', variant: 'destructive' })
@@ -180,19 +180,19 @@ export default function MypagePage() {
   if (!isMounted || !isAuthenticated || !user) return null
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-3xl">
-        <h1 className="text-2xl font-bold text-white mb-6">{t('マイページ', lang)}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('マイページ', lang)}</h1>
 
         {/* Profile Card */}
-        <div className="bg-gray-900 rounded-xl border border-white/10 p-6 mb-6">
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <div className="w-20 h-20 rounded-full bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center flex-shrink-0">
               <User className="h-10 w-10 text-yellow-400" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-bold text-white">{user.name}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
                 {user.is_admin && (
                   <span className="text-[10px] bg-yellow-400/20 text-yellow-400 px-2 py-0.5 rounded border border-yellow-400/20">
                     {t('管理者', lang)}
@@ -250,7 +250,7 @@ export default function MypagePage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-white/10 text-gray-300 hover:text-white"
+                className="border-gray-200 text-gray-600 hover:text-gray-900"
                 onClick={() => setShowPasswordForm(!showPasswordForm)}
               >
                 <Key className="h-4 w-4 mr-2" />
@@ -261,7 +261,7 @@ export default function MypagePage() {
 
           {/* Password Change Form */}
           {showPasswordForm && (
-            <div className="mt-6 pt-6 border-t border-white/5 animate-in slide-in-from-top-2">
+            <div className="mt-6 pt-6 border-t border-gray-100 animate-in slide-in-from-top-2">
               <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
                 <div className="space-y-1">
                   <Label className="text-gray-400 text-xs">{t('現在のパスワード', lang)}</Label>
@@ -270,7 +270,7 @@ export default function MypagePage() {
                     value={oldPassword} 
                     onChange={e => setOldPassword(e.target.value)}
                     required
-                    className="bg-gray-800 border-gray-700 text-white h-9"
+                    className="bg-white border-gray-300 text-gray-900 h-9"
                   />
                 </div>
                 <div className="space-y-1">
@@ -281,7 +281,7 @@ export default function MypagePage() {
                     onChange={e => setNewPassword(e.target.value)}
                     required
                     minLength={8}
-                    className="bg-gray-800 border-gray-700 text-white h-9"
+                    className="bg-white border-gray-300 text-gray-900 h-9"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -298,7 +298,7 @@ export default function MypagePage() {
 
           {/* Phone Verification Form */}
           {showPhoneVerify && !user.phone_verified && (
-            <div className="mt-6 pt-6 border-t border-white/5 animate-in slide-in-from-top-2">
+            <div className="mt-6 pt-6 border-t border-gray-100 animate-in slide-in-from-top-2">
               <div className="max-w-sm space-y-4">
                 <div className="space-y-1">
                   <Label className="text-gray-400 text-xs">{t('電話番号', lang)} / Phone number</Label>
@@ -308,7 +308,7 @@ export default function MypagePage() {
                       value={phone} 
                       onChange={e => setPhone(e.target.value)}
                       placeholder="例: 09012345678 / e.g. 09012345678"
-                      className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
+                      className="bg-white border-gray-300 text-gray-900 h-9 flex-1"
                     />
                     <Button 
                       onClick={handleSendOtp} 
@@ -331,7 +331,7 @@ export default function MypagePage() {
                       onChange={e => setOtpCode(e.target.value)}
                       placeholder="6桁のコード / 6-digit code"
                       maxLength={6}
-                      className="bg-gray-800 border-gray-700 text-white h-9 flex-1"
+                      className="bg-white border-gray-300 text-gray-900 h-9 flex-1"
                     />
                     <Button 
                       onClick={handleVerifyOtp} 
@@ -354,31 +354,31 @@ export default function MypagePage() {
         {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
           <Link href="/orders">
-            <div className="bg-gray-900 rounded-lg border border-white/10 p-4 flex items-center gap-3 hover:border-yellow-400/30 transition-colors cursor-pointer group">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-yellow-400/30 transition-colors cursor-pointer group">
               <div className="p-2 rounded-md bg-yellow-400/10 text-yellow-400 group-hover:bg-yellow-400 group-hover:text-gray-950 transition-colors">
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-white font-medium text-sm">{t('注文履歴', lang)}</p>
+                <p className="text-gray-900 font-medium text-sm">{t('注文履歴', lang)}</p>
                 <p className="text-gray-500 text-[10px]">{isLoading ? t('読み込み中...', lang) : lang === 'ja' ? `${orders.length}件の最近の注文` : `${orders.length} recent orders`}</p>
               </div>
             </div>
           </Link>
-          <div className="bg-gray-900 rounded-lg border border-white/10 p-4 flex items-center gap-3 opacity-50">
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 opacity-50">
             <div className="p-2 rounded-md bg-pink-400/10 text-pink-400">
               <Heart className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-white font-medium text-sm">{t('お気に入り', lang)}</p>
+              <p className="text-gray-900 font-medium text-sm">{t('お気に入り', lang)}</p>
               <p className="text-gray-500 text-[10px]">{t('準備中', lang)}</p>
             </div>
           </div>
-          <div className="bg-gray-900 rounded-lg border border-white/10 p-4 flex items-center gap-3 opacity-50">
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 opacity-50">
             <div className="p-2 rounded-md bg-blue-400/10 text-blue-400">
               <MapPin className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-white font-medium text-sm">{t('住所管理', lang)}</p>
+              <p className="text-gray-900 font-medium text-sm">{t('住所管理', lang)}</p>
               <p className="text-gray-500 text-[10px]">{t('準備中', lang)}</p>
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function MypagePage() {
         {/* Recent Orders */}
         <div className="mb-12">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold flex items-center gap-2">
+            <h2 className="text-gray-900 font-semibold flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-gray-500" /> {t('最近の注文', lang)}
             </h2>
             <Link href="/orders" className="text-yellow-400 text-xs hover:text-yellow-300">
@@ -397,19 +397,19 @@ export default function MypagePage() {
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2].map((i) => (
-                <div key={i} className="h-16 bg-gray-900 rounded-lg animate-pulse" />
+                <div key={i} className="h-16 bg-gray-50 rounded-lg animate-pulse" />
               ))}
             </div>
           ) : orders.length === 0 ? (
-            <div className="bg-gray-900/50 rounded-lg border border-dashed border-white/10 p-8 text-center">
+            <div className="bg-gray-50 rounded-lg border border-dashed border-gray-200 p-8 text-center">
               <p className="text-gray-500 text-sm">{t('注文履歴はありません', lang)}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {orders.map((order) => (
-                <div key={order.id} className="flex justify-between items-center bg-gray-900 rounded-lg border border-white/10 p-4 hover:border-white/20 transition-colors">
+                <div key={order.id} className="flex justify-between items-center bg-gray-50 rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors">
                   <div>
-                    <p className="text-white text-sm font-medium">{t('注文番号', lang)} #{order.id}</p>
+                    <p className="text-gray-900 text-sm font-medium">{t('注文番号', lang)} #{order.id}</p>
                     <p className="text-gray-500 text-[10px]">
                       {order.created_at ? new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US') : '不明'}
                     </p>
@@ -425,11 +425,11 @@ export default function MypagePage() {
         </div>
 
         {/* Danger Zone */}
-        <div className="mt-12 pt-8 border-t border-white/5">
+        <div className="mt-12 pt-8 border-t border-gray-100">
           <div className="bg-red-500/5 rounded-xl border border-red-500/10 p-6">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="h-5 w-5 text-red-500" />
-              <h2 className="text-lg font-bold text-white">{t('危険領域', lang)}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{t('危険領域', lang)}</h2>
             </div>
             <p className="text-gray-400 text-xs mb-4 leading-relaxed">
               {t('アカウントを削除すると、これまでの注文履歴や登録情報がすべて失われます。この操作は取り消せません。', lang)}
@@ -438,7 +438,7 @@ export default function MypagePage() {
               variant="ghost"
               disabled={isDeleting}
               onClick={handleDeleteAccount}
-              className="text-red-500 hover:text-white hover:bg-red-500 flex items-center gap-2 transition-all border border-red-500/20 text-xs h-9"
+              className="text-red-500 hover:text-gray-900 hover:bg-red-500 flex items-center gap-2 transition-all border border-red-500/20 text-xs h-9"
             >
               <Trash2 className="h-4 w-4" />
               {isDeleting ? t('更新中...', lang) : t('アカウントを完全に削除する', lang)}
