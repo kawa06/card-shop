@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
-import { authApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,47 +19,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
 
-  const [phone, setPhone] = useState('')
-  const [otpCode, setOtpCode] = useState('')
-  const [isSendingOtp, setIsSendingOtp] = useState(false)
-  const [showOtpField, setShowOtpField] = useState(false)
-  const [isDebugMode, setIsDebugMode] = useState(false)
-
-  const normalizePhone = (raw: string) => {
-    const cleaned = raw.trim().replace(/[\s-]/g, '')
-    if (cleaned.startsWith('0') && cleaned.length > 0) {
-      return '+81' + cleaned.slice(1)
-    }
-    return cleaned
-  }
-
-  const handleSendOtp = async () => {
-    if (!phone.trim()) {
-      setError('電話番号を入力してください')
-      return
-    }
-    setIsSendingOtp(true)
-    setError('')
-    try {
-      const normalizedPhone = normalizePhone(phone)
-      const res = await authApi.sendPhoneOtp(normalizedPhone)
-      setPhone(normalizedPhone)
-      setIsDebugMode(res.data.debug || false)
-      toast({
-        title: '送信しました',
-        description: res.data.debug
-          ? 'SMSをご確認ください（デモ環境: 認証コードは 000000）'
-          : 'SMSをご確認ください / SMS sent, please check your phone',
-      })
-      setShowOtpField(true)
-      setOtpCode('')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'SMS送信に失敗しました')
-    } finally {
-      setIsSendingOtp(false)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -74,19 +32,8 @@ export default function RegisterPage() {
       return
     }
 
-    const wantsPhoneVerify = showOtpField && phone.trim()
-    if (wantsPhoneVerify && otpCode.length !== 6) {
-      setError('6桁の認証コードを入力してください')
-      return
-    }
-
     try {
-      await register(
-        email,
-        password,
-        name,
-        wantsPhoneVerify ? { number: phone, code: otpCode } : undefined
-      )
+      await register(email, password, name)
       toast({
         title: '会員登録が完了しました',
         description: '認証メールを送信しました。メールをご確認ください。',
@@ -180,49 +127,6 @@ export default function RegisterPage() {
               />
             </div>
 
-            <div className="space-y-2 pt-2 border-t border-gray-100">
-              <Label htmlFor="phone" className="text-gray-600">電話番号 / Phone number（任意）</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="例: 09012345678 / e.g. 09012345678"
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
-                />
-                <Button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={isSendingOtp || !phone.trim()}
-                  variant="outline"
-                  className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/10 whitespace-nowrap"
-                >
-                  {isSendingOtp ? '...' : 'SMS送信'}
-                </Button>
-              </div>
-              <p className="text-gray-500 text-xs">国際形式（+81...）でも入力可 / International format also accepted</p>
-            </div>
-
-            {showOtpField && (
-              <div className="space-y-2 animate-in slide-in-from-top-1">
-                <Label htmlFor="otp" className="text-gray-600">認証コード / Verification Code</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="6桁のコード / 6-digit code"
-                  maxLength={6}
-                  className="bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-yellow-400/50"
-                />
-                <p className="text-gray-500 text-xs">会員登録時に電話番号を認証します / Phone is verified when you register</p>
-                {isDebugMode && (
-                  <p className="text-gray-500 text-xs">デモ環境: 認証コードは 000000 / Demo: use code 000000</p>
-                )}
-              </div>
-            )}
-
             {error && (
               <p className="text-red-400 text-sm bg-red-400/10 px-3 py-2 rounded border border-red-400/20">
                 {error}
@@ -237,6 +141,10 @@ export default function RegisterPage() {
               {isLoading ? '登録中...' : '会員登録'}
             </Button>
           </form>
+
+          <p className="text-gray-500 text-xs text-center mt-4">
+            登録後、認証メールが届きます。メール内のリンクから認証を完了してください。
+          </p>
 
           <div className="mt-6 text-center text-sm">
             <span className="text-gray-500">すでにアカウントをお持ちの方は</span>{' '}

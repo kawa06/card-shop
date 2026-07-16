@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def send_verification_email(email: str, token: str) -> bool:
+async def send_verification_email(email: str, token: str) -> tuple[bool, str | None]:
     verification_url = f"{settings.FRONTEND_URL}/verify/{token}"
 
     if not settings.RESEND_API_KEY:
@@ -14,9 +14,9 @@ async def send_verification_email(email: str, token: str) -> bool:
             print(f"Verification link: {verification_url}")
             print(f"Token: {token}")
             print("------------------------------------------")
-            return True
+            return True, None
         logger.error("RESEND_API_KEY is not configured")
-        return False
+        return False, "RESEND_API_KEY is not configured"
 
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -33,6 +33,8 @@ async def send_verification_email(email: str, token: str) -> bool:
     </div>
     """
 
+    from_address = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -42,23 +44,21 @@ async def send_verification_email(email: str, token: str) -> bool:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "from": f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>",
+                    "from": from_address,
                     "to": [email],
                     "subject": "【KRX TCG】メールアドレス認証のお願い",
                     "html": html_content,
                 },
+                timeout=30.0,
             )
 
-            if response.status_code != 200:
-                logger.error(f"Resend API Error: {response.status_code} - {response.text}")
-                if settings.DEBUG:
-                    print(f"FAILED TO SEND EMAIL. Token for {email}: {token}")
-                return False
+            if response.status_code in (200, 201):
+                logger.info(f"Email sent successfully to {email}")
+                return True, None
 
-            logger.info(f"Email sent successfully to {email}")
-            return True
+            error_body = response.text
+            logger.error(f"Resend API Error: {response.status_code} - {error_body}")
+            return False, f"Resend error ({response.status_code}): {error_body}"
     except Exception as e:
         logger.error(f"Error sending email via Resend: {str(e)}")
-        if settings.DEBUG:
-            print(f"EXCEPTION DURING EMAIL SEND. Token for {email}: {token}")
-        return False
+        return False, str(e)

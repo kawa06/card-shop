@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -50,6 +50,8 @@ def auth_setup_status():
         "twilio_auth_token_set": bool((settings.TWILIO_AUTH_TOKEN or "").strip()),
         "twilio_verify_service_sid_set": bool((settings.TWILIO_VERIFY_SERVICE_SID or "").strip()),
         "resend_api_key_set": bool((settings.RESEND_API_KEY or "").strip()),
+        "mail_from": settings.MAIL_FROM,
+        "frontend_url": settings.FRONTEND_URL,
         "railway_service": os.getenv("RAILWAY_SERVICE_NAME"),
         "railway_environment": os.getenv("RAILWAY_ENVIRONMENT_NAME"),
         "railway_project": os.getenv("RAILWAY_PROJECT_NAME"),
@@ -61,7 +63,6 @@ def auth_setup_status():
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     payload: schemas.UserCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     existing = db.query(models.User).filter(models.User.email == payload.email).first()
@@ -90,11 +91,18 @@ async def register(
     db.commit()
     db.refresh(user)
 
-    if email_configured():
-        background_tasks.add_task(send_verification_email, user.email, verification_token)
-    elif settings.DEBUG:
-        background_tasks.add_task(send_verification_email, user.email, verification_token)
+    if email_configured() or settings.DEBUG:
+        sent, error = await send_verification_email(user.email, verification_token)
+        if not sent and not settings.DEBUG:
+            db.delete(user)
+            db.commit()
+            raise HTTPException(
+                status_code=502,
+                detail=f"認証メールの送信に失敗しました。Resendのドメイン設定を確認してください。 ({error})",
+            )
     else:
+        db.delete(user)
+        db.commit()
         raise HTTPException(
             status_code=503,
             detail="メール認証の設定が完了していません。管理者にお問い合わせください。",
@@ -177,7 +185,6 @@ def change_password(
 
 @router.post("/request-verification", status_code=status.HTTP_200_OK)
 async def request_verification(
-    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -194,7 +201,12 @@ async def request_verification(
     current_user.verification_token = token
     db.commit()
 
-    background_tasks.add_task(send_verification_email, current_user.email, token)
+    sent, error = await send_verification_email(current_user.email, token)
+    if not sent and not settings.DEBUG:
+        raise HTTPException(
+            status_code=502,
+            detail=f"認証メールの送信に失敗しました。Resendのドメイン設定を確認してください。 ({error})",
+        )
 
     response = {"message": "認証メールを送信しました"}
     if settings.DEBUG and not email_configured():

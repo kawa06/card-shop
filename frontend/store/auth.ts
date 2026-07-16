@@ -13,7 +13,7 @@ interface AuthState {
   hasHydrated: boolean
   setHasHydrated: (state: boolean) => void
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name: string, phone?: { number: string; code: string }) => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
 }
@@ -47,16 +47,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      register: async (email: string, password: string, name: string, phone?: { number: string; code: string }) => {
+      register: async (email: string, password: string, name: string) => {
         set({ isLoading: true })
         try {
-          const res = await authApi.register({
-            email,
-            password,
-            name,
-            phone_number: phone?.number,
-            phone_verification_code: phone?.code,
-          })
+          const res = await authApi.register({ email, password, name })
           const { access_token, user } = res.data
           if (typeof window !== 'undefined') {
             localStorage.setItem('auth_token', access_token)
