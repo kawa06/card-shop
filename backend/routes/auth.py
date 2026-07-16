@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from typing import Optional
+import os
 from database import get_db
 from config import settings
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
@@ -45,10 +46,12 @@ def auth_setup_status():
         "debug": settings.DEBUG,
         "email_configured": email_configured(),
         "sms_configured": twilio_configured(),
-        "twilio_account_sid_set": bool(settings.TWILIO_ACCOUNT_SID),
-        "twilio_auth_token_set": bool(settings.TWILIO_AUTH_TOKEN),
-        "twilio_verify_service_sid_set": bool(settings.TWILIO_VERIFY_SERVICE_SID),
-        "resend_api_key_set": bool(settings.RESEND_API_KEY),
+        "twilio_account_sid_set": bool((settings.TWILIO_ACCOUNT_SID or "").strip()),
+        "twilio_auth_token_set": bool((settings.TWILIO_AUTH_TOKEN or "").strip()),
+        "twilio_verify_service_sid_set": bool((settings.TWILIO_VERIFY_SERVICE_SID or "").strip()),
+        "resend_api_key_set": bool((settings.RESEND_API_KEY or "").strip()),
+        "railway_service": os.getenv("RAILWAY_SERVICE_NAME"),
+        "railway_environment": os.getenv("RAILWAY_ENVIRONMENT_NAME"),
     }
 
 
