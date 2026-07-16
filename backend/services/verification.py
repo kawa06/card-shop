@@ -9,9 +9,9 @@ def email_configured() -> bool:
 
 def twilio_configured() -> bool:
     return bool(
-        settings.TWILIO_ACCOUNT_SID
-        and settings.TWILIO_AUTH_TOKEN
-        and settings.TWILIO_VERIFY_SERVICE_SID
+        (settings.TWILIO_ACCOUNT_SID or "").strip()
+        and (settings.TWILIO_AUTH_TOKEN or "").strip()
+        and (settings.TWILIO_VERIFY_SERVICE_SID or "").strip()
     )
 
 

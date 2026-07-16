@@ -9,6 +9,7 @@ from auth import hash_password, verify_password, create_access_token, get_curren
 from mail import send_verification_email
 from services.verification import (
     email_configured,
+    twilio_configured,
     normalize_phone,
     send_phone_otp as dispatch_phone_otp,
     verify_phone_code,
@@ -35,6 +36,20 @@ class AuthResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+@router.get("/setup-status", status_code=status.HTTP_200_OK)
+def auth_setup_status():
+    """Which auth providers are configured (no secrets exposed)."""
+    return {
+        "debug": settings.DEBUG,
+        "email_configured": email_configured(),
+        "sms_configured": twilio_configured(),
+        "twilio_account_sid_set": bool(settings.TWILIO_ACCOUNT_SID),
+        "twilio_auth_token_set": bool(settings.TWILIO_AUTH_TOKEN),
+        "twilio_verify_service_sid_set": bool(settings.TWILIO_VERIFY_SERVICE_SID),
+        "resend_api_key_set": bool(settings.RESEND_API_KEY),
+    }
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
