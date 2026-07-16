@@ -52,6 +52,9 @@ def auth_setup_status():
         "resend_api_key_set": bool((settings.RESEND_API_KEY or "").strip()),
         "railway_service": os.getenv("RAILWAY_SERVICE_NAME"),
         "railway_environment": os.getenv("RAILWAY_ENVIRONMENT_NAME"),
+        "railway_project": os.getenv("RAILWAY_PROJECT_NAME"),
+        "env_has_twilio_sid": "TWILIO_ACCOUNT_SID" in os.environ,
+        "env_has_resend_key": "RESEND_API_KEY" in os.environ,
     }
 
 
