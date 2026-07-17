@@ -349,6 +349,14 @@ const dict: Record<string, string> = {
   '注文履歴を見る': 'View order history',
   '決済待ち': 'Awaiting payment',
   '決済済み': 'Paid',
+  'コンビニ決済（Stripe）': 'Convenience Store (Stripe)',
+  'コンビニ決済へ進む': 'Pay at Convenience Store',
+  'コンビニ決済は日本国内のみ利用できます': 'Convenience store payment is only available in Japan',
+  'Stripeのページで支払番号を発行します。3日以内にコンビニでお支払いください': 'You will receive a payment number on Stripe. Please pay at a convenience store within 3 days.',
+  'コンビニ決済のお手続きを受け付けました': 'Convenience store payment registered',
+  'Stripeの画面で表示された支払番号を控え、3日以内にコンビニでお支払いください。入金確認後に発送します。': 'Note the payment number shown on Stripe and pay at a convenience store within 3 days. We will ship after payment is confirmed.',
+  'コンビニ決済': 'Convenience Store Payment',
+  'クレジットカード': 'Credit Card',
 }
 
 export function t(key: string, lang: string): string {

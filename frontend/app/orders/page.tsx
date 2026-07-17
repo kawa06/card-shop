@@ -25,6 +25,13 @@ const paymentStatusLabels: Record<string, string> = {
   paid: '決済済み',
 }
 
+const paymentMethodLabels: Record<string, string> = {
+  stripe_card: 'クレジットカード',
+  stripe_konbini: 'コンビニ決済',
+  bank_transfer: '銀行振込',
+  cod: '代金引換',
+}
+
 const statusColors: Record<string, string> = {
   pending: 'text-yellow-400',
   processing: 'text-blue-400',
@@ -127,7 +134,9 @@ export default function OrdersPage() {
                     {order.payment_status && (
                       <div className="text-sm">
                         <span className="text-gray-500">{t('支払い方法', lang)}: </span>
-                        <span className="text-gray-600">{order.payment_method || '-'}</span>
+                        <span className="text-gray-600">
+                          {t(paymentMethodLabels[order.payment_method || ''] || order.payment_method || '-', lang)}
+                        </span>
                         <span className="text-gray-400 mx-2">/</span>
                         <span className="text-gray-600">
                           {t(paymentStatusLabels[order.payment_status] || order.payment_status, lang)}

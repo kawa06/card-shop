@@ -133,10 +133,16 @@ export default function CheckoutPage() {
   const [stripeEnabled, setStripeEnabled] = useState(false)
 
   useEffect(() => {
-    if (!stripeEnabled && paymentMethod === 'credit_card') {
+    if (!stripeEnabled && (paymentMethod === 'credit_card' || paymentMethod === 'konbini')) {
       setPaymentMethod('bank_transfer')
     }
   }, [stripeEnabled, paymentMethod])
+
+  useEffect(() => {
+    if (isInternational && paymentMethod === 'konbini') {
+      setPaymentMethod('bank_transfer')
+    }
+  }, [isInternational, paymentMethod])
 
   const isInternational = country !== 'JP'
   
@@ -320,11 +326,20 @@ export default function CheckoutPage() {
         fetchMe()
       }
 
-      if (paymentMethod === 'credit_card') {
+      if (paymentMethod === 'credit_card' || paymentMethod === 'konbini') {
         if (!stripeEnabled) {
           toast({
             title: t('エラー', lang),
             description: t('Stripe決済は現在利用できません', lang),
+            variant: 'destructive',
+          })
+          return
+        }
+
+        if (paymentMethod === 'konbini' && isInternational) {
+          toast({
+            title: t('エラー', lang),
+            description: t('コンビニ決済は日本国内のみ利用できます', lang),
             variant: 'destructive',
           })
           return
@@ -340,6 +355,7 @@ export default function CheckoutPage() {
           shipping_address: shippingAddress,
           shipping_method: shippingMethod,
           locale: lang,
+          checkout_type: paymentMethod === 'konbini' ? 'konbini' : 'card',
         })
 
         window.location.href = stripeRes.data.checkout_url
@@ -699,9 +715,10 @@ export default function CheckoutPage() {
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-yellow-400 text-gray-950 text-xs font-bold">4</span>
               {t('支払い方法', lang)}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { value: 'credit_card', label: t('クレジットカード（Stripe）', lang), disabled: !stripeEnabled },
+                { value: 'konbini', label: t('コンビニ決済（Stripe）', lang), disabled: !stripeEnabled || isInternational },
                 { value: 'bank_transfer', label: t('銀行振込', lang), disabled: false },
                 { value: 'cod', label: t('代金引換', lang), disabled: false },
               ].map((method) => (
@@ -722,6 +739,11 @@ export default function CheckoutPage() {
             {paymentMethod === 'credit_card' && (
               <p className="text-xs text-gray-500">
                 {t('Stripeの安全な決済ページに移動してカード情報を入力します', lang)}
+              </p>
+            )}
+            {paymentMethod === 'konbini' && (
+              <p className="text-xs text-gray-500">
+                {t('Stripeのページで支払番号を発行します。3日以内にコンビニでお支払いください', lang)}
               </p>
             )}
           </section>
@@ -783,7 +805,9 @@ export default function CheckoutPage() {
                 ? t('注文処理中...', lang)
                 : paymentMethod === 'credit_card'
                   ? t('Stripeで支払う', lang)
-                  : t('注文を確定する', lang)}
+                  : paymentMethod === 'konbini'
+                    ? t('コンビニ決済へ進む', lang)
+                    : t('注文を確定する', lang)}
             </Button>
             <p className="text-center text-[10px] text-gray-500 mt-4">
               By clicking confirm, you agree to our Terms of Service and Privacy Policy.

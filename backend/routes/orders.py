@@ -21,10 +21,10 @@ def create_order(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if payload.payment_method == "credit_card":
+    if payload.payment_method in ("credit_card", "konbini"):
         raise HTTPException(
             status_code=400,
-            detail="クレジットカード決済はStripe Checkoutをご利用ください。",
+            detail="カード決済・コンビニ決済はStripe Checkoutをご利用ください。",
         )
 
     cart_items = get_user_cart_items(db, current_user.id)

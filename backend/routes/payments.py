@@ -7,6 +7,7 @@ import models
 import schemas
 from services.order_checkout import (
     cancel_unpaid_order,
+    clear_cart_for_order,
     create_order_from_cart,
     fulfill_order_inventory,
     get_user_cart_items,
@@ -24,11 +25,41 @@ from services.stripe_service import (
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
+def _session_value(session, key: str, default=None):
+    if isinstance(session, dict):
+        return session.get(key, default)
+    return getattr(session, key, default)
+
+
+def _metadata_value(session, key: str, default=None):
+    metadata = _session_value(session, "metadata") or {}
+    if isinstance(metadata, dict):
+        return metadata.get(key, default)
+    return getattr(metadata, key, default)
+
+
+def _order_id_from_session(session) -> int | None:
+    order_id = _metadata_value(session, "order_id") or _session_value(session, "client_reference_id")
+    if not order_id:
+        return None
+    return int(order_id)
+
+
+def _handle_konbini_pending(db: Session, order: models.Order) -> models.Order:
+    order.payment_method = "stripe_konbini"
+    order.payment_status = "awaiting_payment"
+    clear_cart_for_order(db, order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @router.get("/stripe/config")
 def stripe_public_config():
     return {
         "enabled": stripe_configured(),
         "publishable_key": None,
+        "konbini_enabled": stripe_configured(),
     }
 
 
@@ -38,9 +69,18 @@ def create_stripe_checkout_session(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    checkout_type = (payload.checkout_type or "card").lower()
+    if checkout_type not in {"card", "konbini"}:
+        raise HTTPException(status_code=400, detail="不正な決済種別です")
+
+    if checkout_type == "konbini" and payload.country not in (None, "日本", "Japan"):
+        raise HTTPException(status_code=400, detail="コンビニ決済は日本国内のみ利用できます")
+
     cart_items = get_user_cart_items(db, current_user.id)
     validate_shipping_method(cart_items, payload.shipping_method)
     shipping_fee = resolve_shipping_fee(payload.shipping_method, payload.region, payload.country, db)
+
+    payment_method = "stripe_konbini" if checkout_type == "konbini" else "stripe_card"
 
     order = create_order_from_cart(
         db,
@@ -55,7 +95,7 @@ def create_stripe_checkout_session(
         shipping_address=payload.shipping_address,
         shipping_method=payload.shipping_method,
         shipping_fee=shipping_fee,
-        payment_method="stripe",
+        payment_method=payment_method,
         payment_status="awaiting_payment",
         finalize=False,
     )
@@ -68,6 +108,7 @@ def create_stripe_checkout_session(
             customer_email=current_user.email,
             line_items=line_items,
             locale=payload.locale or "ja",
+            checkout_type=checkout_type,
         )
     except Exception:
         cancel_unpaid_order(db, order)
@@ -83,49 +124,74 @@ def create_stripe_checkout_session(
     return {"checkout_url": session.url, "session_id": session.id, "order_id": order.id}
 
 
-@router.get("/stripe/confirm", response_model=schemas.OrderOut)
+@router.get("/stripe/confirm", response_model=schemas.StripeCheckoutConfirmOut)
 def confirm_stripe_checkout(
     session_id: str,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     session = retrieve_checkout_session(session_id)
-    order_id = session.metadata.get("order_id") or session.client_reference_id
+    order_id = _order_id_from_session(session)
     if not order_id:
         raise HTTPException(status_code=400, detail="注文情報が見つかりません")
 
     order = db.query(models.Order).filter(
-        models.Order.id == int(order_id),
+        models.Order.id == order_id,
         models.Order.user_id == current_user.id,
     ).first()
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
 
-    if session.payment_status != "paid":
-        raise HTTPException(status_code=400, detail="決済が完了していません")
+    if _session_value(session, "payment_status") == "paid":
+        fulfilled = fulfill_order_inventory(db, order.id)
+        return {
+            "order": fulfilled,
+            "payment_status": fulfilled.payment_status or "paid",
+            "pending_konbini": False,
+        }
 
-    return fulfill_order_inventory(db, order.id)
+    checkout_type = _metadata_value(session, "checkout_type", "")
+    if _session_value(session, "status") == "complete" and _session_value(session, "payment_status") == "unpaid" and checkout_type == "konbini":
+        pending = _handle_konbini_pending(db, order)
+        return {
+            "order": pending,
+            "payment_status": pending.payment_status or "awaiting_payment",
+            "pending_konbini": True,
+        }
+
+    raise HTTPException(status_code=400, detail="決済が完了していません")
 
 
 @router.post("/stripe/webhook", status_code=status.HTTP_200_OK)
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     event = construct_webhook_event(payload, request.headers.get("stripe-signature"))
+    event_type = event["type"]
+    session = event["data"]["object"]
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        if session.get("payment_status") != "paid":
+    if event_type == "checkout.session.completed":
+        order_id = _order_id_from_session(session)
+        if not order_id:
             return {"received": True}
 
-        order_id = session.get("metadata", {}).get("order_id") or session.get("client_reference_id")
-        if order_id:
-            fulfill_order_inventory(db, int(order_id))
+        if _session_value(session, "payment_status") == "paid":
+            fulfill_order_inventory(db, order_id)
+        elif _session_value(session, "payment_status") == "unpaid":
+            checkout_type = _metadata_value(session, "checkout_type")
+            if checkout_type == "konbini":
+                order = db.query(models.Order).filter(models.Order.id == order_id).first()
+                if order and order.payment_status != "paid":
+                    _handle_konbini_pending(db, order)
 
-    elif event["type"] == "checkout.session.expired":
-        session = event["data"]["object"]
-        order_id = session.get("metadata", {}).get("order_id") or session.get("client_reference_id")
+    elif event_type == "checkout.session.async_payment_succeeded":
+        order_id = _order_id_from_session(session)
         if order_id:
-            order = db.query(models.Order).filter(models.Order.id == int(order_id)).first()
+            fulfill_order_inventory(db, order_id)
+
+    elif event_type in {"checkout.session.async_payment_failed", "checkout.session.expired"}:
+        order_id = _order_id_from_session(session)
+        if order_id:
+            order = db.query(models.Order).filter(models.Order.id == order_id).first()
             if order and order.payment_status != "paid":
                 cancel_unpaid_order(db, order)
 

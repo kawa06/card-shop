@@ -171,6 +171,23 @@ def fulfill_order_inventory(
     return order
 
 
+def clear_cart_for_order(db: Session, order: models.Order) -> None:
+    for order_item in order.items:
+        cart_item = (
+            db.query(models.CartItem)
+            .filter(
+                models.CartItem.user_id == order.user_id,
+                models.CartItem.card_id == order_item.card_id,
+            )
+            .first()
+        )
+        if cart_item:
+            if cart_item.quantity <= order_item.quantity:
+                db.delete(cart_item)
+            else:
+                cart_item.quantity -= order_item.quantity
+
+
 def cancel_unpaid_order(db: Session, order: models.Order) -> None:
     if order.payment_status == "paid":
         return
