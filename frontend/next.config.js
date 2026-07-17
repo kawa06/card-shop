@@ -17,12 +17,15 @@ const nextConfig = {
   },
   async rewrites() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-97eff.up.railway.app'
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
-      },
-    ]
+    // fallback: App Router API routes (/api/admin, /api/auth/backend-sync) win first.
+    return {
+      fallback: [
+        {
+          source: '/api/:path*',
+          destination: `${apiUrl}/api/:path*`,
+        },
+      ],
+    }
   },
 }
 

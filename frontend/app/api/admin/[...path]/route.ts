@@ -10,8 +10,11 @@ function getBackendUrl() {
   ).replace(/\/$/, '')
 }
 
+/** Shared with Railway backend/internal_admin_auth.py (override via ADMIN_PROXY_SECRET). */
+const ADMIN_PROXY_SECRET = process.env.ADMIN_PROXY_SECRET || 'card-shop-internal-admin-v1'
+
 function getInternalSecret() {
-  return process.env.CLERK_SECRET_KEY || process.env.AUTH_SYNC_SECRET || ''
+  return ADMIN_PROXY_SECRET
 }
 
 async function resolveAdminEmail(): Promise<string | null> {
@@ -38,7 +41,7 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   const secret = getInternalSecret()
   if (!secret) {
     return NextResponse.json(
-      { detail: 'サーバー設定（AUTH_SYNC_SECRET）が不足しています' },
+      { detail: 'サーバー設定（ADMIN_PROXY_SECRET）が不足しています' },
       { status: 500 }
     )
   }
