@@ -15,6 +15,7 @@ import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import CardCard from '@/components/cards/CardCard'
+import FavoriteButton from '@/components/cards/FavoriteButton'
 
 const rarityColors: Record<string, string> = {
   C:    'bg-gray-500/20 text-gray-600 border-gray-500/40',
@@ -222,7 +223,10 @@ export default function CardDetailClient({ id }: { id: string }) {
               {card.pack && (
                 <p className="text-sm text-sky-600 mb-1">{card.pack.name}</p>
               )}
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">{cardName}</h1>
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <h1 className="text-3xl font-bold text-gray-900">{cardName}</h1>
+                <FavoriteButton cardId={card.id} />
+              </div>
               <div className="flex flex-wrap gap-2">
                 {card.rarity && (
                   <span className={`text-sm font-bold px-3 py-1 rounded border ${rarityClass}`}>

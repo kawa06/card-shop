@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Boolean, DateTime, Float,
-    ForeignKey, Text, Enum as SAEnum
+    ForeignKey, Text, Enum as SAEnum, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from database import Base
@@ -40,6 +40,7 @@ class User(Base):
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user")
+    favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
 
 
 class Category(Base):
@@ -94,6 +95,20 @@ class Card(Base):
     pack = relationship("Pack", back_populates="cards")
     cart_items = relationship("CartItem", back_populates="card")
     order_items = relationship("OrderItem", back_populates="card")
+    favorites = relationship("Favorite", back_populates="card", cascade="all, delete-orphan")
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "card_id", name="uq_favorites_user_card"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="favorites")
+    card = relationship("Card", back_populates="favorites")
 
 
 class CartItem(Base):
@@ -125,6 +140,9 @@ class Order(Base):
     shipping_address = Column(Text, nullable=True)
     shipping_method = Column(String(50), nullable=True)
     shipping_fee = Column(Integer, default=0)
+    payment_method = Column(String(50), nullable=True)
+    payment_status = Column(String(50), default="pending")
+    stripe_checkout_session_id = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="orders")

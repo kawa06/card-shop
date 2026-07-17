@@ -242,6 +242,18 @@ class CartItemOut(CartItemBase):
         from_attributes = True
 
 
+# ─────────────────────────── Favorites ────────────────────────────
+
+class FavoriteOut(BaseModel):
+    id: int
+    card_id: int
+    created_at: datetime
+    card: CardOut
+
+    class Config:
+        from_attributes = True
+
+
 # ─────────────────────────── Order ───────────────────────────
 
 class OrderItemOut(BaseModel):
@@ -265,6 +277,25 @@ class OrderCreate(BaseModel):
     shipping_address: Optional[str] = None
     shipping_method: Optional[str] = None
     shipping_fee: int = 0
+    payment_method: Optional[str] = "bank_transfer"
+
+
+class StripeCheckoutSessionCreate(BaseModel):
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    shipping_address: Optional[str] = None
+    shipping_method: Optional[str] = None
+    locale: Optional[str] = "ja"
+
+
+class StripeCheckoutSessionOut(BaseModel):
+    checkout_url: str
+    session_id: str
+    order_id: int
 
 
 class OrderOut(BaseModel):
@@ -281,6 +312,8 @@ class OrderOut(BaseModel):
     shipping_address: Optional[str]
     shipping_method: Optional[str] = None
     shipping_fee: int = 0
+    payment_method: Optional[str] = None
+    payment_status: Optional[str] = None
     created_at: datetime
     items: List[OrderItemOut] = []
 

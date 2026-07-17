@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User } from '@/lib/types'
 import { authApi } from '@/lib/api'
+import { useFavoritesStore } from '@/store/favorites'
 
 interface AuthState {
   user: User | null
@@ -177,6 +178,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token')
         }
+        useFavoritesStore.getState().reset()
         set({
           user: null,
           token: null,

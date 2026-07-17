@@ -1,0 +1,115 @@
+'use client'
+
+import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { CheckCircle2, Loader2 } from 'lucide-react'
+import { paymentsApi } from '@/lib/api'
+import { useCartStore } from '@/store/cart'
+import { useAuthStore } from '@/store/auth'
+import { useLangStore } from '@/store/lang'
+import { t } from '@/lib/i18n'
+import { Button } from '@/components/ui/button'
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="h-12 w-12 text-yellow-400 animate-spin" />
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
+  )
+}
+
+function CheckoutSuccessContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get('session_id')
+  const { clearCart, fetchCart } = useCartStore()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { lang } = useLangStore()
+  const [orderId, setOrderId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted || isAuthLoading) return
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    if (!sessionId) {
+      setError(lang === 'ja' ? '決済セッションが見つかりません' : 'Payment session not found')
+      return
+    }
+
+    paymentsApi
+      .confirmStripeCheckout(sessionId)
+      .then((res) => {
+        setOrderId(res.data.id)
+        clearCart()
+        fetchCart()
+      })
+      .catch((err) => {
+        const message =
+          err?.response?.data?.detail ||
+          (lang === 'ja' ? '決済の確認に失敗しました' : 'Failed to confirm payment')
+        setError(typeof message === 'string' ? message : JSON.stringify(message))
+      })
+  }, [isMounted, isAuthLoading, isAuthenticated, sessionId, router, clearCart, fetchCart, lang])
+
+  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center p-6">
+      <div className="max-w-md w-full text-center space-y-6">
+        {!orderId && !error && (
+          <>
+            <Loader2 className="h-12 w-12 text-yellow-400 animate-spin mx-auto" />
+            <p className="text-gray-600">{t('決済を確認しています...', lang)}</p>
+          </>
+        )}
+
+        {orderId && (
+          <>
+            <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+            <h1 className="text-2xl font-bold text-gray-900">{t('決済が完了しました', lang)}</h1>
+            <p className="text-gray-600">
+              {t('注文番号', lang)}: #{orderId}
+            </p>
+            <div className="flex flex-col gap-3 pt-4">
+              <Link href="/orders">
+                <Button className="w-full bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold">
+                  {t('注文履歴を見る', lang)}
+                </Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline" className="w-full">
+                  {t('ショップを見る', lang)}
+                </Button>
+              </Link>
+            </div>
+          </>
+        )}
+
+        {error && (
+          <>
+            <h1 className="text-xl font-bold text-red-600">{t('エラー', lang)}</h1>
+            <p className="text-gray-600 text-sm">{error}</p>
+            <Link href="/checkout">
+              <Button className="mt-4 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold">
+                {t('チェックアウトに戻る', lang)}
+              </Button>
+            </Link>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}

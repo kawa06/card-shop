@@ -19,6 +19,12 @@ const statusLabels: Record<string, string> = {
   cancelled: 'キャンセル',
 }
 
+const paymentStatusLabels: Record<string, string> = {
+  awaiting_payment: '決済待ち',
+  pending: '未決済',
+  paid: '決済済み',
+}
+
 const statusColors: Record<string, string> = {
   pending: 'text-yellow-400',
   processing: 'text-blue-400',
@@ -116,6 +122,16 @@ export default function OrdersPage() {
                       <div className="border-t border-gray-200 pt-3 text-sm">
                         <span className="text-gray-500">{t('配送先', lang)}: </span>
                         <span className="text-gray-600">{order.shipping_address}</span>
+                      </div>
+                    )}
+                    {order.payment_status && (
+                      <div className="text-sm">
+                        <span className="text-gray-500">{t('支払い方法', lang)}: </span>
+                        <span className="text-gray-600">{order.payment_method || '-'}</span>
+                        <span className="text-gray-400 mx-2">/</span>
+                        <span className="text-gray-600">
+                          {t(paymentStatusLabels[order.payment_status] || order.payment_status, lang)}
+                        </span>
                       </div>
                     )}
                   </div>

@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import stripe
+from fastapi import HTTPException
+
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def stripe_configured() -> bool:
+    return bool(settings.STRIPE_SECRET_KEY.strip())
+
+
+def _configure_stripe() -> None:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+
+def require_stripe() -> None:
+    if not stripe_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe決済の設定が完了していません。管理者にお問い合わせください。",
+        )
+
+
+def build_line_items(cart_items, shipping_fee: int, shipping_label: str) -> list[dict[str, Any]]:
+    line_items: list[dict[str, Any]] = []
+    for item in cart_items:
+        card = item.card
+        line_items.append(
+            {
+                "price_data": {
+                    "currency": "jpy",
+                    "product_data": {
+                        "name": card.name[:120],
+                        "metadata": {"card_id": str(card.id)},
+                    },
+                    "unit_amount": int(round(card.price)),
+                },
+                "quantity": item.quantity,
+            }
+        )
+
+    if shipping_fee > 0:
+        line_items.append(
+            {
+                "price_data": {
+                    "currency": "jpy",
+                    "product_data": {"name": shipping_label[:120]},
+                    "unit_amount": int(shipping_fee),
+                },
+                "quantity": 1,
+            }
+        )
+
+    return line_items
+
+
+def create_checkout_session(
+    *,
+    order_id: int,
+    customer_email: str,
+    line_items: list[dict[str, Any]],
+    locale: str = "ja",
+) -> stripe.checkout.Session:
+    require_stripe()
+    _configure_stripe()
+
+    return stripe.checkout.Session.create(
+        mode="payment",
+        customer_email=customer_email,
+        line_items=line_items,
+        metadata={"order_id": str(order_id)},
+        client_reference_id=str(order_id),
+        locale=locale if locale in {"ja", "en"} else "auto",
+        success_url=f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.FRONTEND_URL.rstrip('/')}/checkout/cancel?order_id={order_id}",
+    )
+
+
+def retrieve_checkout_session(session_id: str) -> stripe.checkout.Session:
+    require_stripe()
+    _configure_stripe()
+    return stripe.checkout.Session.retrieve(session_id)
+
+
+def construct_webhook_event(payload: bytes, sig_header: str | None):
+    if not settings.STRIPE_WEBHOOK_SECRET.strip():
+        raise HTTPException(status_code=503, detail="Stripe webhook secret is not configured")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing Stripe-Signature header")
+    try:
+        return stripe.Webhook.construct_event(
+            payload,
+            sig_header,
+            settings.STRIPE_WEBHOOK_SECRET,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid payload") from exc
+    except stripe.error.SignatureVerificationError as exc:
+        raise HTTPException(status_code=400, detail="Invalid signature") from exc

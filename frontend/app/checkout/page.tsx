@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import { ordersApi, authApi, shippingApi } from '@/lib/api'
+import { ordersApi, authApi, shippingApi, paymentsApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 import { formatPrice, usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -130,6 +130,13 @@ export default function CheckoutPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
+  const [stripeEnabled, setStripeEnabled] = useState(false)
+
+  useEffect(() => {
+    if (!stripeEnabled && paymentMethod === 'credit_card') {
+      setPaymentMethod('bank_transfer')
+    }
+  }, [stripeEnabled, paymentMethod])
 
   const isInternational = country !== 'JP'
   
@@ -139,6 +146,9 @@ export default function CheckoutPage() {
     shippingApi.getRates().then(res => {
       setShippingRates(res.data)
     })
+    paymentsApi.getStripeConfig().then(res => {
+      setStripeEnabled(Boolean(res.data?.enabled))
+    }).catch(() => setStripeEnabled(false))
   }, [isMounted])
 
   // Calculate allowed shipping methods intersection
@@ -308,6 +318,32 @@ export default function CheckoutPage() {
           phone_number: user?.phone_number || ''
         })
         fetchMe()
+      }
+
+      if (paymentMethod === 'credit_card') {
+        if (!stripeEnabled) {
+          toast({
+            title: t('エラー', lang),
+            description: t('Stripe決済は現在利用できません', lang),
+            variant: 'destructive',
+          })
+          return
+        }
+
+        const stripeRes = await paymentsApi.createStripeCheckout({
+          postal_code: postalCode,
+          country: currentCountryName,
+          region: region,
+          city: city,
+          address_line1: addressLine1,
+          address_line2: addressLine2,
+          shipping_address: shippingAddress,
+          shipping_method: shippingMethod,
+          locale: lang,
+        })
+
+        window.location.href = stripeRes.data.checkout_url
+        return
       }
 
       const res = await ordersApi.create({
@@ -665,16 +701,17 @@ export default function CheckoutPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {[
-                { value: 'credit_card', label: t('カード', lang) },
-                { value: 'bank_transfer', label: t('銀行振込', lang) },
-                { value: 'cod', label: t('代金引換', lang) },
+                { value: 'credit_card', label: t('クレジットカード（Stripe）', lang), disabled: !stripeEnabled },
+                { value: 'bank_transfer', label: t('銀行振込', lang), disabled: false },
+                { value: 'cod', label: t('代金引換', lang), disabled: false },
               ].map((method) => (
-                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-50 border-gray-100'}`}>
+                <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${method.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-50 border-gray-100'}`}>
                   <input
                     type="radio"
                     name="payment"
                     value={method.value}
                     checked={paymentMethod === method.value}
+                    disabled={method.disabled}
                     onChange={() => setPaymentMethod(method.value)}
                     className="accent-yellow-400"
                   />
@@ -682,6 +719,11 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
+            {paymentMethod === 'credit_card' && (
+              <p className="text-xs text-gray-500">
+                {t('Stripeの安全な決済ページに移動してカード情報を入力します', lang)}
+              </p>
+            )}
           </section>
 
           {/* 5. 同意事項 */}
@@ -737,7 +779,11 @@ export default function CheckoutPage() {
               disabled={isSubmitting || (!isInternational && availableRates.length === 0)}
               className="w-full h-14 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-black text-lg shadow-xl shadow-yellow-400/10"
             >
-              {isSubmitting ? t('注文処理中...', lang) : t('注文を確定する', lang)}
+              {isSubmitting
+                ? t('注文処理中...', lang)
+                : paymentMethod === 'credit_card'
+                  ? t('Stripeで支払う', lang)
+                  : t('注文を確定する', lang)}
             </Button>
             <p className="text-center text-[10px] text-gray-500 mt-4">
               By clicking confirm, you agree to our Terms of Service and Privacy Policy.

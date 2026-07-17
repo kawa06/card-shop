@@ -158,6 +158,14 @@ export const cartApi = {
   remove: (itemId: number) => apiClient.delete(`/cart/${itemId}`),
 }
 
+// Favorites API
+export const favoritesApi = {
+  getAll: () => apiClient.get('/favorites'),
+  getIds: () => apiClient.get('/favorites/ids'),
+  add: (cardId: number) => apiClient.post(`/favorites/${cardId}`),
+  remove: (cardId: number) => apiClient.delete(`/favorites/${cardId}`),
+}
+
 // Orders API
 export const ordersApi = {
   create: (data: { 
@@ -176,6 +184,24 @@ export const ordersApi = {
   getAll: () => apiClient.get('/orders'),
 
   getById: (id: number) => apiClient.get(`/orders/${id}`),
+}
+
+// Payments API
+export const paymentsApi = {
+  getStripeConfig: () => apiClient.get('/payments/stripe/config'),
+  createStripeCheckout: (data: {
+    postal_code?: string
+    country?: string
+    region?: string
+    city?: string
+    address_line1?: string
+    address_line2?: string
+    shipping_address?: string
+    shipping_method?: string
+    locale?: string
+  }) => apiClient.post('/payments/stripe/create-checkout-session', data),
+  confirmStripeCheckout: (sessionId: string) =>
+    apiClient.get('/payments/stripe/confirm', { params: { session_id: sessionId } }),
 }
 
 // Admin API

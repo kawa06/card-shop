@@ -64,6 +64,13 @@ export interface CartItem {
   card: Card
 }
 
+export interface Favorite {
+  id: number
+  card_id: number
+  created_at: string
+  card: Card
+}
+
 export interface Cart {
   items: CartItem[]
   total: number
@@ -91,6 +98,8 @@ export interface Order {
   shipping_address: string | null
   shipping_method: string | null
   shipping_fee: number
+  payment_method: string | null
+  payment_status: string | null
   created_at: string
   items: OrderItem[]
 }

@@ -5,8 +5,12 @@ from database import get_db
 from auth import get_current_user
 import models
 import schemas
-import json
-from services.shipping_rates import calculate_shipping_fee
+from services.order_checkout import (
+    create_order_from_cart,
+    get_user_cart_items,
+    resolve_shipping_fee,
+    validate_shipping_method,
+)
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -17,70 +21,20 @@ def create_order(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    cart_items = (
-        db.query(models.CartItem)
-        .filter(models.CartItem.user_id == current_user.id)
-        .all()
-    )
-    if not cart_items:
-        raise HTTPException(status_code=400, detail="カートが空です")
+    if payload.payment_method == "credit_card":
+        raise HTTPException(
+            status_code=400,
+            detail="クレジットカード決済はStripe Checkoutをご利用ください。",
+        )
 
-    # Validate shipping method intersection
-    allowed_methods_set = None
-    for item in cart_items:
-        card = item.card
-        if card.allowed_shipping_methods:
-            try:
-                # Handle various empty states
-                raw = card.allowed_shipping_methods
-                if raw in ('null', '[]', ''):
-                    continue
+    cart_items = get_user_cart_items(db, current_user.id)
+    validate_shipping_method(cart_items, payload.shipping_method)
+    shipping_fee = resolve_shipping_fee(payload.shipping_method, payload.region, payload.country, db)
 
-                methods = json.loads(raw)
-                if isinstance(methods, list) and methods:
-                    methods_set = set(methods)
-                    if allowed_methods_set is None:
-                        allowed_methods_set = methods_set
-                    else:
-                        allowed_methods_set = allowed_methods_set.intersection(methods_set)
-            except Exception:
-                # If invalid JSON, ignore or treat as no restriction
-                pass
-
-    if allowed_methods_set is not None:
-        if not allowed_methods_set:
-            # Intersection is empty - should not happen if admin UI is correct, but handle it
-            raise HTTPException(
-                status_code=400, 
-                detail="カート内の商品の組み合わせにより、利用可能な発送方法がありません。 / No available shipping methods for this combination of items."
-            )
-        if payload.shipping_method not in allowed_methods_set:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"選択された発送方法（{payload.shipping_method}）はこの注文では利用できません。 / The selected shipping method ({payload.shipping_method}) is not available for this order."
-            )
-
-    # Calculate shipping fee
-    shipping_fee = calculate_shipping_fee(
-        payload.shipping_method, 
-        payload.region, 
-        payload.country
-    )
-
-    # Validate stock and calculate total
-    total = 0.0
-    for item in cart_items:
-        card = item.card
-        if not card.is_active:
-            raise HTTPException(status_code=400, detail=f"カード「{card.name}」は現在販売されていません")
-        if card.stock < item.quantity:
-            raise HTTPException(status_code=400, detail=f"カード「{card.name}」の在庫が不足しています")
-        total += card.price * item.quantity
-
-    # Create order
-    order = models.Order(
-        user_id=current_user.id,
-        total_amount=round(total + shipping_fee, 2),
+    return create_order_from_cart(
+        db,
+        user=current_user,
+        cart_items=cart_items,
         postal_code=payload.postal_code,
         country=payload.country,
         region=payload.region,
@@ -90,29 +44,10 @@ def create_order(
         shipping_address=payload.shipping_address,
         shipping_method=payload.shipping_method,
         shipping_fee=shipping_fee,
-        status=models.OrderStatus.pending,
+        payment_method=payload.payment_method,
+        payment_status="pending",
+        finalize=True,
     )
-    db.add(order)
-    db.flush()  # Get order.id
-
-    # Create order items and decrease stock
-    for item in cart_items:
-        order_item = models.OrderItem(
-            order_id=order.id,
-            card_id=item.card_id,
-            quantity=item.quantity,
-            unit_price=item.card.price,
-        )
-        db.add(order_item)
-        item.card.stock -= item.quantity
-
-    # Clear cart
-    for item in cart_items:
-        db.delete(item)
-
-    db.commit()
-    db.refresh(order)
-    return order
 
 
 @router.get("", response_model=list[schemas.OrderOut])

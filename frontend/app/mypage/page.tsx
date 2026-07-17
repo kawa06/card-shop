@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { ordersApi, authApi } from '@/lib/api'
+import { ordersApi, authApi, favoritesApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -60,6 +60,7 @@ export default function MypagePage() {
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
+  const [favoriteCount, setFavoriteCount] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   
@@ -134,7 +135,12 @@ export default function MypagePage() {
         fetchMe()
         ordersApi.getAll().then((res) => {
           if (!cancelled) setOrders((res.data || []).slice(0, 3))
-        }).catch(() => {}).finally(() => {
+        }).catch(() => {})
+        favoritesApi.getIds().then((res) => {
+          if (!cancelled) setFavoriteCount((res.data || []).length)
+        }).catch(() => {
+          if (!cancelled) setFavoriteCount(0)
+        }).finally(() => {
           if (!cancelled) setIsLoading(false)
         })
       } else if (!cancelled) {
@@ -463,24 +469,36 @@ export default function MypagePage() {
               </div>
             </div>
           </Link>
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 opacity-50">
-            <div className="p-2 rounded-md bg-pink-400/10 text-pink-400">
-              <Heart className="h-5 w-5" />
+          <Link href="/mypage/favorites">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-pink-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-pink-400/10 text-pink-400 group-hover:bg-pink-400 group-hover:text-white transition-colors">
+                <Heart className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{t('お気に入り', lang)}</p>
+                <p className="text-gray-500 text-[10px]">
+                  {favoriteCount === null
+                    ? t('読み込み中...', lang)
+                    : lang === 'ja'
+                      ? `${favoriteCount}件`
+                      : `${favoriteCount} items`}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-900 font-medium text-sm">{t('お気に入り', lang)}</p>
-              <p className="text-gray-500 text-[10px]">{t('準備中', lang)}</p>
+          </Link>
+          <Link href="/mypage/addresses">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-blue-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-blue-400/10 text-blue-400 group-hover:bg-blue-400 group-hover:text-white transition-colors">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{t('住所管理', lang)}</p>
+                <p className="text-gray-500 text-[10px]">
+                  {user?.postal_code ? t('登録済み', lang) : t('未登録', lang)}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 opacity-50">
-            <div className="p-2 rounded-md bg-blue-400/10 text-blue-400">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-gray-900 font-medium text-sm">{t('住所管理', lang)}</p>
-              <p className="text-gray-500 text-[10px]">{t('準備中', lang)}</p>
-            </div>
-          </div>
+          </Link>
         </div>
 
         {/* Recent Orders */}

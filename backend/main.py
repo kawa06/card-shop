@@ -15,6 +15,8 @@ from routes.admin import router as admin_router
 from routes.translate import router as translate_router
 from routes.exchange import router as exchange_router
 from routes.shipping import router as shipping_router
+from routes.favorites import router as favorites_router
+from routes.payments import router as payments_router
 
 # Apply missing column migrations for SQLite (More robust check using SQLAlchemy Inspector)
 from sqlalchemy import text, inspect
@@ -57,6 +59,9 @@ def add_columns_if_missing():
             ("shipping_address", "TEXT"),
             ("shipping_method", "VARCHAR(50)"),
             ("shipping_fee", "INTEGER DEFAULT 0"),
+            ("payment_method", "VARCHAR(50)"),
+            ("payment_status", "VARCHAR(50) DEFAULT 'pending'"),
+            ("stripe_checkout_session_id", "VARCHAR(255)"),
         ],
         "shipping_rates": [
             ("carrier", "VARCHAR(50)"),
@@ -152,6 +157,8 @@ app.include_router(admin_router)
 app.include_router(translate_router)
 app.include_router(exchange_router)
 app.include_router(shipping_router)
+app.include_router(favorites_router)
+app.include_router(payments_router)
 
 
 # Deploy Fix 2026-06-21-v20 (Implement automatic migrations in lifespan)

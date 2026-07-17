@@ -12,6 +12,7 @@ import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
 import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import FavoriteButton from '@/components/cards/FavoriteButton'
 
 interface CardCardProps {
   card: Card
@@ -100,7 +101,8 @@ export default function CardCard({ card }: CardCardProps) {
               <span className="text-4xl opacity-20">🃏</span>
             </div>
           )}
-          <div className="absolute top-2 right-2 z-10">
+          <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1.5">
+            <FavoriteButton cardId={card.id} size="sm" />
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rarityClass}`}>
               {card.rarity}
             </span>
