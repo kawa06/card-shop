@@ -9,8 +9,13 @@ from auth import get_current_admin
 import models
 import schemas
 from routes.cards import _apply_card_search
+from services.db_persist import PersistDep, safe_commit
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+router = APIRouter(
+    prefix="/api/admin",
+    tags=["admin"],
+    dependencies=[PersistDep],
+)
 
 
 # ──────────────────────── Cards ──────────────────────────────
@@ -50,7 +55,7 @@ def admin_create_card(
 ):
     card = models.Card(**payload.model_dump())
     db.add(card)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(card)
     return card
 
@@ -79,7 +84,7 @@ def admin_update_card(
         raise HTTPException(status_code=404, detail="カードが見つかりません")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(card, field, value)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(card)
     return card
 
@@ -95,7 +100,7 @@ def admin_update_card_shipping_methods(
     if not card:
         raise HTTPException(status_code=404, detail="カードが見つかりません")
     card.allowed_shipping_methods = payload.allowed_shipping_methods
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(card)
     return card
 
@@ -114,14 +119,14 @@ def admin_delete_card(
     has_orders = db.query(models.OrderItem).filter(models.OrderItem.card_id == card_id).first()
     if has_orders:
         card.is_active = False
-        db.commit()
+        safe_commit(db, action="カード作成")
         return None
 
     # カートからは削除
     db.query(models.CartItem).filter(models.CartItem.card_id == card_id).delete()
     
     db.delete(card)
-    db.commit()
+    safe_commit(db, action="カード作成")
 
 
 # ──────────────────────── Categories ─────────────────────────
@@ -145,7 +150,7 @@ def admin_create_category(
         raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
     category = models.Category(**payload.model_dump())
     db.add(category)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(category)
     return category
 
@@ -162,7 +167,7 @@ def admin_update_category(
         raise HTTPException(status_code=404, detail="カテゴリーが見つかりません")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(category, field, value)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(category)
     return category
 
@@ -177,7 +182,7 @@ def admin_delete_category(
     if not category:
         raise HTTPException(status_code=404, detail="カテゴリーが見つかりません")
     db.delete(category)
-    db.commit()
+    safe_commit(db, action="カード作成")
 
 
 # ──────────────────────── Packs ──────────────────────────────
@@ -201,7 +206,7 @@ def admin_create_pack(
         raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
     pack = models.Pack(**payload.model_dump())
     db.add(pack)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(pack)
     return pack
 
@@ -216,9 +221,17 @@ def admin_update_pack(
     pack = db.query(models.Pack).filter(models.Pack.id == pack_id).first()
     if not pack:
         raise HTTPException(status_code=404, detail="パックが見つかりません")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "slug" in updates and updates["slug"] != pack.slug:
+        existing = db.query(models.Pack).filter(
+            models.Pack.slug == updates["slug"],
+            models.Pack.id != pack_id,
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
+    for field, value in updates.items():
         setattr(pack, field, value)
-    db.commit()
+    safe_commit(db, action="パック更新")
     db.refresh(pack)
     return pack
 
@@ -238,7 +251,7 @@ def admin_delete_pack(
         synchronize_session=False,
     )
     db.delete(pack)
-    db.commit()
+    safe_commit(db, action="カード作成")
 
 
 # ──────────────────────── Announcements ──────────────────────
@@ -263,7 +276,7 @@ def admin_create_announcement(
 ):
     announcement = models.Announcement(**payload.model_dump())
     db.add(announcement)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(announcement)
     return announcement
 
@@ -280,7 +293,7 @@ def admin_update_announcement(
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(ann, field, value)
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(ann)
     return ann
 
@@ -295,7 +308,7 @@ def admin_delete_announcement(
     if not ann:
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
     db.delete(ann)
-    db.commit()
+    safe_commit(db, action="カード作成")
 
 
 # ──────────────────────── Orders ─────────────────────────────
@@ -327,6 +340,6 @@ def admin_update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     order.status = payload.status
-    db.commit()
+    safe_commit(db, action="カード作成")
     db.refresh(order)
     return order

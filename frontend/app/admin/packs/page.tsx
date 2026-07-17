@@ -76,7 +76,10 @@ export default function AdminPacksPage() {
         sort_order: parseInt(form.sort_order, 10) || 0,
       }
       if (editingId) {
-        await adminApi.updatePack(editingId, payload)
+        await adminApi.updatePack(editingId, {
+          name: payload.name,
+          sort_order: payload.sort_order,
+        })
         toast({ title: '更新しました' })
       } else {
         await adminApi.createPack(payload)

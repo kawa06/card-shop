@@ -80,7 +80,7 @@ class Card(Base):
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)
     stock = Column(Integer, default=0)
-    image_url = Column(String(500), nullable=True)
+    image_url = Column(Text, nullable=True)
     image_urls = Column(Text, nullable=True)  # JSON array of up to 10 image URLs
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)

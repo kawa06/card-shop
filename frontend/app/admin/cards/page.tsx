@@ -181,6 +181,7 @@ export default function AdminCardsPage() {
       condition: form.condition || null,
       category_id: form.category_id ? parseInt(form.category_id) : null,
       pack_id: form.pack_id ? parseInt(form.pack_id) : null,
+      allowed_shipping_methods: serializeAllowedShippingMethods(form.allowed_shipping_methods),
     }
 
     if (!editingId || imagesChanged) {
@@ -192,11 +193,9 @@ export default function AdminCardsPage() {
 
     try {
       if (editingId) {
-        await saveShippingMethods(editingId)
         await adminApi.updateCard(editingId, data)
         toast({ title: '更新しました' })
       } else {
-        data.allowed_shipping_methods = serializeAllowedShippingMethods(form.allowed_shipping_methods)
         await adminApi.createCard(data)
         toast({ title: '作成しました' })
       }

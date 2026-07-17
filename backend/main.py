@@ -6,6 +6,8 @@ import asyncio
 from contextlib import asynccontextmanager
 from database import Base, engine, SessionLocal
 from services.shipping_rates import background_shipping_update_task, refresh_all_rates
+from services.db_migrate import run_schema_upgrades
+from services.db_persist import database_info
 
 from routes.auth import router as auth_router
 from routes.cards import router as cards_router
@@ -18,8 +20,9 @@ from routes.shipping import router as shipping_router
 from routes.favorites import router as favorites_router
 from routes.payments import router as payments_router
 
-# Apply missing column migrations for SQLite (More robust check using SQLAlchemy Inspector)
 from sqlalchemy import text, inspect
+
+# Apply missing column migrations for SQLite (More robust check using SQLAlchemy Inspector)
 
 def add_columns_if_missing():
     print("Running database migrations (checking for missing columns)...")
@@ -106,9 +109,14 @@ def add_columns_if_missing():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize database tables and migrations
+    # create_all only creates MISSING tables — never drops or truncates existing data.
     try:
         Base.metadata.create_all(bind=engine)
         add_columns_if_missing()
+        run_schema_upgrades()
+        db_info = database_info()
+        if not db_info["persistent"]:
+            print(f"WARNING: {db_info['warning']}")
     except Exception as e:
         print(f"Database initialization failed: {e}")
 
@@ -164,7 +172,12 @@ app.include_router(payments_router)
 # Deploy Fix 2026-06-21-v20 (Implement automatic migrations in lifespan)
 @app.get("/api/health", summary="Health Check V20")
 def health():
-    return {"status": "ok", "version": "deployed-fixed-v20"}
+    db = database_info()
+    return {
+        "status": "ok",
+        "version": "deployed-fixed-v21",
+        "database": db,
+    }
 
 @app.get("/api/health20")
 def health20():
