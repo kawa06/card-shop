@@ -12,11 +12,7 @@ Get-Content $envFile | ForEach-Object {
   }
 }
 
-$toSet = @(
-  'AUTH_SYNC_SECRET',
-  'CLERK_SECRET_KEY',
-  'CLERK_PUBLISHABLE_KEY',
-)
+$toSet = @('AUTH_SYNC_SECRET', 'CLERK_SECRET_KEY', 'CLERK_PUBLISHABLE_KEY')
 
 foreach ($name in $toSet) {
   if ($name -eq 'CLERK_PUBLISHABLE_KEY') {
