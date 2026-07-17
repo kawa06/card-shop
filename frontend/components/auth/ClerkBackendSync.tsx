@@ -7,26 +7,28 @@ import { useAuthStore } from '@/store/auth'
 export function ClerkBackendSync() {
   const { isSignedIn, isLoaded } = useAuth()
   const { syncBackend, logout, token, hasHydrated, fetchMe } = useAuthStore()
-  const didSyncRef = useRef(false)
+  const syncAttemptsRef = useRef(0)
 
   useEffect(() => {
     if (!isLoaded || !hasHydrated) return
 
-    if (isSignedIn) {
-      if (!didSyncRef.current) {
-        didSyncRef.current = true
-        syncBackend()
-          .catch(() => fetchMe().catch(() => {}))
-      } else if (token) {
-        fetchMe().catch(() => {})
+    if (!isSignedIn) {
+      syncAttemptsRef.current = 0
+      if (token) {
+        logout()
       }
       return
     }
 
-    didSyncRef.current = false
-    if (token) {
-      logout()
+    if (!token) {
+      if (syncAttemptsRef.current >= 5) return
+      syncAttemptsRef.current += 1
+      syncBackend().catch(() => {})
+      return
     }
+
+    syncAttemptsRef.current = 0
+    fetchMe().catch(() => {})
   }, [isLoaded, isSignedIn, token, hasHydrated, syncBackend, logout, fetchMe])
 
   return null

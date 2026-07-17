@@ -94,7 +94,10 @@ export async function POST() {
 
     if (!authData?.access_token) {
       return NextResponse.json(
-        { detail: 'バックエンドとの同期に失敗しました' },
+        {
+          detail:
+            'バックエンドとの同期に失敗しました。Railway に AUTH_SYNC_SECRET または CLERK_SECRET_KEY（Vercel と同じ値）が設定されているか確認してください。',
+        },
         { status: 502 }
       )
     }

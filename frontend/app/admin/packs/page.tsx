@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
+import { getApiErrorMessage } from '@/lib/api-error'
 import Link from 'next/link'
 
 function slugFromName(name: string): string {
@@ -85,8 +86,12 @@ export default function AdminPacksPage() {
       setEditingId(null)
       setForm({ name: '', sort_order: '0' })
       fetchPacks()
-    } catch {
-      toast({ title: 'エラー', description: '保存に失敗しました', variant: 'destructive' })
+    } catch (err) {
+      toast({
+        title: 'エラー',
+        description: getApiErrorMessage(err, '保存に失敗しました'),
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }

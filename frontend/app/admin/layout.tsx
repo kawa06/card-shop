@@ -1,4 +1,5 @@
 ﻿import { Metadata } from 'next'
+import { AdminGate } from './AdminGate'
 
 export const metadata: Metadata = {
   title: '管理画面',
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
+  return <AdminGate>{children}</AdminGate>
 }

@@ -14,15 +14,23 @@ interface AuthState {
   authProvider: 'clerk' | 'legacy' | null
   setHasHydrated: (state: boolean) => void
   syncBackend: () => Promise<void>
+  ensureBackendAuth: () => Promise<string | null>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
 }
 
-async function fetchBackendSession(): Promise<{ access_token: string; user: User } | null> {
+async function fetchBackendSession(): Promise<{ access_token: string; user: User }> {
   const res = await fetch('/api/auth/backend-sync', { method: 'POST' })
-  if (!res.ok) return null
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const detail =
+      typeof body.detail === 'string' && body.detail.trim()
+        ? body.detail
+        : 'バックエンドとの同期に失敗しました'
+    throw new Error(detail)
+  }
   return res.json()
 }
 
@@ -45,6 +53,8 @@ function applyBackendSession(
   })
 }
 
+let syncInFlight: Promise<void> | null = null
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -60,17 +70,27 @@ export const useAuthStore = create<AuthState>()(
       },
 
       syncBackend: async () => {
-        set({ isLoading: true })
-        try {
-          const synced = await fetchBackendSession()
-          if (!synced) {
-            throw new Error('バックエンドとの同期に失敗しました')
+        if (syncInFlight) return syncInFlight
+        syncInFlight = (async () => {
+          set({ isLoading: true })
+          try {
+            const synced = await fetchBackendSession()
+            applyBackendSession(set, synced.access_token, synced.user, 'clerk')
+          } catch (error) {
+            set({ isLoading: false })
+            throw error
           }
-          applyBackendSession(set, synced.access_token, synced.user, 'clerk')
-        } catch (error) {
-          set({ isLoading: false })
-          throw error
-        }
+        })().finally(() => {
+          syncInFlight = null
+        })
+        return syncInFlight
+      },
+
+      ensureBackendAuth: async () => {
+        const { token, isAuthenticated } = get()
+        if (token && isAuthenticated) return token
+        await get().syncBackend()
+        return get().token
       },
 
       login: async (email: string, password: string) => {

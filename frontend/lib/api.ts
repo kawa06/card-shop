@@ -12,10 +12,35 @@ export const apiClient = axios.create({
   },
 })
 
+let syncPromise: Promise<string | null> | null = null
+
+async function ensureAuthTokenForRequest(url: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null
+
+  let token = localStorage.getItem('auth_token')
+  const needsAuth =
+    url.includes('/admin/') ||
+    url.includes('/auth/me') ||
+    url.includes('/cart') ||
+    url.includes('/orders')
+
+  if (token || !needsAuth) return token
+
+  if (!syncPromise) {
+    syncPromise = import('@/store/auth')
+      .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
+      .finally(() => {
+        syncPromise = null
+      })
+  }
+  return syncPromise
+}
+
 // Request interceptor to add auth token
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('auth_token')
+    const url = config.url || ''
+    const token = (await ensureAuthTokenForRequest(url)) || localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -23,11 +48,30 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor for error handling
+// Response interceptor: retry admin requests once after re-sync on 401
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    // 401時にlocalStorageを自動クリアしない（Clerk連携時の一時的な401でログアウトしないため）
+  async (error) => {
+    const config = error.config as (typeof error.config & { _authRetry?: boolean }) | undefined
+    if (
+      config &&
+      !config._authRetry &&
+      error.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      (config.url || '').includes('/admin/')
+    ) {
+      config._authRetry = true
+      try {
+        const { useAuthStore } = await import('@/store/auth')
+        const token = await useAuthStore.getState().ensureBackendAuth()
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
+          return apiClient(config)
+        }
+      } catch {
+        // fall through
+      }
+    }
     return Promise.reject(error)
   }
 )
@@ -171,7 +215,7 @@ export const adminApi = {
   deleteCard: (id: number) => apiClient.delete(`/admin/cards/${id}`),
 
   // Categories
-  createCategory: (data: { name: string; description?: string }) =>
+  createCategory: (data: { name: string; description?: string; slug: string }) =>
     apiClient.post('/admin/categories', data),
   updateCategory: (id: number, data: { name: string; description?: string }) =>
     apiClient.put(`/admin/categories/${id}`, data),

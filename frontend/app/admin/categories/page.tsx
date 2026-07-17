@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
+import { getApiErrorMessage } from '@/lib/api-error'
 import Link from 'next/link'
 
 export default function AdminCategoriesPage() {
@@ -86,8 +87,12 @@ export default function AdminCategoriesPage() {
       setEditingId(null)
       setForm({ name: '', description: '' })
       fetchCategories()
-    } catch {
-      toast({ title: 'エラー', description: '保存に失敗しました', variant: 'destructive' })
+    } catch (err) {
+      toast({
+        title: 'エラー',
+        description: getApiErrorMessage(err, '保存に失敗しました'),
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
