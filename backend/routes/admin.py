@@ -8,6 +8,7 @@ from database import get_db
 from auth import get_current_admin
 import models
 import schemas
+from routes.cards import _apply_card_search
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -25,9 +26,7 @@ def admin_list_cards(
 ):
     query = db.query(models.Card)
     if q:
-        query = query.filter(
-            (models.Card.name.ilike(f"%{q}%")) | (models.Card.name_en.ilike(f"%{q}%"))
-        )
+        query = _apply_card_search(query, q)
     if is_active is not None:
         query = query.filter(models.Card.is_active == is_active)
     query = query.order_by(models.Card.created_at.desc())
@@ -162,6 +161,67 @@ def admin_delete_category(
     if not category:
         raise HTTPException(status_code=404, detail="カテゴリーが見つかりません")
     db.delete(category)
+    db.commit()
+
+
+# ──────────────────────── Packs ──────────────────────────────
+
+@router.get("/packs", response_model=list[schemas.PackOut])
+def admin_list_packs(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    return db.query(models.Pack).order_by(models.Pack.sort_order, models.Pack.name).all()
+
+
+@router.post("/packs", response_model=schemas.PackOut, status_code=status.HTTP_201_CREATED)
+def admin_create_pack(
+    payload: schemas.PackCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    existing = db.query(models.Pack).filter(models.Pack.slug == payload.slug).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
+    pack = models.Pack(**payload.model_dump())
+    db.add(pack)
+    db.commit()
+    db.refresh(pack)
+    return pack
+
+
+@router.put("/packs/{pack_id}", response_model=schemas.PackOut)
+def admin_update_pack(
+    pack_id: int,
+    payload: schemas.PackUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="パックが見つかりません")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(pack, field, value)
+    db.commit()
+    db.refresh(pack)
+    return pack
+
+
+@router.delete("/packs/{pack_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_pack(
+    pack_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    pack = db.query(models.Pack).filter(models.Pack.id == pack_id).first()
+    if not pack:
+        raise HTTPException(status_code=404, detail="パックが見つかりません")
+    # カードは削除せず、パック紐付けのみ解除
+    db.query(models.Card).filter(models.Card.pack_id == pack_id).update(
+        {models.Card.pack_id: None},
+        synchronize_session=False,
+    )
+    db.delete(pack)
     db.commit()
 
 

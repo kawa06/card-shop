@@ -134,6 +134,9 @@ export default function CardCard({ card }: CardCardProps) {
           {card.category && (
             <span className="text-xs text-gray-500 mt-1 block">{categoryName}</span>
           )}
+          {card.pack && (
+            <span className="text-xs text-sky-600 mt-0.5 block truncate">{card.pack.name}</span>
+          )}
         </div>
       </Link>
 

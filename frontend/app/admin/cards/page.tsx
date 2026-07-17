@@ -5,8 +5,8 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Upload, Images, X } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { cardsApi, categoriesApi, adminApi, shippingApi } from '@/lib/api'
-import { Card, Category, ShippingRate } from '@/lib/types'
+import { cardsApi, categoriesApi, adminApi, shippingApi, packsApi } from '@/lib/api'
+import { Card, Category, ShippingRate, Pack } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,13 +30,14 @@ interface CardForm {
   rarity: string
   condition: string
   category_id: string
+  pack_id: string
   images: string[]  // up to 10 image URLs / data URLs
   allowed_shipping_methods: string[]
 }
 
 const emptyForm: CardForm = {
   name: '', name_en: '', description: '', price: '', stock: '',
-  rarity: 'C', condition: '', category_id: '', images: [''],
+  rarity: 'C', condition: '', category_id: '', pack_id: '', images: [''],
   allowed_shipping_methods: [],
 }
 
@@ -68,6 +69,7 @@ export default function AdminCardsPage() {
   const { formatPrice } = usePrice()
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [packs, setPacks] = useState<Pack[]>([])
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -94,14 +96,16 @@ export default function AdminCardsPage() {
   const fetchAll = async () => {
     setIsLoading(true)
     try {
-      const [cardsRes, catsRes, shipRes] = await Promise.all([
+      const [cardsRes, catsRes, packsRes, shipRes] = await Promise.all([
         adminApi.getAllCards({ per_page: 100 }),
         categoriesApi.getAll(),
+        packsApi.getAll(),
         shippingApi.getRates(),
       ])
       const data = cardsRes.data
       setCards(Array.isArray(data) ? data : (data.items || []))
       setCategories(catsRes.data || [])
+      setPacks(packsRes.data || [])
       setShippingRates(shipRes.data || [])
     } finally {
       setIsLoading(false)
@@ -119,6 +123,7 @@ export default function AdminCardsPage() {
       rarity: card.rarity || 'C',
       condition: card.condition || '',
       category_id: card.category_id?.toString() || '',
+      pack_id: card.pack_id?.toString() || '',
       images: parseImages(card),
       allowed_shipping_methods: parseShippingMethods(card),
     })
@@ -151,6 +156,7 @@ export default function AdminCardsPage() {
       rarity: form.rarity,
       condition: form.condition || null,
       category_id: form.category_id ? parseInt(form.category_id) : null,
+      pack_id: form.pack_id ? parseInt(form.pack_id) : null,
       image_url,
       image_urls: extra.length > 0 ? JSON.stringify(extra) : null,
       allowed_shipping_methods: form.allowed_shipping_methods.length > 0 ? JSON.stringify(form.allowed_shipping_methods) : null,
@@ -299,6 +305,15 @@ export default function AdminCardsPage() {
                   <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-gray-900 text-sm">
                     <option value="">-- 選択 --</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+
+                {/* パック */}
+                <div className="space-y-1">
+                  <Label className="text-gray-600">パック</Label>
+                  <select value={form.pack_id} onChange={e => setForm({...form, pack_id: e.target.value})} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-gray-900 text-sm">
+                    <option value="">-- 選択 --</option>
+                    {packs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
 
@@ -458,6 +473,7 @@ export default function AdminCardsPage() {
                   <tr>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">カード</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">レアリティ</th>
+                    <th className="text-left text-gray-400 font-medium px-4 py-3">パック</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">状態</th>
                     <th className="text-left text-gray-400 font-medium px-4 py-3">ステータス</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">価格</th>
@@ -484,6 +500,7 @@ export default function AdminCardsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-400">{card.rarity}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs max-w-[120px] truncate">{card.pack?.name || '—'}</td>
                       <td className="px-4 py-3 text-gray-400">{card.condition ? CONDITION_LABEL[card.condition] ?? card.condition : '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${card.is_active ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>

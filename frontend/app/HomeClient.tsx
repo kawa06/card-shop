@@ -4,13 +4,14 @@ import { Suspense } from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Bell, ChevronRight } from 'lucide-react'
-import { cardsApi, categoriesApi, announcementsApi } from '@/lib/api'
-import { Card, Category, Announcement } from '@/lib/types'
+import { cardsApi, categoriesApi, announcementsApi, packsApi } from '@/lib/api'
+import { Card, Category, Announcement, Pack } from '@/lib/types'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { useTranslation, useBatchTranslation } from '@/hooks/useTranslation'
 import CardGrid from '@/components/cards/CardGrid'
 import CategorySidebar from '@/components/cards/CategorySidebar'
+import PackSidebar from '@/components/cards/PackSidebar'
 import Pagination from '@/components/cards/Pagination'
 
 function HomeContent() {
@@ -20,6 +21,7 @@ function HomeContent() {
 
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [packs, setPacks] = useState<Pack[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [totalPages, setTotalPages] = useState(1)
@@ -28,20 +30,23 @@ function HomeContent() {
   const currentPage = parseInt(searchParams.get('page') || '1')
   const searchQuery = searchParams.get('search') || ''
   const categoryId = searchParams.get('category') ? parseInt(searchParams.get('category')!) : null
+  const packId = searchParams.get('pack') ? parseInt(searchParams.get('pack')!) : null
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
       const params: Record<string, string | number> = {
         page: currentPage,
-        size: 20,
+        per_page: 20,
       }
-      if (searchQuery) params.search = searchQuery
+      if (searchQuery) params.q = searchQuery
       if (categoryId) params.category_id = categoryId
+      if (packId) params.pack_id = packId
 
-      const [cardsRes, categoriesRes, announcementsRes] = await Promise.all([
+      const [cardsRes, categoriesRes, packsRes, announcementsRes] = await Promise.all([
         cardsApi.getAll(params),
         categoriesApi.getAll(),
+        packsApi.getAll(),
         announcementsApi.getAll(),
       ])
 
@@ -56,6 +61,7 @@ function HomeContent() {
         setTotalCards(cardsData.total || 0)
       }
       setCategories(categoriesRes.data || [])
+      setPacks(packsRes.data || [])
       setAnnouncements(
         (announcementsRes.data || []).filter((a: Announcement) => a.is_active)
       )
@@ -64,18 +70,29 @@ function HomeContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, searchQuery, categoryId])
+  }, [currentPage, searchQuery, categoryId, packId])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
-  const handleCategorySelect = (id: number | null) => {
+  const buildParams = (overrides: { category?: number | null; pack?: number | null; page?: string }) => {
     const params = new URLSearchParams()
-    if (id) params.set('category', id.toString())
+    const cat = overrides.category !== undefined ? overrides.category : categoryId
+    const pack = overrides.pack !== undefined ? overrides.pack : packId
+    if (cat) params.set('category', cat.toString())
+    if (pack) params.set('pack', pack.toString())
     if (searchQuery) params.set('search', searchQuery)
-    params.set('page', '1')
-    router.push(`/?${params.toString()}`)
+    params.set('page', overrides.page ?? '1')
+    return params
+  }
+
+  const handleCategorySelect = (id: number | null) => {
+    router.push(`/?${buildParams({ category: id, page: '1' }).toString()}`)
+  }
+
+  const handlePackSelect = (id: number | null) => {
+    router.push(`/?${buildParams({ pack: id, page: '1' }).toString()}`)
   }
 
   const handlePageChange = (page: number) => {
@@ -88,12 +105,12 @@ function HomeContent() {
   const mobileCategoryNames = useBatchTranslation(categories.map((c) => c.name))
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden w-full max-w-full">
       {/* Announcements Banner */}
       {announcements.length > 0 && (
         <div className="bg-yellow-400/10 border-b border-yellow-400/20">
-          <div className="container py-2">
-            <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="container py-2 max-w-full">
+            <div className="flex items-center gap-2 overflow-x-auto max-w-full">
               <Bell className="h-4 w-4 text-yellow-400 flex-shrink-0" />
               {announcements.map((announcement, i) => (
                 <TranslatedAnnouncement key={announcement.id} announcement={announcement} i={i} />
@@ -104,8 +121,8 @@ function HomeContent() {
       )}
 
       {/* Main Content */}
-      <div className="container py-6">
-        <div className="flex gap-6">
+      <div className="container py-6 max-w-full overflow-x-hidden">
+        <div className="flex gap-4 sm:gap-6 min-w-0">
           {/* Sidebar */}
           <aside className="hidden lg:block w-48 flex-shrink-0">
             <div className="sticky top-24">
@@ -114,36 +131,70 @@ function HomeContent() {
                 selectedCategory={categoryId}
                 onSelect={handleCategorySelect}
               />
+              <PackSidebar
+                packs={packs}
+                selectedPack={packId}
+                onSelect={handlePackSelect}
+              />
             </div>
           </aside>
 
           {/* Cards */}
           <div className="flex-1 min-w-0">
-            {/* Mobile category filter */}
-            <div className="lg:hidden mb-4 flex gap-2 overflow-x-auto pb-2">
-              <button
-                onClick={() => handleCategorySelect(null)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                  categoryId === null
-                    ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
-                    : 'border-gray-200 text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                {t('すべて', lang)}
-              </button>
-              {categories.map((cat, idx) => (
+            {/* Mobile filters */}
+            <div className="lg:hidden mb-4 space-y-3">
+              <div className="flex gap-2 overflow-x-auto pb-2">
                 <button
-                  key={cat.id}
-                  onClick={() => handleCategorySelect(cat.id)}
+                  onClick={() => handleCategorySelect(null)}
                   className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    categoryId === cat.id
+                    categoryId === null
                       ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
                       : 'border-gray-200 text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  {mobileCategoryNames[idx] || cat.name}
+                  {t('すべて', lang)}
                 </button>
-              ))}
+                {categories.map((cat, idx) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategorySelect(cat.id)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                      categoryId === cat.id
+                        ? 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
+                        : 'border-gray-200 text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    {mobileCategoryNames[idx] || cat.name}
+                  </button>
+                ))}
+              </div>
+              {packs.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  <button
+                    onClick={() => handlePackSelect(null)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                      packId === null
+                        ? 'bg-sky-400/10 text-sky-600 border-sky-400/30'
+                        : 'border-gray-200 text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    {t('全パック', lang)}
+                  </button>
+                  {packs.map((pack) => (
+                    <button
+                      key={pack.id}
+                      onClick={() => handlePackSelect(pack.id)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                        packId === pack.id
+                          ? 'bg-sky-400/10 text-sky-600 border-sky-400/30'
+                          : 'border-gray-200 text-gray-500 hover:text-gray-900'
+                      }`}
+                    >
+                      {pack.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <CardGrid cards={cards} isLoading={isLoading} />

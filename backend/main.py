@@ -32,6 +32,7 @@ def add_columns_if_missing():
             ("rarity", "VARCHAR(50)"),
             ("set_name", "VARCHAR(100)"),
             ("allowed_shipping_methods", "TEXT"),
+            ("pack_id", "INTEGER"),
         ],
         "users": [
             ("is_verified", "BOOLEAN DEFAULT 0"),

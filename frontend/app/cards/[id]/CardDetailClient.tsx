@@ -219,6 +219,9 @@ export default function CardDetailClient({ id }: { id: string }) {
               {card.category && (
                 <p className="text-sm text-gray-500 mb-1">{categoryName}</p>
               )}
+              {card.pack && (
+                <p className="text-sm text-sky-600 mb-1">{card.pack.name}</p>
+              )}
               <h1 className="text-3xl font-bold text-gray-900 mb-3">{cardName}</h1>
               <div className="flex flex-wrap gap-2">
                 {card.rarity && (
@@ -229,6 +232,11 @@ export default function CardDetailClient({ id }: { id: string }) {
                 {card.condition && (
                   <span className="text-sm font-medium px-3 py-1 rounded border bg-gray-100 text-gray-600 border-gray-300">
                     {t('状態', lang)}: {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
+                  </span>
+                )}
+                {card.pack && (
+                  <span className="text-sm font-medium px-3 py-1 rounded border bg-sky-500/10 text-sky-600 border-sky-500/30">
+                    {card.pack.name}
                   </span>
                 )}
               </div>

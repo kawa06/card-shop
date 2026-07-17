@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
+from admin_emails import ensure_admin
 import models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -63,7 +64,7 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
-    return user
+    return ensure_admin(user, db)
 
 
 def get_current_user_optional(

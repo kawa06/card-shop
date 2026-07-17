@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 
 from typing import Optional
 import os
 from database import get_db
 from config import settings
+from database import get_db
+from admin_emails import normalize_email, is_admin_email, ensure_admin
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
 from services.verification import (
@@ -21,8 +24,6 @@ import secrets
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-ADMIN_EMAILS = {"rikukai0609@icloud.com"}
-
 
 class LoginRequest(BaseModel):
     email: str
@@ -37,6 +38,12 @@ class AuthResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ClerkProvisionRequest(BaseModel):
+    email: str
+    password: str
+    name: str
 
 
 @router.get("/setup-status", status_code=status.HTTP_200_OK)
@@ -65,7 +72,8 @@ async def register(
     payload: schemas.UserCreate,
     db: Session = Depends(get_db),
 ):
-    existing = db.query(models.User).filter(models.User.email == payload.email).first()
+    email = normalize_email(payload.email)
+    existing = db.query(models.User).filter(func.lower(models.User.email) == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="このメールアドレスは既に使用されています")
 
@@ -79,10 +87,10 @@ async def register(
 
     verification_token = secrets.token_urlsafe(32)
     user = models.User(
-        email=payload.email,
+        email=email,
         name=payload.name,
         password_hash=hash_password(payload.password),
-        is_admin=(payload.email in ADMIN_EMAILS),
+        is_admin=is_admin_email(email),
         verification_token=verification_token,
         phone_number=phone_number,
         phone_verified=phone_verified,
@@ -117,24 +125,64 @@ async def register(
 
 @router.post("/login", response_model=AuthResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == payload.email).first()
+    email = normalize_email(payload.email)
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",
         )
 
-    if user.email in ADMIN_EMAILS and not user.is_admin:
-        user.is_admin = True
+    user = ensure_admin(user, db)
+    token = create_access_token({"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+@router.post("/clerk-provision", response_model=AuthResponse)
+def clerk_provision(
+    payload: ClerkProvisionRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Clerk連携用: メール認証なしでユーザーを作成/更新する（サーバー間のみ）"""
+    sync_secret = (os.getenv("AUTH_SYNC_SECRET") or "").strip()
+    header_secret = (request.headers.get("X-Auth-Sync-Secret") or "").strip()
+    if not sync_secret or header_secret != sync_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    email = normalize_email(payload.email)
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+
+    if user:
+        user.password_hash = hash_password(payload.password)
+        if payload.name.strip():
+            user.name = payload.name.strip()
+        user.is_verified = True
+        ensure_admin(user, db)
         db.commit()
         db.refresh(user)
+    else:
+        user = models.User(
+            email=email,
+            name=payload.name.strip() or email.split("@")[0],
+            password_hash=hash_password(payload.password),
+            is_admin=is_admin_email(email),
+            is_verified=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
 
 @router.get("/me", response_model=schemas.UserOut)
-def get_me(current_user: models.User = Depends(get_current_user)):
-    return current_user
+def get_me(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ensure_admin(current_user, db)
 
 
 @router.put("/me", response_model=schemas.UserOut)

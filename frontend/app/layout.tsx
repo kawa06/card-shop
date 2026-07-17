@@ -1,3 +1,7 @@
+import { ClerkProvider } from '@clerk/nextjs'
+import { ClerkBackendSync } from '@/components/auth/ClerkBackendSync'
+import { clerkAppearance } from '@/lib/clerk/appearance'
+import { clerkLocalization } from '@/lib/clerk/localization'
 // Version: 2026-06-20-v2
 import type { Metadata, Viewport } from 'next'
 import { Inter, Shippori_Mincho } from 'next/font/google'
@@ -73,15 +77,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-white text-gray-900`}>
-        <LangInit />
-        <RateInit />
-        <div className="flex flex-col min-h-screen">
+      <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-white text-gray-900 overflow-x-hidden`}>
+        <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>
+          <ClerkBackendSync />
+          <LangInit />
+          <RateInit />
+          <div className="flex flex-col min-h-screen overflow-x-hidden">
           <Header />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 w-full max-w-full overflow-x-hidden">{children}</main>
           <Footer />
-        </div>
-        <Toaster />
+          </div>
+          <Toaster />
+        </ClerkProvider>
       </body>
     </html>
   )

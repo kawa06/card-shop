@@ -110,6 +110,31 @@ class CategoryOut(CategoryBase):
         from_attributes = True
 
 
+# ─────────────────────────── Pack ──────────────────────────────
+
+class PackBase(BaseModel):
+    name: str
+    slug: str
+    sort_order: int = 0
+
+
+class PackCreate(PackBase):
+    pass
+
+
+class PackUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class PackOut(PackBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
 # ─────────────────────────── Card ────────────────────────────
 
 class CardBase(BaseModel):
@@ -121,6 +146,7 @@ class CardBase(BaseModel):
     image_url: Optional[str] = None
     image_urls: Optional[str] = None  # JSON array string
     category_id: Optional[int] = None
+    pack_id: Optional[int] = None
     rarity: Optional[str] = None
     set_name: Optional[str] = None
     condition: Optional[str] = None
@@ -148,6 +174,7 @@ class CardUpdate(BaseModel):
     image_url: Optional[str] = None
     image_urls: Optional[str] = None
     category_id: Optional[int] = None
+    pack_id: Optional[int] = None
     rarity: Optional[str] = None
     set_name: Optional[str] = None
     condition: Optional[str] = None
@@ -159,6 +186,7 @@ class CardOut(CardBase):
     id: int
     created_at: datetime
     category: Optional[CategoryOut] = None
+    pack: Optional[PackOut] = None
 
     class Config:
         from_attributes = True

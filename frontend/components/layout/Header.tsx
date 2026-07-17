@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Search, User, LogOut, Shield, Menu, X, Globe, Mail } from 'lucide-react'
+import { SignedIn, SignedOut, UserButton, useAuth, useClerk } from '@clerk/nextjs'
+import { ShoppingCart, Search, User, Shield, Menu, X, Globe, Mail, LogOut } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
@@ -14,7 +15,9 @@ import { Input } from '@/components/ui/input'
 
 export default function Header() {
   const router = useRouter()
-  const { user, isAuthenticated, logout, fetchMe, hasHydrated, setHasHydrated } = useAuthStore()
+  const { signOut } = useClerk()
+  const { isSignedIn, isLoaded: clerkLoaded } = useAuth()
+  const { user, isAuthenticated, fetchMe, hasHydrated, setHasHydrated, authProvider, logout } = useAuthStore()
   const { items, fetchCart } = useCartStore()
   const { lang, setLang } = useLangStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -50,14 +53,33 @@ export default function Header() {
     }
   }
 
-  const handleLogout = () => {
+  const handleMobileLogout = async () => {
+    setMobileMenuOpen(false)
     logout()
-    router.push('/')
+    try {
+      await signOut({ redirectUrl: '/' })
+    } catch {
+      router.push('/')
+    }
   }
 
+  const handleMobileMypage = () => {
+    setMobileMenuOpen(false)
+    router.push('/mypage')
+  }
+
+  const showMobileLoggedIn = clerkLoaded && (isSignedIn || isAuthenticated)
+
+  const showLegacyVerifyBanner =
+    hasHydrated &&
+    isAuthenticated &&
+    user &&
+    authProvider !== 'clerk' &&
+    !user.is_verified
+
   return (
-    <div className="w-full" key={lang}>
-      {hasHydrated && isAuthenticated && user && !user.is_verified && (
+    <div className="w-full overflow-x-hidden" key={lang}>
+      {showLegacyVerifyBanner && (
         <div className="bg-yellow-400 text-gray-950 py-2 px-4 text-center text-xs font-bold animate-in fade-in slide-in-from-top duration-500">
           <div className="container flex items-center justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -71,9 +93,9 @@ export default function Header() {
         </div>
       )}
       <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
-        <div className="container flex h-16 items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 md:gap-3 font-bold mr-2 md:mr-4 group flex-shrink-0">
-            <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded-md border border-yellow-400/20">
+        <div className="container flex h-[3.75rem] sm:h-16 items-center gap-1.5 sm:gap-3 min-w-0 max-w-full">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2 font-bold mr-1 sm:mr-3 group flex-shrink-0 min-w-0 max-w-[42%] sm:max-w-none">
+            <div className="relative h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0 overflow-hidden rounded-md border border-yellow-400/20">
               <Image
                 src="/logo-main.png"
                 alt="KRX TCG"
@@ -82,7 +104,7 @@ export default function Header() {
                 priority
               />
             </div>
-            <span className="text-luxury-gold tracking-widest text-xl md:text-2xl whitespace-nowrap">KRX TCG</span>
+            <span className="header-brand-text text-sm sm:text-base md:text-xl truncate">KRX TCG</span>
           </Link>
 
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
@@ -100,11 +122,11 @@ export default function Header() {
 
           <div className="flex-1 md:hidden" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              className="text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-1.5 sm:px-2 h-9"
               onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}
               title={lang === 'ja' ? 'Switch to English' : '日本語に切り替え'}
             >
@@ -112,7 +134,7 @@ export default function Header() {
               <span className="text-xs font-medium">{lang === 'ja' ? 'EN' : 'JP'}</span>
             </Button>
 
-            <Button asChild variant="ghost" size="icon" className="relative text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+            <Button asChild variant="ghost" size="icon" className="relative text-gray-600 hover:text-gray-900 hover:bg-gray-100 h-9 w-9">
               <Link href="/cart">
                 <ShoppingCart className="h-5 w-5 shrink-0" />
                 {cartCount > 0 && (
@@ -126,39 +148,40 @@ export default function Header() {
             <div className="hidden md:flex items-center gap-2">
               {!hasHydrated ? (
                 <div className="h-9 w-24 animate-pulse bg-gray-100 rounded-md" />
-              ) : isAuthenticated && user ? (
-                <>
-                  {user.is_admin && (
-                    <Button asChild variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-500 hover:bg-gray-100">
-                      <Link href="/admin">
-                        <Shield className="h-4 w-4 shrink-0 mr-1" />
-                        {t('管理', lang)}
-                      </Link>
-                    </Button>
-                  )}
-                  <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
-                    <Link href="/mypage">
-                      <User className="h-4 w-4 shrink-0 mr-1" />
-                      {t('マイページ', lang)}
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    className="text-gray-600 hover:text-red-500 hover:bg-gray-100"
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </>
               ) : (
                 <>
-                  <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
-                    <Link href="/login">{t('ログイン', lang)}</Link>
-                  </Button>
-                  <Button asChild size="sm" className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-semibold">
-                    <Link href="/register">{t('会員登録', lang)}</Link>
-                  </Button>
+                  <SignedIn>
+                    {user?.is_admin && (
+                      <Button asChild variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-500 hover:bg-gray-100">
+                        <Link href="/admin">
+                          <Shield className="h-4 w-4 shrink-0 mr-1" />
+                          {t('管理', lang)}
+                        </Link>
+                      </Button>
+                    )}
+                    <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                      <Link href="/mypage">
+                        <User className="h-4 w-4 shrink-0 mr-1" />
+                        {t('マイページ', lang)}
+                      </Link>
+                    </Button>
+                    <UserButton
+                      afterSignOutUrl="/"
+                      appearance={{
+                        elements: {
+                          avatarBox: 'h-9 w-9',
+                        },
+                      }}
+                    />
+                  </SignedIn>
+                  <SignedOut>
+                    <Button asChild variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+                      <Link href="/sign-in">{t('ログイン', lang)}</Link>
+                    </Button>
+                    <Button asChild size="sm" className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-semibold">
+                      <Link href="/sign-up">{t('会員登録', lang)}</Link>
+                    </Button>
+                  </SignedOut>
                 </>
               )}
             </div>
@@ -166,7 +189,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              className="md:hidden text-gray-600 hover:text-gray-900 hover:bg-gray-100 h-9 w-9"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? <X className="h-5 w-5 shrink-0" /> : <Menu className="h-5 w-5 shrink-0" />}
@@ -175,7 +198,7 @@ export default function Header() {
         </div>
 
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 space-y-3">
+          <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 space-y-3 overflow-x-hidden">
             <form onSubmit={handleSearch} className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -192,11 +215,11 @@ export default function Header() {
               </Button>
             </form>
 
-            {!hasHydrated ? (
+            {!hasHydrated || !clerkLoaded ? (
               <div className="h-24 animate-pulse bg-gray-100 rounded-md" />
-            ) : isAuthenticated && user ? (
+            ) : showMobileLoggedIn ? (
               <div className="flex flex-col gap-2">
-                {user.is_admin && (
+                {user?.is_admin && (
                   <Button asChild variant="outline" className="w-full border-yellow-400/30 text-yellow-600">
                     <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
                       <Shield className="h-4 w-4 shrink-0 mr-2" />
@@ -204,30 +227,32 @@ export default function Header() {
                     </Link>
                   </Button>
                 )}
-                <Button asChild variant="outline" className="w-full border-gray-300 text-gray-700">
-                  <Link href="/mypage" onClick={() => setMobileMenuOpen(false)}>
-                    <User className="h-4 w-4 shrink-0 mr-2" />
-                    {t('マイページ', lang)} ({user.name})
-                  </Link>
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-300 text-gray-700"
+                  onClick={handleMobileMypage}
+                >
+                  <User className="h-4 w-4 shrink-0 mr-2" />
+                  {t('マイページ', lang)}{user?.name ? ` (${user.name})` : ''}
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full border-red-300 text-red-500"
-                  onClick={() => { handleLogout(); setMobileMenuOpen(false) }}
+                  className="w-full border-gray-300 text-gray-700"
+                  onClick={handleMobileLogout}
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
+                  <LogOut className="h-4 w-4 shrink-0 mr-2" />
                   {t('ログアウト', lang)}
                 </Button>
               </div>
             ) : (
               <div className="flex gap-2">
                 <Button asChild variant="outline" className="flex-1 w-full border-gray-300 text-gray-700">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
                     {t('ログイン', lang)}
                   </Link>
                 </Button>
                 <Button asChild className="flex-1 w-full bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-semibold">
-                  <Link href="/register" onClick={() => setMobileMenuOpen(false)}>
+                  <Link href="/sign-up" onClick={() => setMobileMenuOpen(false)}>
                     {t('会員登録', lang)}
                   </Link>
                 </Button>

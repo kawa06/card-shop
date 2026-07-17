@@ -11,11 +11,38 @@ interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   hasHydrated: boolean
+  authProvider: 'clerk' | 'legacy' | null
   setHasHydrated: (state: boolean) => void
+  syncBackend: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
   fetchMe: () => Promise<void>
+}
+
+async function fetchBackendSession(): Promise<{ access_token: string; user: User } | null> {
+  const res = await fetch('/api/auth/backend-sync', { method: 'POST' })
+  if (!res.ok) return null
+  return res.json()
+}
+
+function applyBackendSession(
+  set: (partial: Partial<AuthState>) => void,
+  access_token: string,
+  user: User,
+  authProvider: 'clerk' | 'legacy'
+) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('auth_token', access_token)
+  }
+  set({
+    token: access_token,
+    user,
+    isAuthenticated: true,
+    isLoading: false,
+    hasHydrated: true,
+    authProvider,
+  })
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,9 +53,24 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       isAuthenticated: false,
       hasHydrated: false,
+      authProvider: null,
 
       setHasHydrated: (state: boolean) => {
         set({ hasHydrated: state })
+      },
+
+      syncBackend: async () => {
+        set({ isLoading: true })
+        try {
+          const synced = await fetchBackendSession()
+          if (!synced) {
+            throw new Error('バックエンドとの同期に失敗しました')
+          }
+          applyBackendSession(set, synced.access_token, synced.user, 'clerk')
+        } catch (error) {
+          set({ isLoading: false })
+          throw error
+        }
       },
 
       login: async (email: string, password: string) => {
@@ -37,10 +79,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await authApi.login({ email, password })
           const { access_token, user } = res.data
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', access_token)
-          }
-          set({ token: access_token, user, isAuthenticated: true, isLoading: false, hasHydrated: true })
+          applyBackendSession(set, access_token, user, 'legacy')
         } catch (error) {
           set({ isLoading: false })
           throw error
@@ -52,10 +91,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await authApi.register({ email, password, name })
           const { access_token, user } = res.data
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', access_token)
-          }
-          set({ token: access_token, user, isAuthenticated: true, isLoading: false })
+          applyBackendSession(set, access_token, user, 'legacy')
         } catch (error) {
           set({ isLoading: false })
           throw error
@@ -66,7 +102,12 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token')
         }
-        set({ user: null, token: null, isAuthenticated: false })
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          authProvider: null,
+        })
       },
 
       fetchMe: async () => {
@@ -75,8 +116,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await authApi.me()
           set({ user: res.data, isAuthenticated: true })
-        } catch (error: any) {
-          if (error.response?.status === 401) {
+        } catch (error: unknown) {
+          const status = (error as { response?: { status?: number } })?.response?.status
+          // Clerkログイン中は一時的な401でログアウトしない
+          if (status === 401 && get().authProvider !== 'clerk') {
             get().logout()
           }
         }
@@ -84,9 +127,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
-      version: 1,
+      version: 3,
       skipHydration: true,
-      partialize: (state) => ({ token: state.token, user: state.user, isAuthenticated: state.isAuthenticated }),
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        authProvider: state.authProvider,
+      }),
     }
   )
 )

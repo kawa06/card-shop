@@ -2,6 +2,7 @@ import math
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -11,11 +12,23 @@ import schemas
 router = APIRouter(prefix="/api", tags=["cards"])
 
 
+def _apply_card_search(query, q: str):
+    pattern = f"%{q}%"
+    return query.outerjoin(models.Pack, models.Card.pack_id == models.Pack.id).filter(
+        or_(
+            models.Card.name.ilike(pattern),
+            models.Card.name_en.ilike(pattern),
+            models.Pack.name.ilike(pattern),
+        )
+    )
+
+
 @router.get("/cards", response_model=schemas.PaginatedCards)
 def list_cards(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     category_id: Optional[int] = None,
+    pack_id: Optional[int] = None,
     rarity: Optional[str] = None,
     set_name: Optional[str] = None,
     condition: Optional[str] = None,
@@ -29,6 +42,8 @@ def list_cards(
 
     if category_id is not None:
         query = query.filter(models.Card.category_id == category_id)
+    if pack_id is not None:
+        query = query.filter(models.Card.pack_id == pack_id)
     if rarity:
         query = query.filter(models.Card.rarity == rarity)
     if set_name:
@@ -40,9 +55,7 @@ def list_cards(
     if max_price is not None:
         query = query.filter(models.Card.price <= max_price)
     if q:
-        query = query.filter(
-            (models.Card.name.ilike(f"%{q}%")) | (models.Card.name_en.ilike(f"%{q}%"))
-        )
+        query = _apply_card_search(query, q)
 
     sort_map = {
         "price_asc": models.Card.price.asc(),
@@ -82,6 +95,11 @@ def list_categories(db: Session = Depends(get_db)):
         models.Category.sort_order
     ).all()
     return roots
+
+
+@router.get("/packs", response_model=list[schemas.PackOut])
+def list_packs(db: Session = Depends(get_db)):
+    return db.query(models.Pack).order_by(models.Pack.sort_order, models.Pack.name).all()
 
 
 @router.get("/announcements", response_model=list[schemas.AnnouncementOut])

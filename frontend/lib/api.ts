@@ -27,26 +27,28 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      const requestUrl = error.config?.url || ''
-      if (requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register')) {
-        return Promise.reject(error)
-      }
-      if (typeof window !== 'undefined') {
-        // Don't clear storage if we're in the first 5 seconds of page load
-        // This prevents logout due to race conditions during hydration
-        const pageLoadTime = window.performance.now()
-        if (pageLoadTime > 5000) {
-          localStorage.removeItem('auth_token')
-          // Zustand store will be updated by the catch block in fetchMe or direct logout
-        } else {
-          console.warn('401 error detected during initial page load, skipping localStorage clear')
-        }
-      }
-    }
+    // 401時にlocalStorageを自動クリアしない（Clerk連携時の一時的な401でログアウトしないため）
     return Promise.reject(error)
   }
 )
+
+function normalizeCardListParams(params?: {
+  page?: number
+  per_page?: number
+  size?: number
+  category_id?: number
+  pack_id?: number
+  search?: string
+  q?: string
+}) {
+  if (!params) return undefined
+  const { search, size, q, ...rest } = params
+  return {
+    ...rest,
+    ...(q ?? search ? { q: q ?? search } : {}),
+    ...(params.per_page ?? size ? { per_page: params.per_page ?? size } : {}),
+  }
+}
 
 // Cards API
 export const cardsApi = {
@@ -55,8 +57,10 @@ export const cardsApi = {
     per_page?: number
     size?: number
     category_id?: number
+    pack_id?: number
     search?: string
-  }) => apiClient.get('/cards', { params }),
+    q?: string
+  }) => apiClient.get('/cards', { params: normalizeCardListParams(params) }),
 
   getById: (id: number) => apiClient.get(`/cards/${id}`),
 }
@@ -64,6 +68,11 @@ export const cardsApi = {
 // Categories API
 export const categoriesApi = {
   getAll: () => apiClient.get('/categories'),
+}
+
+// Packs API
+export const packsApi = {
+  getAll: () => apiClient.get('/packs'),
 }
 
 // Announcements API
@@ -165,6 +174,14 @@ export const adminApi = {
   updateCategory: (id: number, data: { name: string; description?: string }) =>
     apiClient.put(`/admin/categories/${id}`, data),
   deleteCategory: (id: number) => apiClient.delete(`/admin/categories/${id}`),
+
+  // Packs
+  getAllPacks: () => apiClient.get('/admin/packs'),
+  createPack: (data: { name: string; slug: string; sort_order?: number }) =>
+    apiClient.post('/admin/packs', data),
+  updatePack: (id: number, data: { name?: string; slug?: string; sort_order?: number }) =>
+    apiClient.put(`/admin/packs/${id}`, data),
+  deletePack: (id: number) => apiClient.delete(`/admin/packs/${id}`),
 
   // Orders
   getAllOrders: () => apiClient.get('/admin/orders'),

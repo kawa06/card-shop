@@ -56,6 +56,17 @@ class Category(Base):
     cards = relationship("Card", back_populates="category")
 
 
+class Pack(Base):
+    __tablename__ = "packs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    slug = Column(String(100), unique=True, index=True, nullable=False)
+    sort_order = Column(Integer, default=0)
+
+    cards = relationship("Card", back_populates="pack")
+
+
 CARD_RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー', 'MA', 'PROMO', 'CLASSIC', 'パック', 'BOX', 'PSA10']
 
 
@@ -71,6 +82,7 @@ class Card(Base):
     image_url = Column(String(500), nullable=True)
     image_urls = Column(Text, nullable=True)  # JSON array of up to 10 image URLs
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    pack_id = Column(Integer, ForeignKey("packs.id"), nullable=True)
     rarity = Column(String(50), nullable=True)
     set_name = Column(String(100), nullable=True)
     condition = Column(String(10), nullable=True)  # a/b/c/d/e
@@ -79,6 +91,7 @@ class Card(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     category = relationship("Category", back_populates="cards")
+    pack = relationship("Pack", back_populates="cards")
     cart_items = relationship("CartItem", back_populates="card")
     order_items = relationship("OrderItem", back_populates="card")
 
