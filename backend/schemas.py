@@ -182,6 +182,10 @@ class CardUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class CardShippingMethodsUpdate(BaseModel):
+    allowed_shipping_methods: Optional[str] = None
+
+
 class CardOut(CardBase):
     id: int
     created_at: datetime

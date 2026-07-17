@@ -84,6 +84,22 @@ def admin_update_card(
     return card
 
 
+@router.patch("/cards/{card_id}/shipping-methods", response_model=schemas.CardOut)
+def admin_update_card_shipping_methods(
+    card_id: int,
+    payload: schemas.CardShippingMethodsUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    card = db.query(models.Card).filter(models.Card.id == card_id).first()
+    if not card:
+        raise HTTPException(status_code=404, detail="カードが見つかりません")
+    card.allowed_shipping_methods = payload.allowed_shipping_methods
+    db.commit()
+    db.refresh(card)
+    return card
+
+
 @router.delete("/cards/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
 def admin_delete_card(
     card_id: int,

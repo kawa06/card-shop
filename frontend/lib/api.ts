@@ -166,6 +166,8 @@ export const adminApi = {
     apiClient.post('/admin/cards', data),
   updateCard: (id: number, data: Partial<import('./types').Card>) =>
     apiClient.put(`/admin/cards/${id}`, data),
+  updateCardShippingMethods: (id: number, allowed_shipping_methods: string | null) =>
+    apiClient.patch(`/admin/cards/${id}/shipping-methods`, { allowed_shipping_methods }),
   deleteCard: (id: number) => apiClient.delete(`/admin/cards/${id}`),
 
   // Categories

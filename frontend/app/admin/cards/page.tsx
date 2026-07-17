@@ -12,6 +12,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
 import Link from 'next/link'
+import {
+  parseAllowedShippingMethods,
+  serializeAllowedShippingMethods,
+} from '@/lib/shipping-methods'
 
 const RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー', 'MA', 'PROMO', 'CLASSIC', 'パック', 'BOX', 'PSA10']
 const CONDITIONS = ['a', 'b', 'c', 'd', 'e']
@@ -52,16 +56,6 @@ function parseImages(card: Card): string[] {
   return urls.length > 0 ? urls : ['']
 }
 
-function parseShippingMethods(card: Card): string[] {
-  if (!card.allowed_shipping_methods) return []
-  try {
-    const parsed = JSON.parse(card.allowed_shipping_methods)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
 export default function AdminCardsPage() {
   const { isReady } = useAdminGuard()
   const { formatPrice } = usePrice()
@@ -78,6 +72,8 @@ export default function AdminCardsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadSlot, setUploadSlot] = useState<number>(0)
   const [isMounted, setIsMounted] = useState(false)
+  const [initialImages, setInitialImages] = useState<string[]>([])
+  const [savingShipping, setSavingShipping] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -108,7 +104,9 @@ export default function AdminCardsPage() {
   }
 
   const handleEdit = (card: Card) => {
+    const images = parseImages(card)
     setEditingId(card.id)
+    setInitialImages(images)
     setForm({
       name: card.name,
       name_en: card.name_en || '',
@@ -119,8 +117,8 @@ export default function AdminCardsPage() {
       condition: card.condition || '',
       category_id: card.category_id?.toString() || '',
       pack_id: card.pack_id?.toString() || '',
-      images: parseImages(card),
-      allowed_shipping_methods: parseShippingMethods(card),
+      images,
+      allowed_shipping_methods: parseAllowedShippingMethods(card.allowed_shipping_methods),
     })
     setShowForm(true)
   }
@@ -136,13 +134,44 @@ export default function AdminCardsPage() {
     }
   }
 
+  const getApiErrorMessage = (err: unknown, fallback: string) => {
+    const detail = (err as { response?: { data?: { detail?: string | { msg?: string }[] } } })?.response?.data?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg
+    return fallback
+  }
+
+  const saveShippingMethods = async (cardId: number) => {
+    const payload = serializeAllowedShippingMethods(form.allowed_shipping_methods)
+    await adminApi.updateCardShippingMethods(cardId, payload)
+  }
+
+  const handleSaveShippingOnly = async () => {
+    if (!editingId) return
+    setSavingShipping(true)
+    try {
+      await saveShippingMethods(editingId)
+      toast({ title: '発送方法を保存しました' })
+      fetchAll()
+    } catch (err) {
+      toast({
+        title: 'エラー',
+        description: getApiErrorMessage(err, '発送方法の保存に失敗しました'),
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingShipping(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     const validImages = form.images.filter(u => u.trim() !== '')
-    const image_url = validImages[0] || null
-    const extra = validImages.slice(1)
-    const data = {
+    const imagesChanged =
+      JSON.stringify(validImages) !== JSON.stringify(initialImages.filter(u => u.trim() !== ''))
+
+    const data: Record<string, unknown> = {
       name: form.name,
       name_en: form.name_en || null,
       description: form.description,
@@ -152,27 +181,49 @@ export default function AdminCardsPage() {
       condition: form.condition || null,
       category_id: form.category_id ? parseInt(form.category_id) : null,
       pack_id: form.pack_id ? parseInt(form.pack_id) : null,
-      image_url,
-      image_urls: extra.length > 0 ? JSON.stringify(extra) : null,
-      allowed_shipping_methods: form.allowed_shipping_methods.length > 0 ? JSON.stringify(form.allowed_shipping_methods) : null,
     }
+
+    if (!editingId || imagesChanged) {
+      const image_url = validImages[0] || null
+      const extra = validImages.slice(1)
+      data.image_url = image_url
+      data.image_urls = extra.length > 0 ? JSON.stringify(extra) : null
+    }
+
     try {
       if (editingId) {
+        await saveShippingMethods(editingId)
         await adminApi.updateCard(editingId, data)
         toast({ title: '更新しました' })
       } else {
+        data.allowed_shipping_methods = serializeAllowedShippingMethods(form.allowed_shipping_methods)
         await adminApi.createCard(data)
         toast({ title: '作成しました' })
       }
       setShowForm(false)
       setEditingId(null)
+      setInitialImages([])
       setForm(emptyForm)
       fetchAll()
-    } catch {
-      toast({ title: 'エラー', description: '保存に失敗しました', variant: 'destructive' })
+    } catch (err) {
+      toast({
+        title: 'エラー',
+        description: getApiErrorMessage(err, '保存に失敗しました'),
+        variant: 'destructive',
+      })
     } finally {
       setSaving(false)
     }
+  }
+
+  const selectableShippingCodes = shippingRates.map((r) => r.method_code)
+
+  const selectAllShipping = () => {
+    setForm((f) => ({ ...f, allowed_shipping_methods: [...selectableShippingCodes] }))
+  }
+
+  const clearAllShipping = () => {
+    setForm((f) => ({ ...f, allowed_shipping_methods: [] }))
   }
 
   const toggleShippingMethod = (code: string) => {
@@ -238,7 +289,7 @@ export default function AdminCardsPage() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 flex-1">カード管理</h1>
           <Button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm) }}
+            onClick={() => { setShowForm(true); setEditingId(null); setInitialImages([]); setForm(emptyForm) }}
             className="bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold"
           >
             <Plus className="h-4 w-4 mr-1" />新規追加
@@ -320,9 +371,38 @@ export default function AdminCardsPage() {
 
                 {/* 発送方法制限 */}
                 <div className="sm:col-span-2 space-y-2 pt-2 border-t border-gray-100">
-                  <Label className="text-gray-600">許可する発送方法</Label>
-                  <p className="text-[10px] text-gray-500 mb-2">指定しない場合は全ての発送方法が選択可能 / 例: 高額カードは宅急便コンパクトのみに制限</p>
-                  
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label className="text-gray-600">許可する発送方法</Label>
+                    <span className="text-xs text-gray-500">
+                      {form.allowed_shipping_methods.length} / {selectableShippingCodes.length} 件選択
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500">
+                    未選択の場合はすべての発送方法が利用可能です。高額カードは宅急便コンパクトのみに制限する等に使えます。
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={selectAllShipping} disabled={selectableShippingCodes.length === 0}>
+                      すべて選択
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={clearAllShipping}>
+                      すべて解除
+                    </Button>
+                    {editingId && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="bg-sky-600 text-white hover:bg-sky-500"
+                        disabled={savingShipping}
+                        onClick={handleSaveShippingOnly}
+                      >
+                        {savingShipping ? '保存中...' : '発送方法のみ保存'}
+                      </Button>
+                    )}
+                  </div>
+
+                  {shippingRates.length === 0 ? (
+                    <p className="text-sm text-amber-600">発送方法一覧を読み込めませんでした。ページを再読み込みしてください。</p>
+                  ) : (
                   <div className="space-y-4">
                     {Object.entries(
                       shippingRates.reduce((acc, rate) => {
@@ -352,6 +432,7 @@ export default function AdminCardsPage() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               </div>
 
