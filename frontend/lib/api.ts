@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getClerkSessionToken } from '@/lib/clerk-token'
 
 const BASE_URL =
   typeof window !== 'undefined'
@@ -14,33 +15,36 @@ export const apiClient = axios.create({
 
 let syncPromise: Promise<string | null> | null = null
 
-async function ensureAuthTokenForRequest(url: string): Promise<string | null> {
+async function resolveRequestToken(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
-  // Admin routes may need Clerk→backend sync first.
-  // Do NOT call ensureBackendAuth for /auth/me — validateBackendToken uses that
-  // endpoint and would deadlock waiting on the same sync promise.
-  if (!url.includes('/admin/')) {
-    return localStorage.getItem('auth_token')
+  if (url.includes('/admin/')) {
+    const clerkToken = await getClerkSessionToken()
+    if (clerkToken) return clerkToken
   }
 
-  const { useAuthStore } = await import('@/store/auth')
-  if (!syncPromise) {
-    syncPromise = useAuthStore
-      .getState()
-      .ensureBackendAuth()
-      .finally(() => {
-        syncPromise = null
-      })
+  const backendToken = localStorage.getItem('auth_token')
+  if (backendToken) return backendToken
+
+  if (url.includes('/cart') || url.includes('/orders')) {
+    if (!syncPromise) {
+      syncPromise = import('@/store/auth')
+        .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
+        .finally(() => {
+          syncPromise = null
+        })
+    }
+    return syncPromise
   }
-  return syncPromise
+
+  return null
 }
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
     const url = config.url || ''
-    const token = (await ensureAuthTokenForRequest(url)) || localStorage.getItem('auth_token')
+    const token = (await resolveRequestToken(url)) || localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -48,7 +52,7 @@ apiClient.interceptors.request.use(async (config) => {
   return config
 })
 
-// Response interceptor: retry admin requests once after re-sync on 401
+// Response interceptor: retry admin requests once with a fresh Clerk token
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -61,17 +65,10 @@ apiClient.interceptors.response.use(
       (config.url || '').includes('/admin/')
     ) {
       config._authRetry = true
-      try {
-        const { useAuthStore } = await import('@/store/auth')
-        useAuthStore.getState().clearBackendToken()
-        await useAuthStore.getState().syncBackend()
-        const token = useAuthStore.getState().token || localStorage.getItem('auth_token')
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`
-          return apiClient(config)
-        }
-      } catch {
-        // fall through
+      const clerkToken = await getClerkSessionToken()
+      if (clerkToken) {
+        config.headers.Authorization = `Bearer ${clerkToken}`
+        return apiClient(config)
       }
     }
     return Promise.reject(error)

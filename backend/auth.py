@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from config import settings
 from database import get_db
 from admin_emails import ensure_admin
+from clerk_auth import authenticate_clerk_session
 import models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -61,12 +62,16 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     user_id = decode_token(token)
-    if user_id is None:
-        raise credentials_exception
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
-    if user is None:
-        raise credentials_exception
-    return ensure_admin(user, db)
+    if user_id is not None:
+        user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+        if user is not None:
+            return ensure_admin(user, db)
+
+    clerk_user = authenticate_clerk_session(token, db)
+    if clerk_user is not None:
+        return clerk_user
+
+    raise credentials_exception
 
 
 def get_current_user_optional(
@@ -76,9 +81,9 @@ def get_current_user_optional(
     if not token:
         return None
     user_id = decode_token(token)
-    if user_id is None:
-        return None
-    return db.query(models.User).filter(models.User.id == int(user_id)).first()
+    if user_id is not None:
+        return db.query(models.User).filter(models.User.id == int(user_id)).first()
+    return authenticate_clerk_session(token, db)
 
 
 def get_current_admin(
