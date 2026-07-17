@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Package } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { packsApi, adminApi } from '@/lib/api'
 import { Pack } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -21,8 +20,7 @@ function slugFromName(name: string): string {
 }
 
 export default function AdminPacksPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const [packs, setPacks] = useState<Pack[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -36,11 +34,9 @@ export default function AdminPacksPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
     fetchPacks()
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
   const fetchPacks = async () => {
     setIsLoading(true)

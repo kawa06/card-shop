@@ -145,7 +145,7 @@ def clerk_provision(
     db: Session = Depends(get_db),
 ):
     """Clerk連携用: メール認証なしでユーザーを作成/更新する（サーバー間のみ）"""
-    sync_secret = (os.getenv("AUTH_SYNC_SECRET") or "").strip()
+    sync_secret = (os.getenv("AUTH_SYNC_SECRET") or os.getenv("CLERK_SECRET_KEY") or "").strip()
     header_secret = (request.headers.get("X-Auth-Sync-Secret") or "").strip()
     if not sync_secret or header_secret != sync_secret:
         raise HTTPException(status_code=403, detail="Forbidden")

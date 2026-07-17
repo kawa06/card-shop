@@ -16,6 +16,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
 
+import { isAdminEmail } from '@/lib/auth/admin'
+
 function userFromClerk(clerkUser: NonNullable<ReturnType<typeof useUser>['user']>): UserType {
   const email =
     clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
@@ -26,7 +28,7 @@ function userFromClerk(clerkUser: NonNullable<ReturnType<typeof useUser>['user']
     id: 0,
     email,
     name: clerkUser.firstName || clerkUser.username || email.split('@')[0] || 'User',
-    is_admin: false,
+    is_admin: isAdminEmail(email),
     is_verified: true,
     postal_code: null,
     country: null,

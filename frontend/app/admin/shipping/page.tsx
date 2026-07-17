@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, RefreshCw, ExternalLink, Shield, Globe, Truck, Edit2, Save, X } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { shippingApi } from '@/lib/api'
@@ -25,7 +25,7 @@ import {
 
 export default function AdminShippingPage() {
   const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const { lang } = useLangStore()
   const { formatPrice } = usePrice()
   const [rates, setRates] = useState<ShippingRate[]>([])
@@ -54,13 +54,9 @@ export default function AdminShippingPage() {
   }
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated || (user && !user.is_admin)) {
-      router.push('/')
-      return
-    }
+    if (!isMounted || !isReady) return
     fetchRates()
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -94,7 +90,7 @@ export default function AdminShippingPage() {
     }
   }
 
-  if (!isMounted || !isAuthenticated || (user && !user.is_admin)) return null
+  if (!isMounted || !isReady) return null
 
   return (
     <div className="min-h-screen bg-white">

@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   CreditCard,
@@ -14,7 +13,7 @@ import {
   Truck,
   Package,
 } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi, shippingApi, packsApi } from '@/lib/api'
@@ -30,9 +29,8 @@ interface Stats {
 }
 
 export default function AdminPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
   const { lang } = useLangStore()
+  const { isReady } = useAdminGuard()
   const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
@@ -42,10 +40,7 @@ export default function AdminPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
 
     Promise.allSettled([
       cardsApi.getAll({ size: 1 }),
@@ -74,9 +69,9 @@ export default function AdminPage() {
         shipping: getCount(shippingRes),
       })
     }).finally(() => setIsLoading(false))
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
-  if (!isMounted || !isAuthenticated || (user && !user.is_admin)) return null
+  if (!isMounted || !isReady) return null
 
   const sections = [
     { href: '/admin/cards', icon: CreditCard, label: t('カード管理', lang), count: stats.cards, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/20' },

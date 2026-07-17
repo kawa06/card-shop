@@ -11,7 +11,7 @@ function getBackendUrl() {
 }
 
 async function backendClerkProvision(email: string, password: string, name: string) {
-  const secret = process.env.AUTH_SYNC_SECRET
+  const secret = process.env.AUTH_SYNC_SECRET || process.env.CLERK_SECRET_KEY
   if (!secret) return null
   const res = await fetch(`${getBackendUrl()}/api/auth/clerk-provision`, {
     method: 'POST',

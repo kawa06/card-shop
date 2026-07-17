@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Save, X, Bell } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { announcementsApi } from '@/lib/api'
 import { Announcement } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -13,8 +12,7 @@ import { toast } from '@/lib/use-toast'
 import Link from 'next/link'
 
 export default function AdminAnnouncementsPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -33,12 +31,9 @@ export default function AdminAnnouncementsPage() {
   })
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
     fetchAnnouncements()
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
   const fetchAnnouncements = async () => {
     setIsLoading(true)

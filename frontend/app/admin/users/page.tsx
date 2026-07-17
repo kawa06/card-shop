@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, Shield } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { User } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 
 export default function AdminUsersPage() {
-  const router = useRouter()
-  const { isAuthenticated, user: currentUser, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
@@ -21,17 +19,14 @@ export default function AdminUsersPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (currentUser && !currentUser.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
     
     adminApi.getAllUsers().then(res => {
       setUsers(res.data || [])
     }).catch(() => {}).finally(() => setIsLoading(false))
-  }, [isMounted, isAuthLoading, isAuthenticated, currentUser, router])
+  }, [isMounted, isReady])
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+  if (!isMounted || !isReady) return null
 
   return (
     <div className="min-h-screen bg-white">

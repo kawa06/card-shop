@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Upload, Images, X } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { cardsApi, categoriesApi, adminApi, shippingApi, packsApi } from '@/lib/api'
 import { Card, Category, ShippingRate, Pack } from '@/lib/types'
 import { usePrice } from '@/lib/format'
@@ -64,8 +63,7 @@ function parseShippingMethods(card: Card): string[] {
 }
 
 export default function AdminCardsPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const { formatPrice } = usePrice()
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -86,12 +84,9 @@ export default function AdminCardsPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
     fetchAll()
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
   const fetchAll = async () => {
     setIsLoading(true)

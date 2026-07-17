@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Pencil, Trash2, ArrowLeft, Tag } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { categoriesApi, adminApi } from '@/lib/api'
 import { Category } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -13,8 +12,7 @@ import { toast } from '@/lib/use-toast'
 import Link from 'next/link'
 
 export default function AdminCategoriesPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -32,12 +30,9 @@ export default function AdminCategoriesPage() {
   })
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) { router.push('/login'); return }
-    if (user && !user.is_admin) { router.push('/'); return }
+    if (!isMounted || !isReady) return
     fetchCategories()
-  }, [isMounted, isAuthLoading, isAuthenticated, user, router])
+  }, [isMounted, isReady])
 
   const fetchCategories = async () => {
     setIsLoading(true)

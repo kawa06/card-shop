@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +19,7 @@ export default function Header() {
   const { signOut } = useClerk()
   const { isSignedIn, isLoaded: clerkLoaded } = useAuth()
   const { user, isAuthenticated, fetchMe, hasHydrated, setHasHydrated, authProvider, logout } = useAuthStore()
+  const isAdmin = useIsAdmin()
   const { items, fetchCart } = useCartStore()
   const { lang, setLang } = useLangStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -151,7 +153,7 @@ export default function Header() {
               ) : (
                 <>
                   <SignedIn>
-                    {user?.is_admin && (
+                    {isAdmin && (
                       <Button asChild variant="ghost" size="sm" className="text-yellow-600 hover:text-yellow-500 hover:bg-gray-100">
                         <Link href="/admin">
                           <Shield className="h-4 w-4 shrink-0 mr-1" />
@@ -219,7 +221,7 @@ export default function Header() {
               <div className="h-24 animate-pulse bg-gray-100 rounded-md" />
             ) : showMobileLoggedIn ? (
               <div className="flex flex-col gap-2">
-                {user?.is_admin && (
+                {isAdmin && (
                   <Button asChild variant="outline" className="w-full border-yellow-400/30 text-yellow-600">
                     <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
                       <Shield className="h-4 w-4 shrink-0 mr-2" />

@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { Order } from '@/lib/types'
 import { usePrice } from '@/lib/format'
@@ -28,8 +27,7 @@ const statusColors: Record<string, string> = {
 }
 
 export default function AdminOrdersPage() {
-  const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuthStore()
+  const { isReady } = useAdminGuard()
   const { formatPrice } = usePrice()
   const [orders, setOrders] = useState<Order[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -41,18 +39,9 @@ export default function AdminOrdersPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-
-    if (!isAuthenticated) {
-      router.push('/login')
-      return
-    }
-    if (user && !user.is_admin) {
-      router.push('/')
-      return
-    }
+    if (!isMounted || !isReady) return
     fetchAll()
-  }, [isMounted, isAuthenticated, user, isAuthLoading, router])
+  }, [isMounted, isReady])
 
   const fetchAll = async () => {
     setIsLoading(true)
