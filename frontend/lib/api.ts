@@ -17,13 +17,10 @@ let syncPromise: Promise<string | null> | null = null
 async function ensureAuthTokenForRequest(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
-  const needsAuth =
-    url.includes('/admin/') ||
-    url.includes('/auth/me') ||
-    url.includes('/cart') ||
-    url.includes('/orders')
-
-  if (!needsAuth) {
+  // Admin routes may need Clerk→backend sync first.
+  // Do NOT call ensureBackendAuth for /auth/me — validateBackendToken uses that
+  // endpoint and would deadlock waiting on the same sync promise.
+  if (!url.includes('/admin/')) {
     return localStorage.getItem('auth_token')
   }
 

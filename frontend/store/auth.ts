@@ -114,14 +114,19 @@ export const useAuthStore = create<AuthState>()(
         }
 
         try {
-          const res = await authApi.me()
-          set({ user: res.data, isAuthenticated: true, token })
-          return true
-        } catch (error: unknown) {
-          const status = (error as { response?: { status?: number } })?.response?.status
-          if (status === 401) {
-            get().clearBackendToken()
+          const res = await fetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!res.ok) {
+            if (res.status === 401) {
+              get().clearBackendToken()
+            }
+            return false
           }
+          const user = (await res.json()) as User
+          set({ user, isAuthenticated: true, token })
+          return true
+        } catch {
           return false
         }
       },
@@ -134,6 +139,7 @@ export const useAuthStore = create<AuthState>()(
           if (valid) return get().token
         }
 
+        // Legacy login cannot auto-sync via Clerk; caller should redirect to sign-in.
         if (get().authProvider === 'legacy') {
           return null
         }
