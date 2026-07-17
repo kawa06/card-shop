@@ -17,18 +17,21 @@ let syncPromise: Promise<string | null> | null = null
 async function ensureAuthTokenForRequest(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
-  let token = localStorage.getItem('auth_token')
   const needsAuth =
     url.includes('/admin/') ||
     url.includes('/auth/me') ||
     url.includes('/cart') ||
     url.includes('/orders')
 
-  if (token || !needsAuth) return token
+  if (!needsAuth) {
+    return localStorage.getItem('auth_token')
+  }
 
+  const { useAuthStore } = await import('@/store/auth')
   if (!syncPromise) {
-    syncPromise = import('@/store/auth')
-      .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
+    syncPromise = useAuthStore
+      .getState()
+      .ensureBackendAuth()
       .finally(() => {
         syncPromise = null
       })
@@ -63,7 +66,9 @@ apiClient.interceptors.response.use(
       config._authRetry = true
       try {
         const { useAuthStore } = await import('@/store/auth')
-        const token = await useAuthStore.getState().ensureBackendAuth()
+        useAuthStore.getState().clearBackendToken()
+        await useAuthStore.getState().syncBackend()
+        const token = useAuthStore.getState().token || localStorage.getItem('auth_token')
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
           return apiClient(config)

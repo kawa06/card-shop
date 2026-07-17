@@ -9,7 +9,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin'
 export function useAdminGuard() {
   const router = useRouter()
   const { isSignedIn, isLoaded: clerkLoaded } = useAuth()
-  const { isAuthenticated, hasHydrated, syncBackend, token, authProvider } = useAuthStore()
+  const { hasHydrated, token, authProvider, ensureBackendAuth } = useAuthStore()
   const isAdmin = useIsAdmin()
   const [sessionReady, setSessionReady] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -18,7 +18,7 @@ export function useAdminGuard() {
   const ensureSession = useCallback(async () => {
     if (!hasHydrated || !clerkLoaded) return
 
-    if (!isSignedIn && !isAuthenticated) {
+    if (!isSignedIn && authProvider !== 'legacy') {
       router.push('/sign-in')
       return
     }
@@ -28,21 +28,17 @@ export function useAdminGuard() {
       return
     }
 
-    if (token && isAuthenticated) {
-      setSessionReady(true)
-      setSyncError(null)
-      return
-    }
-
-    if (!isSignedIn) {
-      setSessionReady(!!token)
-      return
-    }
-
     setIsSyncing(true)
     setSyncError(null)
     try {
-      await syncBackend()
+      const validToken = isSignedIn
+        ? await ensureBackendAuth()
+        : await ensureBackendAuth({ force: !token })
+
+      if (!validToken) {
+        throw new Error('バックエンド認証の同期に失敗しました')
+      }
+
       setSessionReady(true)
     } catch (err) {
       setSessionReady(false)
@@ -54,16 +50,7 @@ export function useAdminGuard() {
     } finally {
       setIsSyncing(false)
     }
-  }, [
-    hasHydrated,
-    clerkLoaded,
-    isSignedIn,
-    isAuthenticated,
-    isAdmin,
-    token,
-    router,
-    syncBackend,
-  ])
+  }, [hasHydrated, clerkLoaded, isSignedIn, isAdmin, token, authProvider, router, ensureBackendAuth])
 
   useEffect(() => {
     ensureSession()
@@ -73,7 +60,10 @@ export function useAdminGuard() {
     setIsSyncing(true)
     setSyncError(null)
     try {
-      await syncBackend()
+      const valid = await ensureBackendAuth({ force: true })
+      if (!valid) {
+        throw new Error('バックエンド認証の同期に失敗しました')
+      }
       setSessionReady(true)
     } catch (err) {
       setSessionReady(false)
@@ -85,7 +75,7 @@ export function useAdminGuard() {
     } finally {
       setIsSyncing(false)
     }
-  }, [syncBackend])
+  }, [ensureBackendAuth])
 
   const isReady =
     hasHydrated &&
@@ -93,7 +83,7 @@ export function useAdminGuard() {
     isAdmin &&
     sessionReady &&
     !!token &&
-    (isSignedIn || isAuthenticated || authProvider === 'legacy')
+    (isSignedIn || authProvider === 'legacy')
 
   return { isReady, isAdmin, isSyncing, syncError, retrySync }
 }

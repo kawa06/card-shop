@@ -1,8 +1,11 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 import secrets
 import os
+import logging
 from typing import Optional, List
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -14,10 +17,25 @@ class Settings(BaseSettings):
     # Database (Render provides DATABASE_URL; fallback to SQLite for local dev)
     DATABASE_URL: str = "sqlite:///./card_shop.db"
 
-    # JWT
-    SECRET_KEY: str = secrets.token_hex(32)
+    # JWT (SECRET_KEY must be set in production — random default invalidates tokens on restart)
+    SECRET_KEY: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+
+    @model_validator(mode="after")
+    def ensure_secret_key(self):
+        if not self.SECRET_KEY.strip():
+            if self.DEBUG:
+                self.SECRET_KEY = secrets.token_hex(32)
+                logger.warning("SECRET_KEY is not set; using ephemeral dev key")
+            else:
+                generated = secrets.token_hex(32)
+                self.SECRET_KEY = generated
+                logger.warning(
+                    "SECRET_KEY is not set in production; using ephemeral key. "
+                    "Set SECRET_KEY in Railway env vars to keep JWTs valid across restarts."
+                )
+        return self
 
     # CORS (allow overriding via env var for production frontends)
     CORS_ORIGINS: list[str] = [

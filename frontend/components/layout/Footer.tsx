@@ -47,7 +47,7 @@ export default function Footer() {
               <li><Link href="/terms" className="hover:text-yellow-600 transition-colors">{t('利用規約', lang)}</Link></li>
               <li><Link href="/privacy" className="hover:text-yellow-600 transition-colors">{t('プライバシーポリシー', lang)}</Link></li>
               <li><Link href="/shipping-policy" className="hover:text-yellow-600 transition-colors">{t('発送・補償について', lang)}</Link></li>
-              <li><Link href="#" className="hover:text-yellow-600 transition-colors opacity-50 cursor-not-allowed">{t('特定商取引法に基づく表記', lang)}</Link></li>
+              <li><Link href="/tokusho" className="hover:text-yellow-600 transition-colors">{t('特定商取引法に基づく表記', lang)}</Link></li>
             </ul>
           </div>
         </div>

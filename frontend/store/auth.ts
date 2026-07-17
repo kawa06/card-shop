@@ -14,7 +14,9 @@ interface AuthState {
   authProvider: 'clerk' | 'legacy' | null
   setHasHydrated: (state: boolean) => void
   syncBackend: () => Promise<void>
-  ensureBackendAuth: () => Promise<string | null>
+  clearBackendToken: () => void
+  validateBackendToken: () => Promise<boolean>
+  ensureBackendAuth: (options?: { force?: boolean }) => Promise<string | null>
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
@@ -22,7 +24,10 @@ interface AuthState {
 }
 
 async function fetchBackendSession(): Promise<{ access_token: string; user: User }> {
-  const res = await fetch('/api/auth/backend-sync', { method: 'POST' })
+  const res = await fetch('/api/auth/backend-sync', {
+    method: 'POST',
+    credentials: 'same-origin',
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const detail =
@@ -86,9 +91,53 @@ export const useAuthStore = create<AuthState>()(
         return syncInFlight
       },
 
-      ensureBackendAuth: async () => {
-        const { token, isAuthenticated } = get()
-        if (token && isAuthenticated) return token
+      clearBackendToken: () => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token')
+        }
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+        })
+      },
+
+      validateBackendToken: async () => {
+        const token =
+          get().token ||
+          (typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null)
+        if (!token) return false
+
+        if (typeof window !== 'undefined' && token !== localStorage.getItem('auth_token')) {
+          localStorage.setItem('auth_token', token)
+        }
+
+        try {
+          const res = await authApi.me()
+          set({ user: res.data, isAuthenticated: true, token })
+          return true
+        } catch (error: unknown) {
+          const status = (error as { response?: { status?: number } })?.response?.status
+          if (status === 401) {
+            get().clearBackendToken()
+          }
+          return false
+        }
+      },
+
+      ensureBackendAuth: async (options?: { force?: boolean }) => {
+        if (options?.force) {
+          get().clearBackendToken()
+        } else {
+          const valid = await get().validateBackendToken()
+          if (valid) return get().token
+        }
+
+        if (get().authProvider === 'legacy') {
+          return null
+        }
+
         await get().syncBackend()
         return get().token
       },
@@ -138,9 +187,13 @@ export const useAuthStore = create<AuthState>()(
           set({ user: res.data, isAuthenticated: true })
         } catch (error: unknown) {
           const status = (error as { response?: { status?: number } })?.response?.status
-          // Clerkログイン中は一時的な401でログアウトしない
-          if (status === 401 && get().authProvider !== 'clerk') {
-            get().logout()
+          if (status === 401) {
+            if (get().authProvider === 'clerk') {
+              get().clearBackendToken()
+              await get().syncBackend().catch(() => {})
+            } else {
+              get().logout()
+            }
           }
         }
       },
