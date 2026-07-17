@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from config import settings
 from database import get_db
 from admin_emails import ensure_admin
 from clerk_auth import authenticate_clerk_session
+from internal_admin_auth import authenticate_internal_admin
 import models
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
@@ -53,7 +54,8 @@ def decode_token(token: str) -> Optional[int]:
 # ─── Dependencies ─────────────────────────────────────────────────
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> models.User:
     credentials_exception = HTTPException(
@@ -61,6 +63,14 @@ def get_current_user(
         detail="認証情報が無効です",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    internal_user = authenticate_internal_admin(request, db)
+    if internal_user is not None:
+        return internal_user
+
+    if not token:
+        raise credentials_exception
+
     user_id = decode_token(token)
     if user_id is not None:
         user = db.query(models.User).filter(models.User.id == int(user_id)).first()

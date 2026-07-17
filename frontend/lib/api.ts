@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { getClerkSessionToken } from '@/lib/clerk-token'
 
 const BASE_URL =
   typeof window !== 'undefined'
@@ -18,9 +17,9 @@ let syncPromise: Promise<string | null> | null = null
 async function resolveRequestToken(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
+  // Admin routes are authenticated by the Next.js proxy (Clerk session cookies).
   if (url.includes('/admin/')) {
-    const clerkToken = await getClerkSessionToken()
-    if (clerkToken) return clerkToken
+    return null
   }
 
   const backendToken = localStorage.getItem('auth_token')
@@ -52,27 +51,10 @@ apiClient.interceptors.request.use(async (config) => {
   return config
 })
 
-// Response interceptor: retry admin requests once with a fresh Clerk token
+// Response interceptor: admin auth is handled by the Next.js proxy (cookies).
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const config = error.config as (typeof error.config & { _authRetry?: boolean }) | undefined
-    if (
-      config &&
-      !config._authRetry &&
-      error.response?.status === 401 &&
-      typeof window !== 'undefined' &&
-      (config.url || '').includes('/admin/')
-    ) {
-      config._authRetry = true
-      const clerkToken = await getClerkSessionToken()
-      if (clerkToken) {
-        config.headers.Authorization = `Bearer ${clerkToken}`
-        return apiClient(config)
-      }
-    }
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
 function normalizeCardListParams(params?: {
