@@ -22,7 +22,7 @@ CLERK_SECRET_KEY = (__import__("os").getenv("CLERK_SECRET_KEY") or "").strip()
 CLERK_PUBLISHABLE_KEY = (
     __import__("os").getenv("CLERK_PUBLISHABLE_KEY")
     or __import__("os").getenv("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY")
-    or ""
+    or "pk_test_c3F1YXJlLWxlbW1pbmctNzguY2xlcmsuYWNjb3VudHMuZGV2JA"
 ).strip()
 
 

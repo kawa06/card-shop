@@ -64,6 +64,10 @@ def auth_setup_status():
         "railway_project": os.getenv("RAILWAY_PROJECT_NAME"),
         "env_has_twilio_sid": "TWILIO_ACCOUNT_SID" in os.environ,
         "env_has_resend_key": "RESEND_API_KEY" in os.environ,
+        "env_has_auth_sync_secret": "AUTH_SYNC_SECRET" in os.environ,
+        "env_has_clerk_secret": "CLERK_SECRET_KEY" in os.environ,
+        "env_has_clerk_publishable_key": "CLERK_PUBLISHABLE_KEY" in os.environ
+        or "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" in os.environ,
     }
 
 

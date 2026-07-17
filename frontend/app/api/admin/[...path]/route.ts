@@ -11,7 +11,7 @@ function getBackendUrl() {
 }
 
 function getInternalSecret() {
-  return process.env.AUTH_SYNC_SECRET || process.env.CLERK_SECRET_KEY || ''
+  return process.env.CLERK_SECRET_KEY || process.env.AUTH_SYNC_SECRET || ''
 }
 
 async function resolveAdminEmail(): Promise<string | null> {
@@ -52,6 +52,12 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   if (contentType) headers.set('Content-Type', contentType)
   headers.set('X-Internal-Admin-Secret', secret)
   headers.set('X-Admin-Email', email)
+
+  const { getToken } = await auth()
+  const clerkToken = await getToken()
+  if (clerkToken) {
+    headers.set('Authorization', `Bearer ${clerkToken}`)
+  }
 
   const init: RequestInit = {
     method: request.method,

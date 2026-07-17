@@ -14,8 +14,8 @@ Get-Content $envFile | ForEach-Object {
 
 $toSet = @(
   'AUTH_SYNC_SECRET',
+  'CLERK_SECRET_KEY',
   'CLERK_PUBLISHABLE_KEY',
-  'CLERK_SECRET_KEY'
 )
 
 foreach ($name in $toSet) {

@@ -15,7 +15,7 @@ from admin_emails import ensure_admin, is_admin_email, normalize_email
 import models
 
 INTERNAL_ADMIN_SECRET = (
-    os.getenv("AUTH_SYNC_SECRET") or os.getenv("CLERK_SECRET_KEY") or ""
+    os.getenv("CLERK_SECRET_KEY") or os.getenv("AUTH_SYNC_SECRET") or ""
 ).strip()
 
 
