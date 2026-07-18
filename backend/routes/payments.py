@@ -1,3 +1,4 @@
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -110,6 +111,10 @@ def create_stripe_checkout_session(
             locale=payload.locale or "ja",
             checkout_type=checkout_type,
         )
+    except stripe.error.StripeError as exc:
+        cancel_unpaid_order(db, order)
+        message = getattr(exc, "user_message", None) or str(exc)
+        raise HTTPException(status_code=502, detail=f"Stripeエラー: {message}") from exc
     except Exception:
         cancel_unpaid_order(db, order)
         raise

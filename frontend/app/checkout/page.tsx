@@ -314,6 +314,22 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true)
     try {
+      const token = await requireAuth()
+      if (!token) {
+        const clerkToken = await import('@/lib/clerk-token').then((m) => m.getClerkSessionToken())
+        if (!clerkToken) {
+          toast({
+            title: t('エラー', lang),
+            description:
+              lang === 'ja'
+                ? 'ログインセッションの確認に失敗しました。一度ログアウトして再ログインしてください。'
+                : 'Failed to verify your login session. Please sign out and sign in again.',
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
       const currentCountryObj = COUNTRIES.find(c => c.code === country)
       const currentCountryName = currentCountryObj ? (lang === 'ja' ? currentCountryObj.ja : currentCountryObj.en) : country
       const shippingAddress = country === 'JP'

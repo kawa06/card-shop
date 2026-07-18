@@ -4,6 +4,7 @@ import { getClerkSessionToken } from '@/lib/clerk-token'
 declare module 'axios' {
   export interface AxiosRequestConfig {
     __retriedAfterAuth?: boolean
+    __retriedWithClerk?: boolean
   }
 }
 
@@ -53,7 +54,9 @@ async function resolveRequestToken(url: string): Promise<string | null> {
           syncPromise = null
         })
     }
-    return syncPromise
+    const backendToken = await syncPromise
+    if (backendToken) return backendToken
+    return getClerkSessionToken()
   }
 
   return localStorage.getItem('auth_token')
@@ -71,7 +74,7 @@ apiClient.interceptors.request.use(async (config) => {
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-    } else if (isAdminRoute) {
+    } else if (isAdminRoute || needsBackendAuth(url)) {
       delete config.headers.Authorization
     } else {
       const fallback = localStorage.getItem('auth_token')
@@ -105,6 +108,16 @@ apiClient.interceptors.response.use(
         config.headers = config.headers || {}
         config.headers.Authorization = `Bearer ${token}`
         return apiClient.request(config)
+      }
+
+      if (!config.__retriedWithClerk) {
+        config.__retriedWithClerk = true
+        const clerkToken = await getClerkSessionToken()
+        if (clerkToken) {
+          config.headers = config.headers || {}
+          config.headers.Authorization = `Bearer ${clerkToken}`
+          return apiClient.request(config)
+        }
       }
     }
 
