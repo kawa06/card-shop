@@ -181,7 +181,6 @@ export default function CheckoutPage() {
     if (rate.method_code === 'nekopos') return false
     if (isInternational) {
       if (!rate.is_international_available) return false
-      if (rate.method_code === 'international') return false
       return ['ems', 'yamato_global'].includes(rate.method_code)
     }
     if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
@@ -284,10 +283,33 @@ export default function CheckoutPage() {
   const displayInsurance = (rate: ShippingRate) => {
     const quote = methodQuotes[rate.method_code]
     const hasInsurance = quote?.has_insurance ?? rate.has_insurance
+    const detailJa = quote?.insurance_detail_ja
+    const detailEn = quote?.insurance_detail_en
+    if (detailJa || detailEn) {
+      return lang === 'ja' ? (detailJa || detailEn) : (detailEn || detailJa)
+    }
     const maxAmount = quote?.insurance_max_amount ?? rate.insurance_max_amount
     if (!hasInsurance) return t('なし', lang)
-    if (maxAmount) return `Max ${formatPrice(maxAmount)}`
+    if (maxAmount) return `${t('最大', lang)} ${formatPrice(maxAmount)}`
     return t('あり', lang)
+  }
+
+  const displayInsuranceNote = (rate: ShippingRate) => {
+    const quote = methodQuotes[rate.method_code]
+    const note = lang === 'ja' ? quote?.insurance_note_ja : quote?.insurance_note_en
+    return note || (lang === 'en' ? quote?.insurance_note_ja : null)
+  }
+
+  const displayExtraNote = (rate: ShippingRate) => {
+    const quote = methodQuotes[rate.method_code]
+    const note = lang === 'ja' ? quote?.extra_note_ja : quote?.extra_note_en
+    return note || (lang === 'en' ? quote?.extra_note_ja : null)
+  }
+
+  const displayTracking = (rate: ShippingRate) => {
+    const quote = methodQuotes[rate.method_code]
+    const hasTracking = quote?.has_tracking ?? rate.has_tracking
+    return hasTracking ? t('あり', lang) : t('なし', lang)
   }
 
   const needsCompensationAgreement =
@@ -719,12 +741,15 @@ export default function CheckoutPage() {
                         <div className="ml-7 grid grid-cols-2 gap-2 mt-2">
                           <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
                             <Truck className="h-3 w-3 text-gray-500" />
-                            <span>{t('追跡', lang)}: {rate.has_tracking ? t('あり', lang) : t('なし', lang)}</span>
+                            <span>{t('追跡', lang)}: {displayTracking(rate)}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                            <ShieldCheck className="h-3 w-3 text-gray-500" />
-                            <span>
+                          <div className="flex items-start gap-1.5 text-[11px] text-gray-400 col-span-2">
+                            <ShieldCheck className="h-3 w-3 text-gray-500 shrink-0 mt-0.5" />
+                            <span className="break-words">
                               {t('補償', lang)}: {displayInsurance(rate)}
+                              {displayInsuranceNote(rate) && (
+                                <span className="block text-[10px] text-gray-500 mt-0.5">{displayInsuranceNote(rate)}</span>
+                              )}
                             </span>
                           </div>
                           {displayDelivery(rate) && (
@@ -733,6 +758,12 @@ export default function CheckoutPage() {
                             <span>
                               {t('到着目安', lang)}: {displayDelivery(rate)}
                             </span>
+                          </div>
+                          )}
+                          {displayExtraNote(rate) && (
+                          <div className="flex items-start gap-1.5 text-[11px] text-amber-600/80 col-span-2 ml-0">
+                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                            <span className="break-words">{displayExtraNote(rate)}</span>
                           </div>
                           )}
                           {rate.insurance_url && (

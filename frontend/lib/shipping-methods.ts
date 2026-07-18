@@ -4,7 +4,7 @@ export function parseAllowedShippingMethods(raw: string | null | undefined): str
   try {
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
-      return parsed.filter((c): c is string => typeof c === 'string' && c.length > 0)
+      return parsed.filter((c): c is string => typeof c === 'string' && c.length > 0).map((c) => (c === 'international' ? 'ems' : c))
     }
   } catch {
     // カンマ区切りの旧形式

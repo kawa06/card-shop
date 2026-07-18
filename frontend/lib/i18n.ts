@@ -139,6 +139,7 @@ const dict: Record<string, string> = {
   '配送方法': 'Shipping Method',
   '追跡': 'Tracking',
   '補償': 'Insurance',
+  '最大': 'Max',
   '到着目安': 'Estimated Delivery',
   '日': 'days',
   '推奨': 'Recommended',

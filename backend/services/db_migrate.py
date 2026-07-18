@@ -20,6 +20,7 @@ def run_schema_upgrades() -> None:
     _ensure_table_exists(inspector, "packs")
     _create_table_if_missing("favorites", models.Favorite)
     _migrate_cards_image_url_to_text()
+    _migrate_international_shipping_to_ems()
 
 
 def _ensure_table_exists(inspector, table_name: str) -> None:
@@ -74,3 +75,57 @@ def _migrate_cards_image_url_to_text() -> None:
             logger.info("SQLite cards.image_url left as-is (SQLite does not enforce VARCHAR length strictly)")
         except Exception as exc:
             logger.error("SQLite image_url check failed: %s", exc)
+
+
+def _migrate_international_shipping_to_ems() -> None:
+    """Merge legacy international shipping method into ems without losing order history."""
+    import json
+
+    from sqlalchemy.orm import sessionmaker
+
+    import models
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            updated_orders = (
+                db.query(models.Order)
+                .filter(models.Order.shipping_method == "international")
+                .update({"shipping_method": "ems"}, synchronize_session=False)
+            )
+            cards = db.query(models.Card).filter(models.Card.allowed_shipping_methods.isnot(None)).all()
+            cards_updated = 0
+            for card in cards:
+                raw = card.allowed_shipping_methods
+                if not raw or "international" not in raw:
+                    continue
+                try:
+                    methods = json.loads(raw)
+                    if not isinstance(methods, list):
+                        continue
+                    if "international" not in methods:
+                        continue
+                    new_methods = ["ems" if m == "international" else m for m in methods]
+                    if "ems" not in new_methods and "international" in methods:
+                        new_methods.append("ems")
+                    new_methods = list(dict.fromkeys(new_methods))
+                    card.allowed_shipping_methods = json.dumps(new_methods, ensure_ascii=False)
+                    cards_updated += 1
+                except Exception:
+                    continue
+            deleted = (
+                db.query(models.ShippingRate)
+                .filter(models.ShippingRate.method_code == "international")
+                .delete(synchronize_session=False)
+            )
+            db.commit()
+            if updated_orders or cards_updated or deleted:
+                logger.info(
+                    "Migrated international→ems: orders=%s cards=%s rates_deleted=%s",
+                    updated_orders,
+                    cards_updated,
+                    deleted,
+                )
+        except Exception as exc:
+            db.rollback()
+            logger.error("Failed international→ems migration: %s", exc)

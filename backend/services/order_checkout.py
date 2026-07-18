@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 import models
 from services.shipping_rates import calculate_shipping_fee
 from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
+from services.shipping_display import normalize_method_code
 
 
 def get_user_cart_items(db: Session, user_id: int) -> list[models.CartItem]:
@@ -29,6 +30,7 @@ def validate_shipping_method(
     shipping_method: str | None,
     country: str | None = None,
 ) -> None:
+    shipping_method = normalize_method_code(shipping_method)
     if shipping_method in INTERNATIONAL_METHOD_CODES and not is_domestic_japan(country):
         return
 
@@ -207,4 +209,5 @@ def cancel_unpaid_order(db: Session, order: models.Order) -> None:
 def resolve_shipping_fee(shipping_method: str | None, region: str | None, country: str | None, db: Session) -> int:
     if not shipping_method:
         return 0
+    shipping_method = normalize_method_code(shipping_method) or shipping_method
     return calculate_shipping_fee(shipping_method, region, country, db=db)

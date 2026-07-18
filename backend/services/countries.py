@@ -89,7 +89,7 @@ YAMATO_GLOBAL_ZONE_FEES_500G = {z: p["yamato_global_fee_500g"] for z, p in INTER
 
 DOMESTIC_COUNTRY_VALUES = frozenset({"JP", "Japan", "日本", "japan", "jp"})
 
-INTERNATIONAL_METHOD_CODES = frozenset({"ems", "international", "yamato_global"})
+INTERNATIONAL_METHOD_CODES = frozenset({"ems", "yamato_global"})
 
 COUNTRIES = [
     {"code": "JP", "name_ja": "日本", "name_en": "Japan", "zone": "Domestic", "ems_zone": None},
@@ -204,6 +204,8 @@ def get_international_shipping_quote(method_code: str, country: str | None) -> d
         "estimated_delivery_max_days": profile["ems_delivery_max_days"],
         "has_insurance": True,
         "insurance_max_amount": profile["ems_insurance_max_amount"],
+        "insurance_detail_ja": "基本20,000円まで。追加料金で最大2,000,000円まで",
+        "insurance_detail_en": "Basic up to ¥20,000; optional add-ons up to ¥2,000,000",
     }
 
 

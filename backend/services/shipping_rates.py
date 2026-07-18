@@ -15,6 +15,8 @@ from services.countries import (
     is_domestic_japan,
 )
 
+from services.shipping_display import enrich_shipping_quote, normalize_method_code
+
 logger = logging.getLogger(__name__)
 
 # Shipped from Hyogo prefecture (兵庫県)
@@ -130,7 +132,7 @@ REGIONAL_RATES_MASTER = {
 FLAT_DOMESTIC_FEES = {
     "teikei_post": 110,
     "teigai_post": 320,
-    "click_post": 200,
+    "click_post": 185,
     "letter_pack_light": 430,
     "letter_pack_plus": 600,
 }
@@ -157,7 +159,7 @@ FALLBACK_RATES = {
         "carrier": "japan_post",
         "name_ja": "クリックポスト",
         "name_en": "Click Post",
-        "fee_jpy": 200,
+        "fee_jpy": 185,
         "has_tracking": True,
         "has_insurance": False,
         "is_individual_available": True,
@@ -194,6 +196,7 @@ FALLBACK_RATES = {
         "has_tracking": True,
         "has_insurance": True,
         "is_individual_available": False,
+        "insurance_max_amount": 3000,
         "max_size": "31.2cm x 22.8cm x 3cm",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
     },
@@ -274,23 +277,6 @@ FALLBACK_RATES = {
         "max_size": "80cm total",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
     },
-    "international": {
-        "carrier": "japan_post",
-        "name_ja": "EMS（国際スピード郵便）",
-        "name_en": "EMS (International Express)",
-        "fee_jpy": 1450,
-        "has_tracking": True,
-        "has_insurance": True,
-        "is_individual_available": True,
-        "is_international_available": True,
-        "international_zones": EMS_ZONE_RATES_JSON,
-        "insurance_max_amount": 20000,
-        "insurance_url": "https://www.post.japanpost.jp/int/service/ems_all.html",
-        "estimated_delivery_min_days": 3,
-        "estimated_delivery_max_days": 14,
-        "max_size": "500gまで（標準）",
-        "source_url": "https://www.post.japanpost.jp/send/oversea/charge/list-ems/all.html",
-    },
     "ems": {
         "carrier": "japan_post",
         "name_ja": "EMS（国際スピード郵便）",
@@ -355,22 +341,40 @@ METHOD_DEFAULTS = {
         "estimated_delivery_max_days": 5,
     },
     "yu_pack_60": {
-        "insurance_max_amount": 500000,
+        "insurance_max_amount": 300000,
         "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
         "estimated_delivery_min_days": 1,
         "estimated_delivery_max_days": 3,
     },
     "yu_pack_80": {
-        "insurance_max_amount": 500000,
+        "insurance_max_amount": 300000,
         "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
         "estimated_delivery_min_days": 1,
         "estimated_delivery_max_days": 3,
     },
     "yu_pack_100": {
-        "insurance_max_amount": 500000,
+        "insurance_max_amount": 300000,
         "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
         "estimated_delivery_min_days": 1,
         "estimated_delivery_max_days": 3,
+    },
+    "takkyubin_60": {
+        "insurance_max_amount": 300000,
+        "insurance_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
+        "estimated_delivery_min_days": 1,
+        "estimated_delivery_max_days": 3,
+    },
+    "takkyubin_80": {
+        "insurance_max_amount": 300000,
+        "insurance_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/takkyubin/",
+        "estimated_delivery_min_days": 1,
+        "estimated_delivery_max_days": 3,
+    },
+    "nekopos": {
+        "insurance_max_amount": 3000,
+        "insurance_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
+        "estimated_delivery_min_days": 2,
+        "estimated_delivery_max_days": 4,
     },
     "ems": {
         "is_recommended": True,
@@ -453,8 +457,8 @@ async def refresh_all_rates(db: Session):
     if not compact_fee or compact_fee < 650:
         compact_fee = 650  # Kansai local base (Yamato Oct 2025)
 
-    # 2. Click Post (Fixed to 200 JPY as per requirements)
-    click_fee = 200
+    # 2. Click Post (nationwide flat ¥185)
+    click_fee = 185
 
     # 3. Letter Pack
     lp_html = await fetch_page(FALLBACK_RATES["letter_pack_light"]["source_url"])
@@ -543,7 +547,7 @@ async def refresh_all_rates(db: Session):
         neko_rate.updated_at = datetime.utcnow()
 
     # International methods (EMS + Yamato global)
-    for intl_code in ("international", "ems", "yamato_global"):
+    for intl_code in ("ems", "yamato_global"):
         if intl_code not in FALLBACK_RATES:
             continue
         db_intl = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == intl_code).first()
@@ -572,6 +576,24 @@ async def refresh_all_rates(db: Session):
             )
             db_intl.source_url = rate_data.get("source_url", db_intl.source_url)
             db_intl.updated_at = datetime.utcnow()
+
+    # Remove deprecated duplicate EMS code (merged into ems)
+    db.query(models.ShippingRate).filter(models.ShippingRate.method_code == "international").delete()
+
+    # Sync insurance / tracking display fields from METHOD_DISPLAY
+    from services.shipping_display import METHOD_DISPLAY
+
+    for code, meta in METHOD_DISPLAY.items():
+        row = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == code).first()
+        if not row:
+            continue
+        if "has_insurance" in meta:
+            row.has_insurance = meta["has_insurance"]
+        if "has_tracking" in meta:
+            row.has_tracking = meta["has_tracking"]
+        if "insurance_max_amount" in meta:
+            row.insurance_max_amount = meta["insurance_max_amount"]
+        row.updated_at = datetime.utcnow()
     
     try:
         db.commit()
@@ -592,18 +614,19 @@ def calculate_shipping_quote(
     db: Session | None = None,
 ) -> dict:
     """Full shipping quote including fee, delivery estimate, and insurance."""
+    method_code = normalize_method_code(method_code) or method_code
     fee = calculate_shipping_fee(method_code, region, country, db=db)
 
     if not is_domestic_japan(country) and method_code in INTERNATIONAL_METHOD_CODES:
         quote = get_international_shipping_quote(method_code, country)
         quote["fee_jpy"] = fee
-        return quote
+        return enrich_shipping_quote(method_code, quote)
 
     db_rate = None
     if db:
         db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
 
-    return {
+    quote = {
         "method_code": method_code,
         "fee_jpy": fee,
         "ems_zone": None,
@@ -613,7 +636,14 @@ def calculate_shipping_quote(
         "estimated_delivery_max_days": db_rate.estimated_delivery_max_days if db_rate else None,
         "has_insurance": db_rate.has_insurance if db_rate else FALLBACK_RATES.get(method_code, {}).get("has_insurance", False),
         "insurance_max_amount": db_rate.insurance_max_amount if db_rate else FALLBACK_RATES.get(method_code, {}).get("insurance_max_amount"),
+        "has_tracking": db_rate.has_tracking if db_rate else FALLBACK_RATES.get(method_code, {}).get("has_tracking", True),
     }
+    defaults = METHOD_DEFAULTS.get(method_code, {})
+    if quote["estimated_delivery_min_days"] is None:
+        quote["estimated_delivery_min_days"] = defaults.get("estimated_delivery_min_days")
+    if quote["estimated_delivery_max_days"] is None:
+        quote["estimated_delivery_max_days"] = defaults.get("estimated_delivery_max_days")
+    return enrich_shipping_quote(method_code, quote)
 
 
 def calculate_shipping_fee(method_code: str, region: str = None, country: str = "Japan", db: Session = None) -> int:
@@ -622,6 +652,7 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     Domestic rates are from Hyogo prefecture (兵庫県).
     International EMS/Yamato rates use Japan Post EMS zones (500g tier).
     """
+    method_code = normalize_method_code(method_code) or method_code
     if is_domestic_japan(country):
         if method_code in INTERNATIONAL_METHOD_CODES:
             return 0
@@ -653,8 +684,7 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
         return base_rate
 
     if method_code in INTERNATIONAL_METHOD_CODES:
-        resolved = "ems" if method_code == "international" else method_code
-        return _international_fee(resolved, country, db)
+        return _international_fee(method_code, country, db)
 
     return _international_fee("ems", country, db)
 

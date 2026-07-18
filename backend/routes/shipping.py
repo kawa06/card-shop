@@ -24,7 +24,7 @@ def get_shipping_rates(
     rates = db.query(models.ShippingRate).all()
     if not rates:
         return []
-    return rates
+    return [r for r in rates if r.method_code != "international"]
 
 @router.get("/shipping-rates/calculate")
 def get_calculated_shipping(
@@ -43,7 +43,7 @@ def post_calculate_international_shipping(
     db: Session = Depends(get_db)
 ):
     country = data.get("country_code", "Other")
-    method = data.get("shipping_method", "international")
+    method = data.get("shipping_method", "ems")
     fee = calculate_shipping_fee(method, country=country, db=db)
     return {"country_code": country, "fee_jpy": fee, "shipping_method": method}
 

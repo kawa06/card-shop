@@ -152,7 +152,14 @@ export interface ShippingQuote {
   estimated_delivery_min_days?: number | null
   estimated_delivery_max_days?: number | null
   has_insurance?: boolean
+  has_tracking?: boolean
   insurance_max_amount?: number | null
+  insurance_detail_ja?: string | null
+  insurance_detail_en?: string | null
+  insurance_note_ja?: string | null
+  insurance_note_en?: string | null
+  extra_note_ja?: string | null
+  extra_note_en?: string | null
 }
 
 export interface PaginatedResponse<T> {
