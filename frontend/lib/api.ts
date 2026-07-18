@@ -307,9 +307,9 @@ export const adminApi = {
 
   // Packs
   getAllPacks: () => apiClient.get('/admin/packs'),
-  createPack: (data: { name: string; slug: string; sort_order?: number }) =>
+  createPack: (data: { name: string; name_en?: string | null; slug: string; sort_order?: number }) =>
     apiClient.post('/admin/packs', data),
-  updatePack: (id: number, data: { name?: string; slug?: string; sort_order?: number }) =>
+  updatePack: (id: number, data: { name?: string; name_en?: string | null; slug?: string; sort_order?: number }) =>
     apiClient.put(`/admin/packs/${id}`, data),
   deletePack: (id: number) => apiClient.delete(`/admin/packs/${id}`),
 
