@@ -103,3 +103,6 @@ class Settings(BaseSettings):
             # Railway copy/paste sometimes inserts line breaks into long secrets.
             return v.strip().replace("\n", "").replace("\r", "").replace(" ", "")
         return v
+
+
+settings = Settings()
