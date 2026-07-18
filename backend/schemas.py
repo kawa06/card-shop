@@ -254,6 +254,15 @@ class FavoriteOut(BaseModel):
         from_attributes = True
 
 
+class FavoriteActionOut(BaseModel):
+    id: int
+    card_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # ─────────────────────────── Order ───────────────────────────
 
 class OrderItemOut(BaseModel):

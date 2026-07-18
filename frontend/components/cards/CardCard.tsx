@@ -95,45 +95,51 @@ export default function CardCard({ card }: CardCardProps) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50 transition-colors duration-300 hover:border-yellow-400/30 hover:shadow-lg hover:shadow-yellow-400/5">
-      <Link href={`/cards/${card.id}`} className="block">
-        <div className="relative aspect-[3/4] overflow-hidden bg-white">
-          {card.image_url ? (
-            <Image
-              src={card.image_url}
-              alt={cardName}
-              fill
-              className="object-cover"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-              unoptimized={card.image_url.startsWith('data:')}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-4xl opacity-20">🃏</span>
+      <div className="relative">
+        <Link href={`/cards/${card.id}`} className="block">
+          <div className="relative aspect-[3/4] overflow-hidden bg-white">
+            {card.image_url ? (
+              <Image
+                src={card.image_url}
+                alt={cardName}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                unoptimized={card.image_url.startsWith('data:')}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <span className="text-4xl opacity-20">🃏</span>
+              </div>
+            )}
+            <div className="absolute top-2 right-2 z-10">
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rarityClass}`}>
+                {card.rarity}
+              </span>
             </div>
-          )}
-          <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1.5">
-            <FavoriteButton cardId={card.id} size="sm" />
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${rarityClass}`}>
-              {card.rarity}
-            </span>
+            {card.condition && (
+              <div className="absolute top-2 left-2 z-10">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-gray-300 backdrop-blur-sm">
+                  {t('状態', lang)} {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
+                </span>
+              </div>
+            )}
+            {card.stock === 0 && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <span className="text-white font-bold text-sm bg-red-600/80 px-3 py-1 rounded">
+                  {t('売り切れ', lang)}
+                </span>
+              </div>
+            )}
           </div>
-          {card.condition && (
-            <div className="absolute top-2 left-2 z-10">
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-black/60 text-white border-gray-300 backdrop-blur-sm">
-                {t('状態', lang)} {conditionLabel[card.condition] ?? card.condition.toUpperCase()}
-              </span>
-            </div>
-          )}
-          {card.stock === 0 && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-white font-bold text-sm bg-red-600/80 px-3 py-1 rounded">
-                {t('売り切れ', lang)}
-              </span>
-            </div>
-          )}
+        </Link>
+        <div className="absolute top-2 right-2 z-20">
+          <FavoriteButton cardId={card.id} size="sm" />
         </div>
+      </div>
 
-        <div className="p-3">
+      <div className="p-3">
+        <Link href={`/cards/${card.id}`} className="block">
           <h3 className="text-gray-900 font-medium text-sm truncate mb-1">{cardName}</h3>
           <div className="flex items-center justify-between">
             <span className="text-yellow-400 font-bold">
@@ -149,8 +155,8 @@ export default function CardCard({ card }: CardCardProps) {
           {card.pack && (
             <span className="text-xs text-sky-600 mt-0.5 block truncate">{card.pack.name}</span>
           )}
-        </div>
-      </Link>
+        </Link>
+      </div>
 
       <div className="px-3 pb-3">
         <Button

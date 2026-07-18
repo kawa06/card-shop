@@ -33,6 +33,13 @@ export default function FavoriteButton({ cardId, size = 'md', className = '' }: 
   const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
   const buttonSize = size === 'sm' ? 'p-1.5' : 'p-2'
 
+  const getApiErrorMessage = (err: unknown, fallback: string) => {
+    const detail = (err as { response?: { data?: { detail?: string | { msg?: string }[] } } })?.response?.data?.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg
+    return fallback
+  }
+
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -70,10 +77,10 @@ export default function FavoriteButton({ cardId, size = 'md', className = '' }: 
       toast({
         title: added ? t('お気に入りに追加しました', lang) : t('お気に入りから削除しました', lang),
       })
-    } catch {
+    } catch (err) {
       toast({
         title: t('エラー', lang),
-        description: t('お気に入りの更新に失敗しました', lang),
+        description: getApiErrorMessage(err, t('お気に入りの更新に失敗しました', lang)),
         variant: 'destructive',
       })
     } finally {

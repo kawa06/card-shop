@@ -37,7 +37,7 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
       return false
     }
     await favoritesApi.add(cardId)
-    set({ ids: [...get().ids, cardId] })
+    set({ ids: [...get().ids, cardId], loaded: true })
     return true
   },
 

@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 
 def run_schema_upgrades() -> None:
     """Apply additive migrations only."""
+    import models  # noqa: F401 — register models with Base.metadata
+
     inspector = inspect(engine)
     _ensure_table_exists(inspector, "packs")
-    _ensure_table_exists(inspector, "favorites")
+    _create_table_if_missing("favorites", models.Favorite)
     _migrate_cards_image_url_to_text()
 
 
@@ -24,6 +26,17 @@ def _ensure_table_exists(inspector, table_name: str) -> None:
     if table_name in inspector.get_table_names():
         return
     logger.warning("Table %s missing — create_all should create it on next startup", table_name)
+
+
+def _create_table_if_missing(table_name: str, model) -> None:
+    inspector = inspect(engine)
+    if table_name in inspector.get_table_names():
+        return
+    try:
+        model.__table__.create(bind=engine, checkfirst=True)
+        logger.info("Created missing table: %s", table_name)
+    except Exception as exc:
+        logger.error("Failed to create table %s: %s", table_name, exc)
 
 
 def _migrate_cards_image_url_to_text() -> None:
