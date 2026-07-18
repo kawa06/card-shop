@@ -213,6 +213,140 @@ class ShopSettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class InquiryNumberSequence(Base):
+    __tablename__ = "inquiry_number_sequences"
+
+    seq_date = Column(String(8), primary_key=True)
+    last_seq = Column(Integer, nullable=False, default=0)
+
+
+class InquirySettings(Base):
+    __tablename__ = "inquiry_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    shop_id = Column(Integer, default=1, nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False)
+    attachments_enabled = Column(Boolean, default=True, nullable=False)
+    max_attachments = Column(Integer, default=5, nullable=False)
+    max_attachment_bytes = Column(Integer, default=5 * 1024 * 1024, nullable=False)
+    auto_reply_enabled = Column(Boolean, default=True, nullable=False)
+    auto_reply_body = Column(Text, nullable=True)
+    off_hours_message = Column(Text, nullable=True)
+    receipt_message = Column(Text, nullable=True)
+    allow_reopen_resolved = Column(Boolean, default=True, nullable=False)
+    auto_close_days = Column(Integer, default=30, nullable=False)
+    allowed_categories = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Inquiry(Base):
+    __tablename__ = "inquiries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_number = Column(String(32), unique=True, nullable=False, index=True)
+    shop_id = Column(Integer, default=1, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    guest_email = Column(String(255), nullable=True)
+    reply_email = Column(String(255), nullable=False)
+    category = Column(String(50), nullable=False)
+    subject = Column(String(200), nullable=False)
+    related_order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    related_order_number = Column(String(32), nullable=True)
+    related_product_id = Column(Integer, ForeignKey("cards.id"), nullable=True)
+    status = Column(String(32), default="submitted", nullable=False, index=True)
+    priority = Column(String(16), default="normal", nullable=False)
+    assigned_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    last_message_at = Column(DateTime, nullable=True)
+    customer_last_read_at = Column(DateTime, nullable=True)
+    admin_last_read_at = Column(DateTime, nullable=True)
+    customer_unread_count = Column(Integer, default=0, nullable=False)
+    admin_unread_count = Column(Integer, default=0, nullable=False)
+    content_hash = Column(String(64), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", foreign_keys=[user_id])
+    assigned_admin = relationship("User", foreign_keys=[assigned_admin_id])
+    related_order = relationship("Order", foreign_keys=[related_order_id])
+    related_product = relationship("Card", foreign_keys=[related_product_id])
+    messages = relationship(
+        "InquiryMessage",
+        back_populates="inquiry",
+        cascade="all, delete-orphan",
+        order_by="InquiryMessage.created_at",
+    )
+    attachments = relationship("InquiryAttachment", back_populates="inquiry", cascade="all, delete-orphan")
+
+
+class InquiryMessage(Base):
+    __tablename__ = "inquiry_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False, index=True)
+    shop_id = Column(Integer, default=1, nullable=False)
+    sender_type = Column(String(16), nullable=False)
+    sender_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sender_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    message = Column(Text, nullable=False)
+    is_internal_note = Column(Boolean, default=False, nullable=False)
+    template_id = Column(Integer, ForeignKey("inquiry_templates.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    edited_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
+
+    inquiry = relationship("Inquiry", back_populates="messages")
+    attachments = relationship("InquiryAttachment", back_populates="message", cascade="all, delete-orphan")
+
+
+class InquiryAttachment(Base):
+    __tablename__ = "inquiry_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False, index=True)
+    message_id = Column(Integer, ForeignKey("inquiry_messages.id"), nullable=True)
+    shop_id = Column(Integer, default=1, nullable=False)
+    storage_path = Column(String(512), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    uploaded_by_type = Column(String(16), nullable=False)
+    uploaded_by_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    inquiry = relationship("Inquiry", back_populates="attachments")
+    message = relationship("InquiryMessage", back_populates="attachments")
+
+
+class InquiryTemplate(Base):
+    __tablename__ = "inquiry_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    shop_id = Column(Integer, default=1, nullable=False, index=True)
+    template_type = Column(String(16), nullable=False, index=True)
+    category = Column(String(50), nullable=True)
+    name = Column(String(128), nullable=False)
+    body = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InquiryStatusHistory(Base):
+    __tablename__ = "inquiry_status_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False, index=True)
+    previous_status = Column(String(32), nullable=True)
+    new_status = Column(String(32), nullable=False)
+    changed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 

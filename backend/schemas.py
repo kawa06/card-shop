@@ -443,6 +443,163 @@ class ClickPostExportRequest(BaseModel):
     mark_exported: bool = True
 
 
+# ─────────────────────────── Inquiries ───────────────────────
+
+class InquiryMessageOut(BaseModel):
+    id: int
+    sender_type: str
+    message: str
+    is_internal_note: bool = False
+    template_id: Optional[int] = None
+    created_at: datetime
+    sender_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InquiryAttachmentOut(BaseModel):
+    id: int
+    message_id: Optional[int] = None
+    original_filename: str
+    mime_type: str
+    file_size: int
+    created_at: datetime
+    download_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InquiryListOut(BaseModel):
+    id: int
+    inquiry_number: str
+    category: str
+    subject: str
+    related_order_number: Optional[str] = None
+    status: str
+    priority: str = "normal"
+    last_message_at: Optional[datetime] = None
+    customer_unread_count: int = 0
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InquiryDetailOut(InquiryListOut):
+    reply_email: str
+    related_order_id: Optional[int] = None
+    related_product_id: Optional[int] = None
+    messages: List[InquiryMessageOut] = []
+    attachments: List[InquiryAttachmentOut] = []
+
+
+class InquiryCreate(BaseModel):
+    category: str
+    subject: str
+    message: str
+    reply_email: Optional[str] = None
+    related_order_id: Optional[int] = None
+    related_product_id: Optional[int] = None
+    template_id: Optional[int] = None
+
+
+class InquiryMessageCreate(BaseModel):
+    message: str
+
+
+class InquiryTemplateOut(BaseModel):
+    id: int
+    template_type: str
+    category: Optional[str] = None
+    name: str
+    body: str
+    is_active: bool = True
+    sort_order: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class InquiryTemplatePreview(BaseModel):
+    body: str
+    warnings: List[str] = []
+
+
+class AdminInquiryListOut(InquiryListOut):
+    buyer_name: Optional[str] = None
+    buyer_email: Optional[str] = None
+    assigned_admin_name: Optional[str] = None
+    admin_unread_count: int = 0
+
+
+class AdminInquiryReply(BaseModel):
+    message: str
+    is_internal_note: bool = False
+    template_id: Optional[int] = None
+    status: Optional[str] = None
+    assigned_admin_id: Optional[int] = None
+    reason: Optional[str] = None
+
+
+class AdminInquiryUpdate(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_admin_id: Optional[int] = None
+
+
+class InquiryStatsOut(BaseModel):
+    unreplied_count: int
+    today_count: int
+    in_progress_count: int
+    waiting_customer_count: int
+    resolved_count: int
+    high_priority_count: int
+
+
+class InquirySettingsOut(BaseModel):
+    enabled: bool = True
+    attachments_enabled: bool = True
+    max_attachments: int = 5
+    max_attachment_bytes: int = 5242880
+    auto_reply_enabled: bool = True
+    allow_reopen_resolved: bool = True
+    auto_close_days: int = 30
+
+    class Config:
+        from_attributes = True
+
+
+class InquirySettingsUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    attachments_enabled: Optional[bool] = None
+    max_attachments: Optional[int] = None
+    max_attachment_bytes: Optional[int] = None
+    auto_reply_enabled: Optional[bool] = None
+    auto_reply_body: Optional[str] = None
+    allow_reopen_resolved: Optional[bool] = None
+    auto_close_days: Optional[int] = None
+
+
+class InquiryTemplateCreate(BaseModel):
+    template_type: str
+    category: Optional[str] = None
+    name: str
+    body: str
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class InquiryTemplateUpdate(BaseModel):
+    category: Optional[str] = None
+    name: Optional[str] = None
+    body: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
 # ─────────────────────────── Announcement ────────────────────
 
 class AnnouncementBase(BaseModel):

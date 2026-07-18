@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone } from 'lucide-react'
+import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { ordersApi, authApi, favoritesApi } from '@/lib/api'
+import { ordersApi, authApi, favoritesApi, inquiriesApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -61,6 +61,7 @@ export default function MypagePage() {
   const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
   const [favoriteCount, setFavoriteCount] = useState<number | null>(null)
+  const [inquiryUnreadCount, setInquiryUnreadCount] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   
@@ -140,6 +141,11 @@ export default function MypagePage() {
           if (!cancelled) setFavoriteCount((res.data || []).length)
         }).catch(() => {
           if (!cancelled) setFavoriteCount(0)
+        })
+        inquiriesApi.getUnreadCount().then((res) => {
+          if (!cancelled) setInquiryUnreadCount(res.data?.count ?? 0)
+        }).catch(() => {
+          if (!cancelled) setInquiryUnreadCount(0)
         }).finally(() => {
           if (!cancelled) setIsLoading(false)
         })
@@ -457,7 +463,7 @@ export default function MypagePage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
           <Link href="/orders">
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-yellow-400/30 transition-colors cursor-pointer group">
               <div className="p-2 rounded-md bg-yellow-400/10 text-yellow-400 group-hover:bg-yellow-400 group-hover:text-gray-950 transition-colors">
@@ -495,6 +501,38 @@ export default function MypagePage() {
                 <p className="text-gray-900 font-medium text-sm">{t('住所管理', lang)}</p>
                 <p className="text-gray-500 text-[10px]">
                   {user?.postal_code ? t('登録済み', lang) : t('未登録', lang)}
+                </p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/inquiries/new">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-emerald-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-emerald-400/10 text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{lang === 'ja' ? 'お問い合わせ' : 'Contact'}</p>
+                <p className="text-gray-500 text-[10px]">{lang === 'ja' ? 'ショップへ連絡' : 'Message the shop'}</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/inquiries">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-violet-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-violet-400/10 text-violet-500 group-hover:bg-violet-500 group-hover:text-white transition-colors">
+                <Mail className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{lang === 'ja' ? '問い合わせ履歴' : 'Inquiries'}</p>
+                <p className="text-gray-500 text-[10px]">
+                  {inquiryUnreadCount === null
+                    ? t('読み込み中...', lang)
+                    : inquiryUnreadCount > 0
+                      ? lang === 'ja'
+                        ? `未読 ${inquiryUnreadCount}件`
+                        : `${inquiryUnreadCount} unread`
+                      : lang === 'ja'
+                        ? '履歴を見る'
+                        : 'View history'}
                 </p>
               </div>
             </div>

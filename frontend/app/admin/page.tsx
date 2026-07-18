@@ -14,11 +14,12 @@ import {
   Package,
   FileSpreadsheet,
   Settings,
+  MessageSquare,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi, shippingApi, packsApi } from '@/lib/api'
+import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi, shippingApi, packsApi, adminInquiriesApi } from '@/lib/api'
 
 interface Stats {
   cards: number
@@ -28,12 +29,13 @@ interface Stats {
   announcements: number
   users: number
   shipping: number
+  inquiryUnreplied: number
 }
 
 export default function AdminPage() {
   const { lang } = useLangStore()
   const { isReady } = useAdminGuard()
-  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0 })
+  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0, inquiryUnreplied: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -52,7 +54,8 @@ export default function AdminPage() {
       announcementsApi.getAll(),
       adminApi.getAllUsers(),
       shippingApi.getRates(),
-    ]).then(([cardsRes, ordersRes, catsRes, packsRes, annsRes, usersRes, shippingRes]) => {
+      adminInquiriesApi.getStats(),
+    ]).then(([cardsRes, ordersRes, catsRes, packsRes, annsRes, usersRes, shippingRes, inquiryRes]) => {
       const getCount = (res: PromiseSettledResult<{ data: unknown }>, key = 'length') => {
         if (res.status === 'fulfilled') {
           const d = res.value.data
@@ -69,6 +72,8 @@ export default function AdminPage() {
         announcements: getCount(annsRes),
         users: getCount(usersRes),
         shipping: getCount(shippingRes),
+        inquiryUnreplied:
+          inquiryRes.status === 'fulfilled' ? inquiryRes.value.data.unreplied_count : 0,
       })
     }).finally(() => setIsLoading(false))
   }, [isMounted, isReady])
@@ -80,6 +85,7 @@ export default function AdminPage() {
     { href: '/admin/packs', icon: Package, label: t('パック管理', lang), count: stats.packs, color: 'text-sky-400', bg: 'bg-sky-400/10 border-sky-400/20' },
     { href: '/admin/categories', icon: Tag, label: t('カテゴリー管理', lang), count: stats.categories, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
     { href: '/admin/orders', icon: ShoppingBag, label: t('注文管理', lang), count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
+    { href: '/admin/inquiries', icon: MessageSquare, label: '問い合わせ管理', count: stats.inquiryUnreplied, color: 'text-teal-500', bg: 'bg-teal-500/10 border-teal-500/20' },
     { href: '/admin/click-post', icon: FileSpreadsheet, label: 'クリックポストCSV', count: stats.orders, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
     { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
     { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },

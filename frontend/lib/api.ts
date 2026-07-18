@@ -32,6 +32,7 @@ const PROTECTED_API_PREFIXES = [
   '/auth/password',
   '/auth/phone',
   '/auth/request-verification',
+  '/inquiries',
 ]
 
 const PUBLIC_API_PATHS = ['/payments/stripe/config']
@@ -403,4 +404,84 @@ export const shippingApi = {
     apiClient.patch(`/shipping-rates/${methodCode}`, data),
   getOrigin: () => apiClient.get<{ key: string; value: string }>('/site-settings/shipping-origin'),
   updateOrigin: (value: string) => apiClient.post('/site-settings/shipping-origin', { value }),
+}
+
+export const inquiriesApi = {
+  getUnreadCount: () => apiClient.get<{ count: number }>('/inquiries/unread-count'),
+  getCategories: () => apiClient.get<{ value: string; label: string }[]>('/inquiries/meta/categories'),
+  list: () => apiClient.get<import('./types').InquiryListItem[]>('/inquiries'),
+  getById: (id: number) => apiClient.get<import('./types').InquiryDetail>(`/inquiries/${id}`),
+  create: (data: import('./types').InquiryCreatePayload) =>
+    apiClient.post<import('./types').InquiryDetail>('/inquiries', data),
+  postMessage: (id: number, message: string) =>
+    apiClient.post<import('./types').InquiryMessage>(`/inquiries/${id}/messages`, { message }),
+  markRead: (id: number) => apiClient.post(`/inquiries/${id}/read`),
+  getTemplates: () => apiClient.get<import('./types').InquiryTemplate[]>('/inquiries/templates'),
+  previewTemplate: (templateId: number, payload: import('./types').InquiryCreatePayload) =>
+    apiClient.post<{ body: string; warnings: string[] }>(
+      `/inquiries/templates/${templateId}/preview`,
+      payload
+    ),
+  uploadAttachments: (inquiryId: number, files: File[], messageId?: number) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return apiClient.post<import('./types').InquiryAttachment[]>(
+      `/inquiries/${inquiryId}/attachments`,
+      form,
+      { params: messageId ? { message_id: messageId } : undefined }
+    )
+  },
+}
+
+export const adminInquiriesApi = {
+  getStats: () => apiClient.get<import('./types').InquiryStats>('/admin/inquiries/stats'),
+  list: (params?: { q?: string; status?: string; category?: string; priority?: string }) =>
+    apiClient.get<import('./types').AdminInquiryListItem[]>('/admin/inquiries', { params }),
+  getById: (id: number) => apiClient.get<import('./types').AdminInquiryDetail>(`/admin/inquiries/${id}`),
+  reply: (id: number, data: import('./types').AdminInquiryReplyPayload) =>
+    apiClient.post<import('./types').InquiryMessage>(`/admin/inquiries/${id}/reply`, data),
+  update: (id: number, data: { status?: string; priority?: string; assigned_admin_id?: number | null }) =>
+    apiClient.patch<import('./types').AdminInquiryListItem>(`/admin/inquiries/${id}`, data),
+  getReplyTemplates: () => apiClient.get<import('./types').InquiryTemplate[]>('/admin/inquiries/templates'),
+  previewTemplate: (templateId: number, inquiryId: number, reason?: string) =>
+    apiClient.post<{ body: string; warnings: string[] }>(
+      `/admin/inquiries/templates/${templateId}/preview`,
+      null,
+      { params: { inquiry_id: inquiryId, reason } }
+    ),
+  manageTemplates: (templateType?: string) =>
+    apiClient.get<import('./types').InquiryTemplate[]>('/admin/inquiries/manage/templates', {
+      params: templateType ? { template_type: templateType } : undefined,
+    }),
+  createTemplate: (data: {
+    template_type: string
+    category?: string | null
+    name: string
+    body: string
+    is_active?: boolean
+    sort_order?: number
+  }) => apiClient.post<import('./types').InquiryTemplate>('/admin/inquiries/manage/templates', data),
+  updateTemplate: (
+    id: number,
+    data: {
+      category?: string | null
+      name?: string
+      body?: string
+      is_active?: boolean
+      sort_order?: number
+    }
+  ) => apiClient.put<import('./types').InquiryTemplate>(`/admin/inquiries/manage/templates/${id}`, data),
+  deleteTemplate: (id: number) => apiClient.delete(`/admin/inquiries/manage/templates/${id}`),
+  getSettings: () => apiClient.get<import('./types').InquirySettings>('/admin/inquiries/manage/settings'),
+  updateSettings: (data: Partial<import('./types').InquirySettings & { auto_reply_body?: string }>) =>
+    apiClient.put<import('./types').InquirySettings>('/admin/inquiries/manage/settings', data),
+  uploadAttachments: (inquiryId: number, files: File[], messageId?: number) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return apiClient.post<import('./types').InquiryAttachment[]>(
+      `/admin/inquiries/${inquiryId}/attachments`,
+      form,
+      { params: messageId ? { message_id: messageId } : undefined }
+    )
+  },
 }

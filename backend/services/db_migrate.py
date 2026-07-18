@@ -34,6 +34,7 @@ def run_schema_upgrades() -> None:
     _create_table_if_missing("order_number_sequences", models.OrderNumberSequence)
     _create_table_if_missing("stripe_processed_events", models.StripeProcessedEvent)
     _migrate_shop_settings()
+    _migrate_inquiry_tables()
 
 
 def _migrate_order_management_columns() -> None:
@@ -120,6 +121,34 @@ def _migrate_shop_settings() -> None:
         except Exception as exc:
             db.rollback()
             logger.error("shop_settings seed failed: %s", exc)
+
+
+def _migrate_inquiry_tables() -> None:
+    import models
+
+    tables = [
+        ("inquiry_number_sequences", models.InquiryNumberSequence),
+        ("inquiry_settings", models.InquirySettings),
+        ("inquiries", models.Inquiry),
+        ("inquiry_templates", models.InquiryTemplate),
+        ("inquiry_messages", models.InquiryMessage),
+        ("inquiry_attachments", models.InquiryAttachment),
+        ("inquiry_status_history", models.InquiryStatusHistory),
+    ]
+    for name, model in tables:
+        _create_table_if_missing(name, model)
+
+    from sqlalchemy.orm import sessionmaker
+
+    from services.inquiry_seed import seed_inquiry_data
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_inquiry_data(db)
+        except Exception as exc:
+            db.rollback()
+            logger.error("inquiry seed failed: %s", exc)
 
 
 def _backfill_shipping_status() -> None:

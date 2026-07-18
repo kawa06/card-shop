@@ -233,3 +233,108 @@ export interface PasswordChangeRequest {
   old_password: string
   new_password: string
 }
+
+export interface InquiryMessage {
+  id: number
+  sender_type: 'customer' | 'admin' | 'system'
+  message: string
+  is_internal_note: boolean
+  template_id: number | null
+  created_at: string
+  sender_name: string | null
+}
+
+export interface InquiryAttachment {
+  id: number
+  message_id: number | null
+  original_filename: string
+  mime_type: string
+  file_size: number
+  created_at: string
+  download_url: string | null
+}
+
+export interface InquiryListItem {
+  id: number
+  inquiry_number: string
+  category: string
+  subject: string
+  related_order_number: string | null
+  status: string
+  priority: string
+  last_message_at: string | null
+  customer_unread_count: number
+  created_at: string
+  updated_at: string | null
+}
+
+export interface InquiryDetail extends InquiryListItem {
+  reply_email: string
+  related_order_id: number | null
+  related_product_id: number | null
+  messages: InquiryMessage[]
+  attachments: InquiryAttachment[]
+}
+
+export interface InquiryTemplate {
+  id: number
+  template_type: 'customer' | 'admin'
+  category: string | null
+  name: string
+  body: string
+  is_active: boolean
+  sort_order: number
+}
+
+export interface InquiryCreatePayload {
+  category: string
+  subject: string
+  message: string
+  reply_email?: string
+  related_order_id?: number | null
+  related_product_id?: number | null
+  template_id?: number | null
+}
+
+export interface AdminInquiryListItem extends InquiryListItem {
+  buyer_name: string | null
+  buyer_email: string | null
+  assigned_admin_name: string | null
+  admin_unread_count: number
+}
+
+export interface AdminInquiryDetail extends AdminInquiryListItem {
+  reply_email: string
+  related_order_id: number | null
+  related_product_id: number | null
+  messages: InquiryMessage[]
+  attachments: InquiryAttachment[]
+}
+
+export interface InquiryStats {
+  unreplied_count: number
+  today_count: number
+  in_progress_count: number
+  waiting_customer_count: number
+  resolved_count: number
+  high_priority_count: number
+}
+
+export interface InquirySettings {
+  enabled: boolean
+  attachments_enabled: boolean
+  max_attachments: number
+  max_attachment_bytes: number
+  auto_reply_enabled: boolean
+  allow_reopen_resolved: boolean
+  auto_close_days: number
+}
+
+export interface AdminInquiryReplyPayload {
+  message: string
+  is_internal_note?: boolean
+  template_id?: number | null
+  status?: string | null
+  assigned_admin_id?: number | null
+  reason?: string | null
+}

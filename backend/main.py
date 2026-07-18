@@ -22,6 +22,8 @@ from routes.exchange import router as exchange_router
 from routes.shipping import router as shipping_router
 from routes.favorites import router as favorites_router
 from routes.payments import router as payments_router
+from routes.inquiries import router as inquiries_router
+from routes.admin_inquiries import router as admin_inquiries_router
 
 from sqlalchemy import text, inspect
 
@@ -203,6 +205,8 @@ app.include_router(exchange_router)
 app.include_router(shipping_router)
 app.include_router(favorites_router)
 app.include_router(payments_router)
+app.include_router(inquiries_router)
+app.include_router(admin_inquiries_router)
 
 
 # Deploy Fix 2026-06-21-v20 (Implement automatic migrations in lifespan)
