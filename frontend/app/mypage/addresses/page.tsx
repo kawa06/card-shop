@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, MapPin, RefreshCw } from 'lucide-react'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
 import { authApi } from '@/lib/api'
 import { useLangStore } from '@/store/lang'
@@ -38,7 +39,8 @@ const PREFECTURES = [
 
 export default function AddressesPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: isAuthLoading, user, fetchMe, ensureBackendAuth } = useAuthStore()
+  const { isLoggedIn, isReady, user, requireAuth } = useBackendAuth()
+  const { fetchMe } = useAuthStore()
   const { lang } = useLangStore()
 
   const [postalCode, setPostalCode] = useState('')
@@ -57,13 +59,15 @@ export default function AddressesPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (!isMounted || !isReady) return
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
-    fetchMe()
-  }, [isMounted, isAuthLoading, isAuthenticated, router, fetchMe])
+    void requireAuth().then((token) => {
+      if (token) fetchMe()
+    })
+  }, [isMounted, isReady, isLoggedIn, router, fetchMe, requireAuth])
 
   useEffect(() => {
     if (!user) return
@@ -104,7 +108,11 @@ export default function AddressesPage() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await ensureBackendAuth()
+      const token = await requireAuth()
+      if (!token) {
+        router.push('/sign-in')
+        return
+      }
       const countryName = COUNTRIES.find((c) => c.code === country)?.[lang === 'ja' ? 'ja' : 'en'] || country
       await authApi.updateProfile({
         postal_code: postalCode,
@@ -128,7 +136,7 @@ export default function AddressesPage() {
     }
   }
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+  if (!isMounted || !isReady || !isLoggedIn) return null
 
   return (
     <div className="min-h-screen bg-white">

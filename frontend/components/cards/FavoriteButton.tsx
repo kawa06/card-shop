@@ -3,8 +3,7 @@
 import { Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useAuth } from '@clerk/nextjs'
-import { useAuthStore } from '@/store/auth'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useFavoritesStore } from '@/store/favorites'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
@@ -18,31 +17,17 @@ interface FavoriteButtonProps {
 
 export default function FavoriteButton({ cardId, size = 'md', className = '' }: FavoriteButtonProps) {
   const router = useRouter()
-  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth()
-  const { isAuthenticated, ensureBackendAuth, hasHydrated, setHasHydrated } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { lang } = useLangStore()
   const { loaded, fetchIds, toggle, isFavorite } = useFavoritesStore()
   const [isToggling, setIsToggling] = useState(false)
 
   useEffect(() => {
-    if (hasHydrated) return
-    const initAuth = async () => {
-      await useAuthStore.persist.rehydrate()
-      setHasHydrated(true)
-    }
-    void initAuth()
-  }, [hasHydrated, setHasHydrated])
-
-  const isLoggedIn = isSignedIn || isAuthenticated
-
-  useEffect(() => {
-    if (!hasHydrated || !isClerkLoaded || !isLoggedIn || loaded) return
-    void ensureBackendAuth()
-      .then((token) => {
-        if (token) return fetchIds()
-      })
-      .catch(() => {})
-  }, [hasHydrated, isClerkLoaded, isLoggedIn, loaded, ensureBackendAuth, fetchIds])
+    if (!isReady || !isLoggedIn || loaded) return
+    void requireAuth().then((token) => {
+      if (token) return fetchIds()
+    })
+  }, [isReady, isLoggedIn, loaded, requireAuth, fetchIds])
 
   const favorite = isFavorite(cardId)
   const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
@@ -52,7 +37,7 @@ export default function FavoriteButton({ cardId, size = 'md', className = '' }: 
     e.preventDefault()
     e.stopPropagation()
 
-    if (!isClerkLoaded || !hasHydrated) return
+    if (!isReady) return
 
     if (!isLoggedIn) {
       toast({
@@ -66,7 +51,7 @@ export default function FavoriteButton({ cardId, size = 'md', className = '' }: 
 
     setIsToggling(true)
     try {
-      const token = await ensureBackendAuth()
+      const token = await requireAuth()
       if (!token) {
         toast({
           title: t('ログインが必要です', lang),

@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CheckCircle2, Loader2, Store } from 'lucide-react'
 import { paymentsApi } from '@/lib/api'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
-import { useAuthStore } from '@/store/auth'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
@@ -28,7 +28,7 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const { clearCart, fetchCart } = useCartStore()
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { lang } = useLangStore()
   const [orderId, setOrderId] = useState<number | null>(null)
   const [pendingKonbini, setPendingKonbini] = useState(false)
@@ -40,9 +40,9 @@ function CheckoutSuccessContent() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (!isMounted || !isReady) return
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
     if (!sessionId) {
@@ -50,23 +50,30 @@ function CheckoutSuccessContent() {
       return
     }
 
-    paymentsApi
-      .confirmStripeCheckout(sessionId)
-      .then((res) => {
-        setOrderId(res.data.order.id)
-        setPendingKonbini(Boolean(res.data.pending_konbini))
-        clearCart()
-        fetchCart()
-      })
-      .catch((err) => {
-        const message =
-          err?.response?.data?.detail ||
-          (lang === 'ja' ? '決済の確認に失敗しました' : 'Failed to confirm payment')
-        setError(typeof message === 'string' ? message : JSON.stringify(message))
-      })
-  }, [isMounted, isAuthLoading, isAuthenticated, sessionId, router, clearCart, fetchCart, lang])
+    void requireAuth().then((token) => {
+      if (!token) {
+        router.push('/sign-in')
+        return
+      }
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+      paymentsApi
+        .confirmStripeCheckout(sessionId)
+        .then((res) => {
+          setOrderId(res.data.order.id)
+          setPendingKonbini(Boolean(res.data.pending_konbini))
+          clearCart()
+          fetchCart()
+        })
+        .catch((err) => {
+          const message =
+            err?.response?.data?.detail ||
+            (lang === 'ja' ? '決済の確認に失敗しました' : 'Failed to confirm payment')
+          setError(typeof message === 'string' ? message : JSON.stringify(message))
+        })
+    })
+  }, [isMounted, isReady, isLoggedIn, sessionId, router, clearCart, fetchCart, lang, requireAuth])
+
+  if (!isMounted || !isReady || !isLoggedIn) return null
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6">

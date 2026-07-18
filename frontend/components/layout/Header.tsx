@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { SignedIn, SignedOut, UserButton, useAuth, useClerk } from '@clerk/nextjs'
 import { ShoppingCart, Search, User, Shield, Menu, X, Globe, Mail, LogOut } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
@@ -18,7 +19,8 @@ export default function Header() {
   const router = useRouter()
   const { signOut } = useClerk()
   const { isSignedIn, isLoaded: clerkLoaded } = useAuth()
-  const { user, isAuthenticated, fetchMe, hasHydrated, setHasHydrated, authProvider, logout } = useAuthStore()
+  const { user, fetchMe, hasHydrated, setHasHydrated, authProvider, logout } = useAuthStore()
+  const { isLoggedIn } = useBackendAuth()
   const isAdmin = useIsAdmin()
   const { items, fetchCart } = useCartStore()
   const { lang, setLang } = useLangStore()
@@ -41,10 +43,10 @@ export default function Header() {
   }, [hasHydrated, fetchMe])
 
   useEffect(() => {
-    if (hasHydrated && isAuthenticated) {
+    if (hasHydrated && isLoggedIn) {
       fetchCart()
     }
-  }, [hasHydrated, isAuthenticated, fetchCart])
+  }, [hasHydrated, isLoggedIn, fetchCart])
 
   const cartCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
@@ -70,11 +72,11 @@ export default function Header() {
     router.push('/mypage')
   }
 
-  const showMobileLoggedIn = clerkLoaded && (isSignedIn || isAuthenticated)
+  const showMobileLoggedIn = clerkLoaded && isLoggedIn
 
   const showLegacyVerifyBanner =
     hasHydrated &&
-    isAuthenticated &&
+    isLoggedIn &&
     user &&
     authProvider !== 'clerk' &&
     !user.is_verified

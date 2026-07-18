@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
 import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 
 export default function CartPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { items, total, isLoading, fetchCart, updateItem, removeItem } = useCartStore()
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
@@ -27,14 +27,17 @@ export default function CartPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
+    if (!isMounted || !isReady) return
 
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
-    fetchCart()
-  }, [isMounted, isAuthLoading, isAuthenticated, router, fetchCart])
+
+    void requireAuth().then((token) => {
+      if (token) fetchCart()
+    })
+  }, [isMounted, isReady, isLoggedIn, router, fetchCart, requireAuth])
 
   const handleUpdateQuantity = async (itemId: number, newQty: number) => {
     if (newQty < 1) return
@@ -54,7 +57,7 @@ export default function CartPage() {
     }
   }
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+  if (!isMounted || !isReady || !isLoggedIn) return null
 
   if (isLoading) {
     return (

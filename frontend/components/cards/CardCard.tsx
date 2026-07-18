@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
 import { Card } from '@/lib/types'
-import { useAuthStore } from '@/store/auth'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
 import { toast } from '@/lib/use-toast'
@@ -46,7 +46,7 @@ const conditionLabel: Record<string, string> = {
 }
 
 export default function CardCard({ card }: CardCardProps) {
-  const { isAuthenticated } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
   const { formatPrice } = usePrice()
@@ -57,7 +57,8 @@ export default function CardCard({ card }: CardCardProps) {
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!isAuthenticated) {
+    if (!isReady) return
+    if (!isLoggedIn) {
       toast({
         title: t('ログインが必要です', lang),
         description: t('カートに追加するにはログインしてください', lang),
@@ -67,6 +68,15 @@ export default function CardCard({ card }: CardCardProps) {
     }
     if (card.stock === 0) return
     try {
+      const token = await requireAuth()
+      if (!token) {
+        toast({
+          title: t('ログインが必要です', lang),
+          description: t('カートに追加するにはログインしてください', lang),
+          variant: 'destructive',
+        })
+        return
+      }
       await addItem(card.id, 1)
       toast({
         title: t('カートに追加しました', lang),

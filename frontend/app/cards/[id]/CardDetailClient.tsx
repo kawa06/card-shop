@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, ShoppingCart, ZoomIn, Package, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { cardsApi } from '@/lib/api'
 import { Card } from '@/lib/types'
-import { useAuthStore } from '@/store/auth'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
 import { usePrice } from '@/lib/format'
@@ -50,7 +50,7 @@ function parseImageUrls(card: Card): string[] {
 
 export default function CardDetailClient({ id }: { id: string }) {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
   const { formatPrice } = usePrice()
@@ -95,14 +95,21 @@ export default function CardDetailClient({ id }: { id: string }) {
   }, [id, router])
 
   const handleAddToCart = async () => {
-    if (!isAuthenticated) {
+    if (!isReady) return
+    if (!isLoggedIn) {
       toast({ title: t('ログインが必要です', lang), description: t('カートに追加するにはログインしてください', lang), variant: 'destructive' })
-      router.push('/login')
+      router.push('/sign-in')
       return
     }
     if (!card || card.stock === 0) return
     setAddingToCart(true)
     try {
+      const token = await requireAuth()
+      if (!token) {
+        toast({ title: t('ログインが必要です', lang), description: t('カートに追加するにはログインしてください', lang), variant: 'destructive' })
+        router.push('/sign-in')
+        return
+      }
       await addItem(card.id, quantity)
       toast({ title: t('カートに追加しました', lang), description: `${cardName}x${quantity}${t('をカートに追加しました', lang)}` })
     } catch {

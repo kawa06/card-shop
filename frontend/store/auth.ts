@@ -140,12 +140,15 @@ export const useAuthStore = create<AuthState>()(
           if (valid) return get().token
         }
 
-        // Legacy login cannot auto-sync via Clerk; caller should redirect to sign-in.
         if (get().authProvider === 'legacy') {
-          return null
+          return get().token || null
         }
 
-        await get().syncBackend()
+        try {
+          await get().syncBackend()
+        } catch {
+          return null
+        }
         return get().token
       },
 

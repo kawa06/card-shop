@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
 import { ordersApi, authApi, shippingApi, paymentsApi } from '@/lib/api'
@@ -40,7 +41,8 @@ const COUNTRIES = [
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { isAuthenticated, user, isLoading: isAuthLoading, fetchMe } = useAuthStore()
+  const { isLoggedIn, isReady, user, requireAuth } = useBackendAuth()
+  const { fetchMe } = useAuthStore()
   const { items, total, fetchCart, clearCart } = useCartStore()
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
@@ -245,20 +247,25 @@ export default function CheckoutPage() {
   }, [user])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (!isMounted || !isReady) return
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
-    fetchCart()
-  }, [isMounted, isAuthLoading, isAuthenticated, router, fetchCart])
+    void requireAuth().then((token) => {
+      if (token) {
+        fetchMe()
+        fetchCart()
+      }
+    })
+  }, [isMounted, isReady, isLoggedIn, router, fetchCart, fetchMe, requireAuth])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading || !isAuthenticated) return
-    if (items.length === 0 && !isAuthLoading) {
+    if (!isMounted || !isReady || !isLoggedIn) return
+    if (items.length === 0) {
       router.push('/cart')
     }
-  }, [items, isMounted, isAuthLoading, isAuthenticated, router])
+  }, [items, isMounted, isReady, isLoggedIn, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -389,7 +396,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (!isMounted || isAuthLoading || !isAuthenticated || items.length === 0) return null
+  if (!isMounted || !isReady || !isLoggedIn || items.length === 0) return null
 
   return (
     <div className="min-h-screen bg-white" key={lang}>

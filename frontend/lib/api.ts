@@ -1,5 +1,11 @@
 import axios from 'axios'
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    __retriedAfterAuth?: boolean
+  }
+}
+
 const BASE_URL =
   typeof window !== 'undefined'
     ? '/api'
@@ -14,6 +20,21 @@ export const apiClient = axios.create({
 
 let syncPromise: Promise<string | null> | null = null
 
+const PROTECTED_API_PREFIXES = [
+  '/cart',
+  '/orders',
+  '/favorites',
+  '/payments',
+  '/auth/me',
+  '/auth/password',
+  '/auth/phone',
+  '/auth/request-verification',
+]
+
+function needsBackendAuth(url: string): boolean {
+  return PROTECTED_API_PREFIXES.some((prefix) => url.includes(prefix))
+}
+
 async function resolveRequestToken(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
@@ -22,10 +43,7 @@ async function resolveRequestToken(url: string): Promise<string | null> {
     return null
   }
 
-  const backendToken = localStorage.getItem('auth_token')
-  if (backendToken) return backendToken
-
-  if (url.includes('/cart') || url.includes('/orders') || url.includes('/favorites')) {
+  if (needsBackendAuth(url)) {
     if (!syncPromise) {
       syncPromise = import('@/store/auth')
         .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
@@ -36,7 +54,7 @@ async function resolveRequestToken(url: string): Promise<string | null> {
     return syncPromise
   }
 
-  return null
+  return localStorage.getItem('auth_token')
 }
 
 // Request interceptor to add auth token
@@ -54,10 +72,33 @@ apiClient.interceptors.request.use(async (config) => {
   return config
 })
 
-// Response interceptor: admin auth is handled by the Next.js proxy (cookies).
+// Response interceptor: retry once after re-sync when backend JWT is stale.
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error)
+  async (error) => {
+    const config = error?.config
+    const status = error?.response?.status
+    const url = typeof config?.url === 'string' ? config.url : ''
+
+    if (
+      status === 401 &&
+      config &&
+      !config.__retriedAfterAuth &&
+      needsBackendAuth(url)
+    ) {
+      config.__retriedAfterAuth = true
+      const { useAuthStore } = await import('@/store/auth')
+      useAuthStore.getState().clearBackendToken()
+      const token = await useAuthStore.getState().ensureBackendAuth({ force: true })
+      if (token) {
+        config.headers = config.headers || {}
+        config.headers.Authorization = `Bearer ${token}`
+        return apiClient.request(config)
+      }
+    }
+
+    return Promise.reject(error)
+  }
 )
 
 function normalizeCardListParams(params?: {

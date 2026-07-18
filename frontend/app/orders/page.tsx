@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Package, ChevronDown, ChevronUp } from 'lucide-react'
-import { useAuthStore } from '@/store/auth'
+import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { ordersApi } from '@/lib/api'
 import { Order } from '@/lib/types'
 import { usePrice } from '@/lib/format'
@@ -42,7 +42,7 @@ const statusColors: Record<string, string> = {
 
 export default function OrdersPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
@@ -55,18 +55,25 @@ export default function OrdersPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
+    if (!isMounted || !isReady) return
 
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
-    ordersApi.getAll().then((res) => {
-      setOrders(res.data || [])
-    }).catch(() => {}).finally(() => setIsLoading(false))
-  }, [isMounted, isAuthLoading, isAuthenticated, router])
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+    void requireAuth().then((token) => {
+      if (!token) {
+        router.push('/sign-in')
+        return
+      }
+      ordersApi.getAll().then((res) => {
+        setOrders(res.data || [])
+      }).catch(() => {}).finally(() => setIsLoading(false))
+    })
+  }, [isMounted, isReady, isLoggedIn, router, requireAuth])
+
+  if (!isMounted || !isReady || !isLoggedIn) return null
 
   if (isLoading) {
     return (
