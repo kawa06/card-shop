@@ -7,7 +7,7 @@ import { ArrowLeft, RefreshCw, ExternalLink, Shield, Globe, Truck, Edit2, Save, 
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { shippingApi } from '@/lib/api'
+import { shippingApi, adminApi } from '@/lib/api'
 import { ShippingRate } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,7 +61,7 @@ export default function AdminShippingPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
-      await shippingApi.refreshRates()
+      await adminApi.refreshShippingRates()
       toast({ title: 'Success', description: 'Shipping rates updated from official sources' })
       await fetchRates()
     } catch (err) {
@@ -79,7 +79,7 @@ export default function AdminShippingPage() {
     if (!editingRate) return
     setIsSaving(true)
     try {
-      await shippingApi.updateRate(editingRate.method_code, editingRate)
+      await adminApi.updateShippingRate(editingRate.method_code, editingRate)
       toast({ title: 'Success', description: 'Shipping rate updated successfully' })
       setEditingRate(null)
       fetchRates()

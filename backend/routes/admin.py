@@ -11,6 +11,7 @@ import schemas
 from routes.cards import _apply_card_search
 from services.db_persist import PersistDep, safe_commit
 from services.image_upload import save_uploaded_image
+from services.shipping_rates import refresh_all_rates
 
 router = APIRouter(
     prefix="/api/admin",
@@ -358,6 +359,39 @@ def admin_update_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     order.status = payload.status
-    safe_commit(db, action="カード作成")
+    safe_commit(db, action="注文ステータス更新")
     db.refresh(order)
     return order
+
+
+# ──────────────────────── Shipping ───────────────────────────
+
+@router.patch("/shipping-rates/{method_code}", response_model=schemas.ShippingRateOut)
+def admin_update_shipping_rate(
+    method_code: str,
+    rate_update: schemas.ShippingRateUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    db_rate = db.query(models.ShippingRate).filter(
+        models.ShippingRate.method_code == method_code
+    ).first()
+    if not db_rate:
+        raise HTTPException(status_code=404, detail="Shipping rate not found")
+
+    update_data = rate_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_rate, key, value)
+
+    safe_commit(db, action="送料更新")
+    db.refresh(db_rate)
+    return db_rate
+
+
+@router.post("/shipping-rates/refresh")
+async def admin_refresh_shipping_rates(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    await refresh_all_rates(db)
+    return {"message": "Shipping rates refreshed"}

@@ -306,6 +306,11 @@ export const adminApi = {
 
   // Users
   getAllUsers: () => apiClient.get('/admin/users'),
+
+  // Shipping (admin proxy auth)
+  updateShippingRate: (methodCode: string, data: Partial<import('./types').ShippingRate>) =>
+    apiClient.patch(`/admin/shipping-rates/${methodCode}`, data),
+  refreshShippingRates: () => apiClient.post('/admin/shipping-rates/refresh'),
 }
 
 // Exchange API
