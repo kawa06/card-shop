@@ -7,7 +7,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'web-production-97eff.up.railway.app',
+        hostname: 'backend-production-054e.up.railway.app',
       },
       {
         protocol: 'https',
@@ -16,7 +16,7 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://web-production-97eff.up.railway.app'
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-054e.up.railway.app'
     // fallback: App Router API routes (/api/admin, /api/auth/backend-sync) win first.
     return {
       fallback: [

@@ -3,7 +3,7 @@ import axios from 'axios'
 const BASE_URL =
   typeof window !== 'undefined'
     ? '/api'
-    : `${process.env.NEXT_PUBLIC_API_URL || 'https://web-production-97eff.up.railway.app'}/api`
+    : `${process.env.NEXT_PUBLIC_API_URL || 'https://backend-production-054e.up.railway.app'}/api`
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,

@@ -6,7 +6,7 @@ function getBackendUrl() {
   return (
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.API_URL ||
-    'https://web-production-97eff.up.railway.app'
+    'https://backend-production-054e.up.railway.app'
   ).replace(/\/$/, '')
 }
 

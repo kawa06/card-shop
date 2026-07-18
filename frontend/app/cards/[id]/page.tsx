@@ -3,7 +3,7 @@ import CardDetailClient from './CardDetailClient'
 
 async function getCard(id: string) {
   try {
-    const res = await fetch(`https://web-production-97eff.up.railway.app/api/cards/${id}`, {
+    const res = await fetch(`https://backend-production-054e.up.railway.app/api/cards/${id}`, {
       next: { revalidate: 3600 }
     })
     if (!res.ok) return null
