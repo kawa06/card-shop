@@ -7,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
 
 from database import get_db
 from auth import get_current_admin
@@ -17,6 +18,7 @@ from services.db_persist import PersistDep, safe_commit
 from services.image_upload import save_uploaded_image
 from services.shipping_rates import refresh_all_rates
 from services.order_checkout import cancel_unpaid_order, extend_payment_deadline, fulfill_order_inventory
+from services.order_emails import send_purchase_confirmation_email, send_shipping_completion_email
 
 router = APIRouter(
     prefix="/api/admin",
@@ -329,6 +331,38 @@ def admin_delete_announcement(
 
 # ──────────────────────── Orders ─────────────────────────────
 
+_SHIPPING_TO_LEGACY_STATUS = {
+    "unshipped": models.OrderStatus.pending,
+    "preparing": models.OrderStatus.processing,
+    "shipped": models.OrderStatus.shipped,
+    "delivered": models.OrderStatus.delivered,
+    "cancelled": models.OrderStatus.cancelled,
+}
+
+
+def _order_query_options():
+    return (
+        joinedload(models.Order.items).joinedload(models.OrderItem.card),
+        joinedload(models.Order.user),
+    )
+
+
+def _to_admin_order(order: models.Order) -> schemas.AdminOrderOut:
+    base = schemas.OrderOut.model_validate(order)
+    user = order.user
+    return schemas.AdminOrderOut(
+        **base.model_dump(),
+        buyer_name=user.name if user else None,
+        buyer_email=user.email if user else None,
+    )
+
+
+def _sync_legacy_status_from_shipping(order: models.Order) -> None:
+    target = _SHIPPING_TO_LEGACY_STATUS.get(order.shipping_status or "")
+    if target is not None:
+        order.status = target
+
+
 @router.get("/users", response_model=list[schemas.UserOut])
 def admin_list_users(
     db: Session = Depends(get_db),
@@ -337,18 +371,18 @@ def admin_list_users(
     return db.query(models.User).order_by(models.User.created_at.desc()).all()
 
 
-@router.get("/orders", response_model=list[schemas.OrderOut])
+@router.get("/orders", response_model=list[schemas.AdminOrderOut])
 def admin_list_orders(
     status: Optional[str] = None,
     payment_status: Optional[str] = None,
+    shipping_status: Optional[str] = None,
+    q: Optional[str] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
     query = (
         db.query(models.Order)
-        .options(
-            joinedload(models.Order.items).joinedload(models.OrderItem.card),
-        )
+        .options(*_order_query_options())
         .order_by(models.Order.created_at.desc())
     )
     if status:
@@ -359,23 +393,78 @@ def admin_list_orders(
             raise HTTPException(status_code=400, detail="無効なステータスです")
     if payment_status:
         query = query.filter(models.Order.payment_status == payment_status)
-    return query.all()
+    if shipping_status:
+        query = query.filter(models.Order.shipping_status == shipping_status)
+    if q:
+        term = q.strip()
+        if term:
+            query = query.join(models.User)
+            filters = [
+                models.Order.order_number.ilike(f"%{term}%"),
+                models.Order.tracking_number.ilike(f"%{term}%"),
+                models.User.name.ilike(f"%{term}%"),
+                models.User.email.ilike(f"%{term}%"),
+            ]
+            if term.isdigit():
+                filters.append(models.Order.id == int(term))
+            query = query.filter(or_(*filters))
+    orders = query.all()
+    return [_to_admin_order(o) for o in orders]
 
 
-@router.put("/orders/{order_id}/status", response_model=schemas.OrderOut)
+@router.put("/orders/{order_id}/status", response_model=schemas.AdminOrderOut)
 def admin_update_order_status(
     order_id: int,
     payload: schemas.OrderStatusUpdate,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    order = (
+        db.query(models.Order)
+        .options(*_order_query_options())
+        .filter(models.Order.id == order_id)
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     order.status = payload.status
     safe_commit(db, action="注文ステータス更新")
     db.refresh(order)
-    return order
+    return _to_admin_order(order)
+
+
+@router.patch("/orders/{order_id}/shipping", response_model=schemas.AdminOrderOut)
+def admin_update_order_shipping(
+    order_id: int,
+    payload: schemas.OrderShippingUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = (
+        db.query(models.Order)
+        .options(*_order_query_options())
+        .filter(models.Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "shipping_status" in data and data["shipping_status"]:
+        allowed = {s.value for s in models.ShippingStatus}
+        if data["shipping_status"] not in allowed:
+            raise HTTPException(status_code=400, detail="無効な発送ステータスです")
+
+    for field, value in data.items():
+        setattr(order, field, value)
+
+    if order.shipping_status == "shipped" and order.shipped_at is None:
+        order.shipped_at = datetime.utcnow()
+
+    _sync_legacy_status_from_shipping(order)
+    safe_commit(db, action="発送情報更新")
+    db.refresh(order)
+    return _to_admin_order(order)
 
 
 @router.post("/orders/{order_id}/confirm-payment", response_model=schemas.OrderOut)
@@ -390,6 +479,52 @@ def admin_confirm_payment(
     if order.payment_status != "awaiting_payment":
         raise HTTPException(status_code=400, detail="入金待ちの注文のみ入金確認できます")
     return fulfill_order_inventory(db, order_id)
+
+
+@router.post("/orders/{order_id}/send-purchase-email", response_model=schemas.OrderOut)
+def admin_send_purchase_email(
+    order_id: int,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    """Manually send purchase confirmation (fallback if Stripe auto-send failed)."""
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    if order.payment_status != "paid":
+        raise HTTPException(status_code=400, detail="支払い済みの注文のみ送信できます")
+    ok, err = send_purchase_confirmation_email(db, order_id, force=force)
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    db.refresh(order)
+    return order
+
+
+@router.post("/orders/{order_id}/send-shipping-email", response_model=schemas.AdminOrderOut)
+def admin_send_shipping_email(
+    order_id: int,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    """Send shipping completion email with tracking info (requires tracking number)."""
+    order = (
+        db.query(models.Order)
+        .options(*_order_query_options())
+        .filter(models.Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    if order.payment_status != "paid":
+        raise HTTPException(status_code=400, detail="支払い済みの注文のみ送信できます")
+    ok, err = send_shipping_completion_email(db, order_id, force=force)
+    if not ok:
+        status_code = 400 if err and "追跡番号" in err else 502
+        raise HTTPException(status_code=status_code, detail=err or "メール送信に失敗しました")
+    db.refresh(order)
+    return _to_admin_order(order)
 
 
 @router.post("/orders/{order_id}/cancel", response_model=schemas.OrderOut)

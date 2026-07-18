@@ -16,6 +16,14 @@ class OrderStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class ShippingStatus(str, enum.Enum):
+    unshipped = "unshipped"
+    preparing = "preparing"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
+
+
 class User(Base):
     """User model with full address support for Japan standards"""
     __tablename__ = "users"
@@ -146,6 +154,17 @@ class Order(Base):
     payment_method = Column(String(50), nullable=True)
     payment_status = Column(String(50), default="pending")
     stripe_checkout_session_id = Column(String(255), nullable=True)
+    stripe_payment_intent_id = Column(String(255), nullable=True)
+    stripe_event_id = Column(String(255), nullable=True)
+    order_number = Column(String(32), unique=True, nullable=True, index=True)
+    shipping_status = Column(String(32), default="unshipped")
+    shipping_carrier = Column(String(100), nullable=True)
+    tracking_number = Column(String(100), nullable=True, index=True)
+    shipped_at = Column(DateTime, nullable=True)
+    purchase_email_sent_at = Column(DateTime, nullable=True)
+    shipping_email_sent_at = Column(DateTime, nullable=True)
+    email_send_status = Column(String(50), nullable=True)
+    admin_note = Column(Text, nullable=True)
     payment_deadline = Column(DateTime, nullable=True)
     stock_reserved = Column(Boolean, default=False)
     paid_at = Column(DateTime, nullable=True)
@@ -154,6 +173,23 @@ class Order(Base):
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+class OrderNumberSequence(Base):
+    __tablename__ = "order_number_sequences"
+
+    seq_date = Column(String(8), primary_key=True)
+    last_seq = Column(Integer, nullable=False, default=0)
+
+
+class StripeProcessedEvent(Base):
+    __tablename__ = "stripe_processed_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(String(255), unique=True, nullable=False, index=True)
+    event_type = Column(String(100), nullable=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    processed_at = Column(DateTime, default=datetime.utcnow)
 
 
 class OrderItem(Base):

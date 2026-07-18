@@ -17,7 +17,9 @@ from services.order_checkout import (
     resolve_shipping_fee,
     validate_shipping_method,
 )
+from services.stripe_events import claim_stripe_event, save_stripe_payment_refs
 from services.countries import is_domestic_japan
+from config import settings
 from services.stripe_service import (
     build_line_items,
     construct_webhook_event,
@@ -49,6 +51,30 @@ def _order_id_from_session(session) -> int | None:
     return int(order_id)
 
 
+def _payment_intent_from_session(session) -> str | None:
+    pi = _session_value(session, "payment_intent")
+    if isinstance(pi, str):
+        return pi
+    if pi is not None:
+        return getattr(pi, "id", None) or str(pi)
+    return None
+
+
+def _fulfill_paid_order(
+    db: Session,
+    order_id: int,
+    session,
+    *,
+    stripe_event_id: str | None = None,
+) -> models.Order:
+    return fulfill_order_inventory(
+        db,
+        order_id,
+        stripe_payment_intent_id=_payment_intent_from_session(session),
+        stripe_event_id=stripe_event_id,
+    )
+
+
 def _handle_bank_transfer_pending(db: Session, order: models.Order) -> models.Order:
     order.payment_method = "stripe_bank_transfer"
     order.payment_status = "awaiting_payment"
@@ -68,10 +94,12 @@ def _handle_bank_transfer_pending(db: Session, order: models.Order) -> models.Or
 @router.get("/stripe/config")
 def stripe_public_config():
     valid = stripe_key_valid()
+    inv = (settings.INVOICE_REGISTRATION_NUMBER or "").strip()
     return {
         "enabled": valid,
         "publishable_key": None,
         "bank_transfer_enabled": valid,
+        "invoice_registration_number": inv or None,
     }
 
 
@@ -175,7 +203,7 @@ def confirm_stripe_checkout(
         raise HTTPException(status_code=404, detail="注文が見つかりません")
 
     if _session_value(session, "payment_status") == "paid":
-        fulfilled = fulfill_order_inventory(db, order.id)
+        fulfilled = _fulfill_paid_order(db, order.id, session)
         return {
             "order": fulfilled,
             "payment_status": fulfilled.payment_status or "paid",
@@ -203,6 +231,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     event = construct_webhook_event(payload, request.headers.get("stripe-signature"))
     event_type = event["type"]
+    event_id = event.get("id")
     session = event["data"]["object"]
 
     if event_type == "checkout.session.completed":
@@ -210,25 +239,37 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
         if not order_id:
             return {"received": True}
 
+        if not claim_stripe_event(db, event_id, event_type, order_id):
+            db.commit()
+            return {"received": True}
+
         if _session_value(session, "payment_status") == "paid":
-            fulfill_order_inventory(db, order_id)
+            _fulfill_paid_order(db, order_id, session, stripe_event_id=event_id)
         elif _session_value(session, "payment_status") == "unpaid":
             checkout_type = _metadata_value(session, "checkout_type")
             if checkout_type == "bank_transfer":
                 order = db.query(models.Order).filter(models.Order.id == order_id).first()
                 if order and order.payment_status != "paid":
+                    save_stripe_payment_refs(order, payment_intent_id=_payment_intent_from_session(session))
                     _handle_bank_transfer_pending(db, order)
+        db.commit()
 
     elif event_type == "checkout.session.async_payment_succeeded":
         order_id = _order_id_from_session(session)
         if order_id:
-            fulfill_order_inventory(db, order_id)
+            if not claim_stripe_event(db, event_id, event_type, order_id):
+                db.commit()
+                return {"received": True}
+            _fulfill_paid_order(db, order_id, session, stripe_event_id=event_id)
+            db.commit()
 
     elif event_type in {"checkout.session.async_payment_failed", "checkout.session.expired"}:
         order_id = _order_id_from_session(session)
         if order_id:
-            order = db.query(models.Order).filter(models.Order.id == order_id).first()
-            if order and order.payment_status != "paid":
-                cancel_unpaid_order(db, order)
+            if claim_stripe_event(db, event_id, event_type, order_id):
+                order = db.query(models.Order).filter(models.Order.id == order_id).first()
+                if order and order.payment_status != "paid":
+                    cancel_unpaid_order(db, order)
+            db.commit()
 
     return {"received": True}

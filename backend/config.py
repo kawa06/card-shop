@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     MAIL_USERNAME: Optional[str] = None
     MAIL_PASSWORD: Optional[str] = None
     MAIL_FROM: str = "noreply@oripa-kawa.com"
+    MAIL_REPLY_TO: str = "oripakawa@gmail.com"
     MAIL_PORT: int = 465
     MAIL_SERVER: str = "smtp.gmail.com"
     MAIL_FROM_NAME: str = "KRX TCG"
@@ -89,6 +90,9 @@ class Settings(BaseSettings):
 
     # Bank transfer: payment deadline hours from order creation
     BANK_TRANSFER_PAYMENT_DEADLINE_HOURS: int = 48
+
+    # Optional qualified invoice registration number (empty = do not show on receipts)
+    INVOICE_REGISTRATION_NUMBER: str = ""
 
     # Twilio SMS (Verify API)
     TWILIO_ACCOUNT_SID: Optional[str] = None

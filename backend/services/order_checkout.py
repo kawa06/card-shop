@@ -7,13 +7,15 @@ from datetime import datetime, timedelta
 from typing import Iterable
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 import models
 from config import settings
 from services.shipping_rates import calculate_shipping_fee
 from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
 from services.shipping_display import normalize_method_code
+from services.order_number import assign_order_number
+from services.order_emails import try_auto_purchase_email_after_payment
 
 BANK_TRANSFER_METHODS = {"stripe_bank_transfer", "bank_transfer"}
 TERMINAL_PAYMENT_STATUSES = {"paid", "cancelled", "expired"}
@@ -210,8 +212,19 @@ def apply_inventory_for_order(db: Session, order: models.Order) -> None:
 def fulfill_order_inventory(
     db: Session,
     order_id: int,
+    *,
+    stripe_payment_intent_id: str | None = None,
+    stripe_event_id: str | None = None,
 ) -> models.Order:
-    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    order = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.items).joinedload(models.OrderItem.card),
+            joinedload(models.Order.user),
+        )
+        .filter(models.Order.id == order_id)
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
 
@@ -228,8 +241,18 @@ def fulfill_order_inventory(
 
     order.payment_status = "paid"
     order.status = models.OrderStatus.processing
+    order.shipping_status = "preparing"
     order.paid_at = datetime.utcnow()
+    if stripe_payment_intent_id:
+        order.stripe_payment_intent_id = stripe_payment_intent_id
+    if stripe_event_id:
+        order.stripe_event_id = stripe_event_id
+
+    assign_order_number(db, order)
     db.commit()
+    db.refresh(order)
+
+    try_auto_purchase_email_after_payment(db, order)
     db.refresh(order)
     return order
 

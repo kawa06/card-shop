@@ -27,6 +27,63 @@ def run_schema_upgrades() -> None:
     _add_column_if_missing("categories", "name_en", "VARCHAR(100)")
     _add_column_if_missing("packs", "name_en", "VARCHAR(100)")
     _add_column_if_missing("cards", "price_usd", "FLOAT")
+    _migrate_order_management_columns()
+    _create_table_if_missing("order_number_sequences", models.OrderNumberSequence)
+    _create_table_if_missing("stripe_processed_events", models.StripeProcessedEvent)
+
+
+def _migrate_order_management_columns() -> None:
+    order_cols = [
+        ("order_number", "VARCHAR(32)"),
+        ("stripe_payment_intent_id", "VARCHAR(255)"),
+        ("stripe_event_id", "VARCHAR(255)"),
+        ("shipping_status", "VARCHAR(32) DEFAULT 'unshipped'"),
+        ("shipping_carrier", "VARCHAR(100)"),
+        ("tracking_number", "VARCHAR(100)"),
+        ("shipped_at", "DATETIME"),
+        ("purchase_email_sent_at", "DATETIME"),
+        ("shipping_email_sent_at", "DATETIME"),
+        ("email_send_status", "VARCHAR(50)"),
+        ("admin_note", "TEXT"),
+    ]
+    for col, col_type in order_cols:
+        _add_column_if_missing("orders", col, col_type)
+    _backfill_shipping_status()
+
+
+def _backfill_shipping_status() -> None:
+    """Map legacy order.status to shipping_status for existing rows."""
+    from sqlalchemy.orm import sessionmaker
+
+    import models
+
+    inspector = inspect(engine)
+    if "orders" not in inspector.get_table_names():
+        return
+
+    mapping = {
+        "pending": "unshipped",
+        "processing": "preparing",
+        "shipped": "shipped",
+        "delivered": "delivered",
+        "cancelled": "cancelled",
+    }
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            updated = 0
+            for order in db.query(models.Order).all():
+                status_val = order.status.value if hasattr(order.status, "value") else str(order.status)
+                target = mapping.get(status_val, "unshipped")
+                if order.shipping_status != target and status_val != "pending":
+                    order.shipping_status = target
+                    updated += 1
+            if updated:
+                db.commit()
+                logger.info("Backfilled shipping_status on %s orders", updated)
+        except Exception as exc:
+            db.rollback()
+            logger.error("shipping_status backfill failed: %s", exc)
 
 
 def _ensure_table_exists(inspector, table_name: str) -> None:

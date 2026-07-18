@@ -10,6 +10,8 @@ import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
+import { Order } from '@/lib/types'
+import { OrderReceiptDialog } from '@/components/orders/OrderReceiptDialog'
 
 export default function CheckoutSuccessPage() {
   return (
@@ -28,9 +30,11 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const { clearCart, fetchCart } = useCartStore()
-  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
+  const { isLoggedIn, isReady, requireAuth, user } = useBackendAuth()
   const { lang } = useLangStore()
+  const [order, setOrder] = useState<Order | null>(null)
   const [orderId, setOrderId] = useState<number | null>(null)
+  const [orderNumber, setOrderNumber] = useState<string | null>(null)
   const [paymentDeadline, setPaymentDeadline] = useState<string | null>(null)
   const [pendingBankTransfer, setPendingBankTransfer] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -60,7 +64,10 @@ function CheckoutSuccessContent() {
       paymentsApi
         .confirmStripeCheckout(sessionId)
         .then((res) => {
-          setOrderId(res.data.order.id)
+          const confirmedOrder = res.data.order as Order
+          setOrder(confirmedOrder)
+          setOrderId(confirmedOrder.id)
+          setOrderNumber(confirmedOrder.order_number || null)
           setPendingBankTransfer(Boolean(res.data.pending_bank_transfer))
           const deadline = res.data.order?.payment_deadline
           if (deadline) setPaymentDeadline(deadline)
@@ -95,7 +102,7 @@ function CheckoutSuccessContent() {
               {lang === 'ja' ? '銀行振込のお手続きを受け付けました' : 'Bank transfer instructions received'}
             </h1>
             <p className="text-gray-600 text-sm leading-relaxed">
-              {t('注文番号', lang)}: #{orderId}
+              {lang === 'ja' ? '受付ID' : 'Reference'}: #{orderId}
             </p>
             <p className="text-gray-600 text-sm leading-relaxed">
               {lang === 'ja'
@@ -127,10 +134,28 @@ function CheckoutSuccessContent() {
           <>
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
             <h1 className="text-2xl font-bold text-gray-900">{t('決済が完了しました', lang)}</h1>
-            <p className="text-gray-600">
-              {t('注文番号', lang)}: #{orderId}
+            {orderNumber ? (
+              <p className="text-gray-900 font-bold text-lg">{t('注文番号', lang)}: {orderNumber}</p>
+            ) : (
+              <p className="text-gray-600">{t('注文番号', lang)}: #{orderId}</p>
+            )}
+            <p className="text-gray-500 text-sm">
+              {lang === 'ja'
+                ? 'ご登録のメールアドレスに購入完了メールをお送りしました。'
+                : 'A purchase confirmation email has been sent to your registered address.'}
             </p>
             <div className="flex flex-col gap-3 pt-4">
+              {order && (user?.name || user?.email) && (
+                <OrderReceiptDialog
+                  order={order}
+                  buyerName={user.name || user.email.split('@')[0]}
+                  trigger={
+                    <Button variant="outline" className="w-full">
+                      {lang === 'ja' ? '領収書・購入明細' : 'Receipt / Statement'}
+                    </Button>
+                  }
+                />
+              )}
               <Link href="/orders">
                 <Button className="w-full bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold">
                   {t('注文履歴を見る', lang)}

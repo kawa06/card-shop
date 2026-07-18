@@ -10,6 +10,8 @@ import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
+import { OrderReceiptDialog } from '@/components/orders/OrderReceiptDialog'
+import { buildTrackingUrl } from '@/lib/tracking'
 
 const statusLabels: Record<string, string> = {
   pending: '処理中',
@@ -17,6 +19,8 @@ const statusLabels: Record<string, string> = {
   shipped: '発送済み',
   delivered: '配達完了',
   cancelled: 'キャンセル',
+  unshipped: '未発送',
+  preparing: '準備中',
 }
 
 const paymentStatusLabels: Record<string, string> = {
@@ -40,11 +44,13 @@ const statusColors: Record<string, string> = {
   shipped: 'text-purple-400',
   delivered: 'text-green-400',
   cancelled: 'text-red-400',
+  unshipped: 'text-gray-400',
+  preparing: 'text-blue-400',
 }
 
 export default function OrdersPage() {
   const router = useRouter()
-  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
+  const { isLoggedIn, isReady, requireAuth, user } = useBackendAuth()
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
@@ -102,8 +108,9 @@ export default function OrdersPage() {
 
         <div className="space-y-3">
           {orders.map((order) => {
-            const statusLabel = statusLabels[order.status] || order.status
-            const statusColor = statusColors[order.status] || 'text-gray-400'
+            const displayStatus = order.shipping_status || order.status
+            const statusLabel = statusLabels[displayStatus] || displayStatus
+            const statusColor = statusColors[displayStatus] || 'text-gray-400'
             const isExpanded = expandedId === order.id
 
             return (
@@ -114,7 +121,14 @@ export default function OrdersPage() {
                 >
                   <div className="flex items-center gap-4">
                     <div>
-                      <p className="text-gray-900 font-medium">{t('注文番号', lang)} #{order.id}</p>
+                      <p className="text-gray-900 font-medium">
+                        {order.order_number
+                          ? `${t('注文番号', lang)}: ${order.order_number}`
+                          : `${t('注文番号', lang)} #${order.id}`}
+                      </p>
+                      {order.order_number && (
+                        <p className="text-gray-400 text-xs">ID #{order.id}</p>
+                      )}
                       <p className="text-gray-500 text-sm">
                         {new Date(order.created_at).toLocaleDateString(lang === 'ja' ? 'ja-JP' : 'en-US')}
                       </p>
@@ -160,6 +174,38 @@ export default function OrdersPage() {
                         {order.stock_reserved && order.payment_status === 'awaiting_payment' && (
                           <p className="text-orange-600/80 text-xs">{t('商品は取り置き中です。期限内にお振込みください。', lang)}</p>
                         )}
+                        {order.tracking_number && (() => {
+                          const trackingUrl = buildTrackingUrl(
+                            order.tracking_number,
+                            order.shipping_method,
+                            order.shipping_carrier
+                          )
+                          return (
+                            <p className="text-purple-600 text-xs font-mono">
+                              {lang === 'ja' ? '追跡番号' : 'Tracking'}:{' '}
+                              {trackingUrl ? (
+                                <a
+                                  href={trackingUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline hover:text-purple-800"
+                                >
+                                  {order.tracking_number}
+                                </a>
+                              ) : (
+                                order.tracking_number
+                              )}
+                            </p>
+                          )
+                        })()}
+                      </div>
+                    )}
+                    {order.payment_status === 'paid' && (user?.name || user?.email) && (
+                      <div className="border-t border-gray-200 pt-3">
+                        <OrderReceiptDialog
+                          order={order}
+                          buyerName={user.name || user.email.split('@')[0]}
+                        />
                       </div>
                     )}
                   </div>

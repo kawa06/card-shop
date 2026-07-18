@@ -107,9 +107,22 @@ export interface Order {
   payment_deadline: string | null
   stock_reserved: boolean
   paid_at: string | null
+  order_number: string | null
+  stripe_payment_intent_id: string | null
+  shipping_status: string | null
+  shipping_carrier: string | null
+  tracking_number: string | null
+  shipped_at: string | null
+  purchase_email_sent_at: string | null
+  shipping_email_sent_at: string | null
+  email_send_status: string | null
+  admin_note: string | null
   click_post_csv_exported_at: string | null
   created_at: string
   items: OrderItem[]
+  /** Admin list only */
+  buyer_name?: string | null
+  buyer_email?: string | null
 }
 
 export interface AdminClickPostOrder {

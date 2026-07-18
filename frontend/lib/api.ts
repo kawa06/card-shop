@@ -314,12 +314,29 @@ export const adminApi = {
   deletePack: (id: number) => apiClient.delete(`/admin/packs/${id}`),
 
   // Orders
-  getAllOrders: (params?: { payment_status?: string }) =>
-    apiClient.get('/admin/orders', { params }),
+  getAllOrders: (params?: {
+    payment_status?: string
+    shipping_status?: string
+    q?: string
+  }) => apiClient.get('/admin/orders', { params }),
   updateOrderStatus: (id: number, status: string) =>
     apiClient.put(`/admin/orders/${id}/status`, { status }),
+  updateOrderShipping: (
+    id: number,
+    data: {
+      shipping_status?: string
+      shipping_carrier?: string | null
+      tracking_number?: string | null
+      shipped_at?: string | null
+      admin_note?: string | null
+    }
+  ) => apiClient.patch(`/admin/orders/${id}/shipping`, data),
   confirmOrderPayment: (id: number) =>
     apiClient.post(`/admin/orders/${id}/confirm-payment`),
+  sendPurchaseEmail: (id: number, force = false) =>
+    apiClient.post(`/admin/orders/${id}/send-purchase-email`, null, { params: { force } }),
+  sendShippingEmail: (id: number, force = false) =>
+    apiClient.post(`/admin/orders/${id}/send-shipping-email`, null, { params: { force } }),
   cancelOrder: (id: number) =>
     apiClient.post(`/admin/orders/${id}/cancel`),
   extendPaymentDeadline: (id: number, hours: number) =>

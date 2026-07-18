@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Search } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { Order } from '@/lib/types'
@@ -10,14 +10,12 @@ import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/use-toast'
-
-const fulfillmentStatusOptions = [
-  { value: 'pending', label: '処理中' },
-  { value: 'processing', label: '準備中' },
-  { value: 'shipped', label: '発送済み' },
-  { value: 'delivered', label: '配達完了' },
-  { value: 'cancelled', label: 'キャンセル' },
-]
+import {
+  AdminOrderShippingForm,
+  shippingStatusColors,
+  shippingStatusLabel,
+} from '@/components/admin/AdminOrderShippingForm'
+import { AdminSendShippingEmailButton } from '@/components/admin/AdminSendShippingEmailButton'
 
 const paymentStatusLabels: Record<string, string> = {
   awaiting_payment: '入金待ち',
@@ -32,14 +30,6 @@ const paymentStatusColors: Record<string, string> = {
   paid: 'text-green-600 bg-green-500/10 border-green-500/30',
   expired: 'text-gray-500 bg-gray-500/10 border-gray-500/30',
   cancelled: 'text-red-500 bg-red-500/10 border-red-500/30',
-}
-
-const fulfillmentStatusColors: Record<string, string> = {
-  pending: 'text-yellow-400',
-  processing: 'text-blue-400',
-  shipped: 'text-purple-400',
-  delivered: 'text-green-400',
-  cancelled: 'text-red-400',
 }
 
 function formatDeadline(deadline: string | null): string {
@@ -60,6 +50,9 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [isMounted, setIsMounted] = useState(false)
   const [paymentFilter, setPaymentFilter] = useState<string>('')
+  const [shippingFilter, setShippingFilter] = useState<string>('')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [extendHours, setExtendHours] = useState<Record<number, string>>({})
   const [actionLoading, setActionLoading] = useState<number | null>(null)
 
@@ -68,33 +61,35 @@ export default function AdminOrdersPage() {
   }, [])
 
   useEffect(() => {
-    if (!isMounted || !isReady) return
-    fetchAll()
-  }, [isMounted, isReady, paymentFilter])
+    const timer = window.setTimeout(() => setSearchQuery(searchInput.trim()), 400)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params = paymentFilter ? { payment_status: paymentFilter } : undefined
+      const params: {
+        payment_status?: string
+        shipping_status?: string
+        q?: string
+      } = {}
+      if (paymentFilter) params.payment_status = paymentFilter
+      if (shippingFilter) params.shipping_status = shippingFilter
+      if (searchQuery) params.q = searchQuery
       const res = await adminApi.getAllOrders(params)
       setOrders(res.data || [])
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [paymentFilter, shippingFilter, searchQuery])
 
-  const handleStatusChange = async (orderId: number, newStatus: string) => {
-    try {
-      await adminApi.updateOrderStatus(orderId, newStatus)
-      toast({ title: '発送ステータスを更新しました' })
-      fetchAll()
-    } catch {
-      toast({ title: 'エラー', description: '更新に失敗しました', variant: 'destructive' })
-    }
-  }
+  useEffect(() => {
+    if (!isMounted || !isReady) return
+    void fetchAll()
+  }, [isMounted, isReady, fetchAll])
 
   const handleConfirmPayment = async (orderId: number) => {
-    if (!confirm('入金を確認し、支払い済みにしますか？')) return
+    if (!confirm('入金を確認し、支払い済みにしますか？\n（注文番号発行・購入完了メール送信を含みます）')) return
     setActionLoading(orderId)
     try {
       await adminApi.confirmOrderPayment(orderId)
@@ -102,6 +97,21 @@ export default function AdminOrdersPage() {
       fetchAll()
     } catch {
       toast({ title: 'エラー', description: '入金確認に失敗しました', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleSendPurchaseEmail = async (orderId: number, force = false) => {
+    if (force && !confirm('購入完了メールを再送しますか？')) return
+    if (!force && !confirm('購入完了メールを送信しますか？')) return
+    setActionLoading(orderId)
+    try {
+      await adminApi.sendPurchaseEmail(orderId, force)
+      toast({ title: force ? 'メールを再送しました' : '購入完了メールを送信しました' })
+      fetchAll()
+    } catch {
+      toast({ title: 'エラー', description: 'メール送信に失敗しました', variant: 'destructive' })
     } finally {
       setActionLoading(null)
     }
@@ -143,13 +153,25 @@ export default function AdminOrdersPage() {
   return (
     <div className="min-h-screen bg-white">
       <div className="container py-8 max-w-5xl">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <Link href="/admin">
             <Button variant="ghost" size="icon" className="text-gray-400 hover:text-gray-900">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 flex-1">注文管理</h1>
+        </div>
+
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 mb-6">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="注文番号・氏名・メール・追跡番号・ID"
+              className="pl-9 bg-white"
+            />
+          </div>
           <select
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value)}
@@ -159,6 +181,18 @@ export default function AdminOrdersPage() {
             <option value="awaiting_payment">入金待ち</option>
             <option value="paid">支払い済み</option>
             <option value="expired">期限切れ</option>
+            <option value="cancelled">キャンセル</option>
+          </select>
+          <select
+            value={shippingFilter}
+            onChange={(e) => setShippingFilter(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">すべての発送状態</option>
+            <option value="unshipped">未発送</option>
+            <option value="preparing">準備中</option>
+            <option value="shipped">発送済み</option>
+            <option value="delivered">配達完了</option>
             <option value="cancelled">キャンセル</option>
           </select>
         </div>
@@ -173,41 +207,60 @@ export default function AdminOrdersPage() {
               {orders.map((order) => {
                 const isExpanded = expandedId === order.id
                 const ps = order.payment_status || 'pending'
+                const ss = order.shipping_status || 'unshipped'
                 const isBankTransfer = order.payment_method === 'stripe_bank_transfer'
                 const canManagePayment = ps === 'awaiting_payment' && isBankTransfer
 
                 return (
                   <div key={order.id}>
                     <div className="flex flex-wrap items-center gap-3 p-4">
-                      <button onClick={() => setExpandedId(isExpanded ? null : order.id)} className="text-gray-400">
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : order.id)}
+                        className="text-gray-400"
+                        aria-label={isExpanded ? '閉じる' : '詳細を開く'}
+                      >
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
-                      <div className="flex-1 min-w-[140px]">
-                        <p className="text-gray-900 font-medium">注文 #{order.id}</p>
+                      <div className="flex-1 min-w-[160px]">
+                        <p className="text-gray-900 font-medium">
+                          {order.order_number || `注文 #${order.id}`}
+                        </p>
+                        {order.order_number && (
+                          <p className="text-gray-400 text-xs">ID #{order.id}</p>
+                        )}
+                        {(order.buyer_name || order.buyer_email) && (
+                          <p className="text-gray-600 text-xs mt-0.5">
+                            {order.buyer_name}
+                            {order.buyer_email && (
+                              <span className="text-gray-400"> · {order.buyer_email}</span>
+                            )}
+                          </p>
+                        )}
                         <p className="text-gray-500 text-xs">
                           {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '不明'}
                         </p>
+                        {order.tracking_number && (
+                          <p className="text-purple-600 text-xs font-mono mt-0.5">
+                            追跡: {order.tracking_number}
+                          </p>
+                        )}
                       </div>
-                      <span className={`text-xs font-bold px-2 py-1 rounded border ${paymentStatusColors[ps] || 'text-gray-500'}`}>
+                      <span
+                        className={`text-xs font-bold px-2 py-1 rounded border ${paymentStatusColors[ps] || 'text-gray-500'}`}
+                      >
                         {paymentStatusLabels[ps] || ps}
+                      </span>
+                      <span
+                        className={`text-xs font-bold px-2 py-1 rounded border ${shippingStatusColors[ss] || 'text-gray-500'}`}
+                      >
+                        {shippingStatusLabel(ss)}
                       </span>
                       {order.stock_reserved && ps === 'awaiting_payment' && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 border border-orange-500/20">
                           取り置き中
                         </span>
                       )}
-                      <span className={`text-sm font-medium ${fulfillmentStatusColors[order.status] || 'text-gray-400'}`}>
-                        {fulfillmentStatusOptions.find(s => s.value === order.status)?.label || order.status}
-                      </span>
                       <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount || 0)}</span>
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {fulfillmentStatusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
                     </div>
 
                     {isExpanded && (
@@ -215,11 +268,13 @@ export default function AdminOrdersPage() {
                         {order.items?.map((item) => {
                           const displayName = item.card?.name_en
                             ? `${item.card.name} (${item.card.name_en})`
-                            : (item.card?.name || `カード #${item.card_id}`)
+                            : item.card?.name || `カード #${item.card_id}`
                           return (
                             <div key={item.id} className="flex justify-between text-sm">
                               <span className="text-gray-600">{displayName}</span>
-                              <span className="text-gray-400">{formatPrice(item.unit_price || 0)} × {item.quantity}</span>
+                              <span className="text-gray-400">
+                                {formatPrice(item.unit_price || 0)} × {item.quantity}
+                              </span>
                             </div>
                           )
                         })}
@@ -229,7 +284,9 @@ export default function AdminOrdersPage() {
                         )}
 
                         {isBankTransfer && order.payment_deadline && (
-                          <div className={`flex items-center gap-2 text-xs ${isDeadlinePast(order.payment_deadline) && ps === 'awaiting_payment' ? 'text-red-500' : 'text-gray-500'}`}>
+                          <div
+                            className={`flex items-center gap-2 text-xs ${isDeadlinePast(order.payment_deadline) && ps === 'awaiting_payment' ? 'text-red-500' : 'text-gray-500'}`}
+                          >
                             <Clock className="h-3.5 w-3.5" />
                             支払期限: {formatDeadline(order.payment_deadline)}
                           </div>
@@ -262,7 +319,9 @@ export default function AdminOrdersPage() {
                                 min={1}
                                 placeholder="24"
                                 value={extendHours[order.id] || ''}
-                                onChange={(e) => setExtendHours((prev) => ({ ...prev, [order.id]: e.target.value }))}
+                                onChange={(e) =>
+                                  setExtendHours((prev) => ({ ...prev, [order.id]: e.target.value }))
+                                }
                                 className="w-20 h-8 text-xs bg-white"
                               />
                               <span className="text-xs text-gray-500">時間延長</span>
@@ -277,6 +336,52 @@ export default function AdminOrdersPage() {
                               </Button>
                             </div>
                           </div>
+                        )}
+
+                        {ps === 'paid' && (
+                          <>
+                            <AdminOrderShippingForm
+                              order={order}
+                              disabled={actionLoading === order.id}
+                              onSaved={fetchAll}
+                            />
+                            <AdminSendShippingEmailButton
+                              order={order}
+                              disabled={actionLoading === order.id}
+                              onSent={fetchAll}
+                            />
+                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200">
+                              {order.purchase_email_sent_at ? (
+                                <p className="text-xs text-green-600">
+                                  購入完了メール送信済: {formatDeadline(order.purchase_email_sent_at)}
+                                </p>
+                              ) : (
+                                <p className="text-xs text-amber-600">
+                                  購入完了メール: 未送信
+                                  {order.email_send_status ? ` (${order.email_send_status})` : ''}
+                                </p>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={actionLoading === order.id}
+                                onClick={() =>
+                                  handleSendPurchaseEmail(order.id, Boolean(order.purchase_email_sent_at))
+                                }
+                                className="text-xs"
+                              >
+                                {order.purchase_email_sent_at ? '購入完了メール再送' : '購入完了メール送信'}
+                              </Button>
+                            </div>
+                          </>
+                        )}
+
+                        {ps !== 'paid' && (
+                          <AdminOrderShippingForm
+                            order={order}
+                            disabled={actionLoading === order.id}
+                            onSaved={fetchAll}
+                          />
                         )}
                       </div>
                     )}

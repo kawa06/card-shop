@@ -339,6 +339,17 @@ class OrderOut(BaseModel):
     payment_deadline: Optional[datetime] = None
     stock_reserved: bool = False
     paid_at: Optional[datetime] = None
+    order_number: Optional[str] = None
+    stripe_payment_intent_id: Optional[str] = None
+    stripe_event_id: Optional[str] = None
+    shipping_status: Optional[str] = "unshipped"
+    shipping_carrier: Optional[str] = None
+    tracking_number: Optional[str] = None
+    shipped_at: Optional[datetime] = None
+    purchase_email_sent_at: Optional[datetime] = None
+    shipping_email_sent_at: Optional[datetime] = None
+    email_send_status: Optional[str] = None
+    admin_note: Optional[str] = None
     click_post_csv_exported_at: Optional[datetime] = None
     created_at: datetime
     items: List[OrderItemOut] = []
@@ -349,6 +360,22 @@ class OrderOut(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+
+class OrderShippingUpdate(BaseModel):
+    shipping_status: Optional[str] = None
+    shipping_carrier: Optional[str] = None
+    tracking_number: Optional[str] = None
+    shipped_at: Optional[datetime] = None
+    admin_note: Optional[str] = None
+
+
+class AdminOrderOut(OrderOut):
+    buyer_name: Optional[str] = None
+    buyer_email: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class PaymentDeadlineExtend(BaseModel):
