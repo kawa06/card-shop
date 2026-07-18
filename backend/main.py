@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from config import settings
 import asyncio
@@ -8,6 +9,7 @@ from database import Base, engine, SessionLocal
 from services.shipping_rates import background_shipping_update_task, refresh_all_rates
 from services.db_migrate import run_schema_upgrades
 from services.db_persist import database_info
+from services.image_upload import get_upload_dir
 
 from routes.auth import router as auth_router
 from routes.cards import router as cards_router
@@ -155,6 +157,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+upload_dir = get_upload_dir()
+upload_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/media/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
 # Routers (Explicit Import 2026-06-20)
 app.include_router(auth_router)

@@ -16,6 +16,7 @@ import {
   parseAllowedShippingMethods,
   serializeAllowedShippingMethods,
 } from '@/lib/shipping-methods'
+import { compressImageFile } from '@/lib/image-compress'
 
 const RARITIES = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'MUR', 'SSR', 'ミラー', 'MA', 'PROMO', 'CLASSIC', 'パック', 'BOX', 'PSA10']
 const CONDITIONS = ['a', 'b', 'c', 'd', 'e']
@@ -74,6 +75,7 @@ export default function AdminCardsPage() {
   const [isMounted, setIsMounted] = useState(false)
   const [initialImages, setInitialImages] = useState<string[]>([])
   const [savingShipping, setSavingShipping] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -236,23 +238,30 @@ export default function AdminCardsPage() {
     })
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'エラー', description: '5MB以下の画像を選択してください', variant: 'destructive' })
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'エラー', description: '10MB以下の画像を選択してください', variant: 'destructive' })
       return
     }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setForm(f => {
-        const imgs = [...f.images]
-        imgs[uploadSlot] = reader.result as string
-        return { ...f, images: imgs }
+
+    setUploadingImage(true)
+    try {
+      const compressed = await compressImageFile(file)
+      const res = await adminApi.uploadImage(compressed, compressed.name)
+      setImageAt(uploadSlot, res.data.url)
+      toast({ title: '画像をアップロードしました' })
+    } catch (err) {
+      toast({
+        title: 'エラー',
+        description: getApiErrorMessage(err, '画像のアップロードに失敗しました'),
+        variant: 'destructive',
       })
+    } finally {
+      setUploadingImage(false)
+      e.target.value = ''
     }
-    reader.readAsDataURL(file)
-    e.target.value = ''
   }
 
   const setImageAt = (idx: number, val: string) => {
@@ -469,6 +478,7 @@ export default function AdminCardsPage() {
                           className="bg-white border-gray-300 text-gray-900 text-xs h-7 flex-1"
                         />
                         <Button type="button" variant="outline" size="icon" className="h-7 w-7 border-gray-300 text-gray-400 hover:text-gray-900 hover:bg-gray-100 shrink-0"
+                          disabled={uploadingImage}
                           onClick={() => { setUploadSlot(idx); fileInputRef.current?.click() }} title="ファイルを選択">
                           <Upload className="h-3 w-3" />
                         </Button>

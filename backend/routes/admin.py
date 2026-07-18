@@ -1,7 +1,7 @@
 import math
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -10,12 +10,22 @@ import models
 import schemas
 from routes.cards import _apply_card_search
 from services.db_persist import PersistDep, safe_commit
+from services.image_upload import save_uploaded_image
 
 router = APIRouter(
     prefix="/api/admin",
     tags=["admin"],
     dependencies=[PersistDep],
 )
+
+
+@router.post("/uploads")
+async def admin_upload_image(
+    file: UploadFile = File(...),
+    _: models.User = Depends(get_current_admin),
+):
+    url = await save_uploaded_image(file)
+    return {"url": url}
 
 
 # ──────────────────────── Cards ──────────────────────────────

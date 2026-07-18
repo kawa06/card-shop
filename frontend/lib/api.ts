@@ -41,6 +41,9 @@ async function resolveRequestToken(url: string): Promise<string | null> {
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(async (config) => {
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+  }
   if (typeof window !== 'undefined') {
     const url = config.url || ''
     const token = (await resolveRequestToken(url)) || localStorage.getItem('auth_token')
@@ -221,6 +224,11 @@ export const adminApi = {
   updateCardShippingMethods: (id: number, allowed_shipping_methods: string | null) =>
     apiClient.patch(`/admin/cards/${id}/shipping-methods`, { allowed_shipping_methods }),
   deleteCard: (id: number) => apiClient.delete(`/admin/cards/${id}`),
+  uploadImage: (file: File | Blob, filename: string) => {
+    const form = new FormData()
+    form.append('file', file, filename)
+    return apiClient.post<{ url: string }>('/admin/uploads', form)
+  },
 
   // Categories
   createCategory: (data: { name: string; description?: string; slug: string }) =>
