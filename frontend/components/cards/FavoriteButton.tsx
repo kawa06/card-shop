@@ -3,6 +3,7 @@
 import { Heart } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useAuth } from '@clerk/nextjs'
 import { useAuthStore } from '@/store/auth'
 import { useFavoritesStore } from '@/store/favorites'
 import { useLangStore } from '@/store/lang'
@@ -17,16 +18,31 @@ interface FavoriteButtonProps {
 
 export default function FavoriteButton({ cardId, size = 'md', className = '' }: FavoriteButtonProps) {
   const router = useRouter()
-  const { isAuthenticated } = useAuthStore()
+  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth()
+  const { isAuthenticated, ensureBackendAuth, hasHydrated, setHasHydrated } = useAuthStore()
   const { lang } = useLangStore()
   const { loaded, fetchIds, toggle, isFavorite } = useFavoritesStore()
   const [isToggling, setIsToggling] = useState(false)
 
   useEffect(() => {
-    if (isAuthenticated && !loaded) {
-      fetchIds()
+    if (hasHydrated) return
+    const initAuth = async () => {
+      await useAuthStore.persist.rehydrate()
+      setHasHydrated(true)
     }
-  }, [isAuthenticated, loaded, fetchIds])
+    void initAuth()
+  }, [hasHydrated, setHasHydrated])
+
+  const isLoggedIn = isSignedIn || isAuthenticated
+
+  useEffect(() => {
+    if (!hasHydrated || !isClerkLoaded || !isLoggedIn || loaded) return
+    void ensureBackendAuth()
+      .then((token) => {
+        if (token) return fetchIds()
+      })
+      .catch(() => {})
+  }, [hasHydrated, isClerkLoaded, isLoggedIn, loaded, ensureBackendAuth, fetchIds])
 
   const favorite = isFavorite(cardId)
   const iconSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
@@ -36,22 +52,35 @@ export default function FavoriteButton({ cardId, size = 'md', className = '' }: 
     e.preventDefault()
     e.stopPropagation()
 
-    if (!isAuthenticated) {
+    if (!isClerkLoaded || !hasHydrated) return
+
+    if (!isLoggedIn) {
       toast({
         title: t('ログインが必要です', lang),
         description: t('お気に入りに追加するにはログインしてください', lang),
         variant: 'destructive',
       })
-      router.push('/login')
+      router.push('/sign-in')
       return
-    }
-
-    if (!loaded) {
-      await fetchIds()
     }
 
     setIsToggling(true)
     try {
+      const token = await ensureBackendAuth()
+      if (!token) {
+        toast({
+          title: t('ログインが必要です', lang),
+          description: t('お気に入りに追加するにはログインしてください', lang),
+          variant: 'destructive',
+        })
+        router.push('/sign-in')
+        return
+      }
+
+      if (!loaded) {
+        await fetchIds()
+      }
+
       const added = await toggle(cardId)
       toast({
         title: added ? t('お気に入りに追加しました', lang) : t('お気に入りから削除しました', lang),

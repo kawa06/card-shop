@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import { ArrowLeft, Heart } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { favoritesApi } from '@/lib/api'
@@ -13,30 +14,60 @@ import CardCard from '@/components/cards/CardCard'
 
 export default function FavoritesPage() {
   const router = useRouter()
-  const { isAuthenticated, isLoading: isAuthLoading } = useAuthStore()
+  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth()
+  const { isAuthenticated, isLoading: isAuthLoading, ensureBackendAuth, hasHydrated, setHasHydrated } =
+    useAuthStore()
   const { lang } = useLangStore()
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
+
+  const isLoggedIn = isSignedIn || isAuthenticated
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
   useEffect(() => {
-    if (!isMounted || isAuthLoading) return
-    if (!isAuthenticated) {
-      router.push('/login')
+    if (hasHydrated) return
+    const initAuth = async () => {
+      await useAuthStore.persist.rehydrate()
+      setHasHydrated(true)
+    }
+    void initAuth()
+  }, [hasHydrated, setHasHydrated])
+
+  useEffect(() => {
+    if (!isMounted || !hasHydrated || !isClerkLoaded || isAuthLoading) return
+    if (!isLoggedIn) {
+      router.push('/sign-in')
       return
     }
-    favoritesApi
-      .getAll()
-      .then((res) => setFavorites(res.data || []))
+
+    void ensureBackendAuth()
+      .then((token) => {
+        if (!token) {
+          router.push('/sign-in')
+          return null
+        }
+        return favoritesApi.getAll()
+      })
+      .then((res) => {
+        if (res) setFavorites(res.data || [])
+      })
       .catch(() => setFavorites([]))
       .finally(() => setIsLoading(false))
-  }, [isMounted, isAuthLoading, isAuthenticated, router])
+  }, [
+    isMounted,
+    hasHydrated,
+    isClerkLoaded,
+    isAuthLoading,
+    isLoggedIn,
+    router,
+    ensureBackendAuth,
+  ])
 
-  if (!isMounted || isAuthLoading || !isAuthenticated) return null
+  if (!isMounted || !hasHydrated || !isClerkLoaded || isAuthLoading || !isLoggedIn) return null
 
   return (
     <div className="min-h-screen bg-white">

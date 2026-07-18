@@ -25,7 +25,7 @@ async function resolveRequestToken(url: string): Promise<string | null> {
   const backendToken = localStorage.getItem('auth_token')
   if (backendToken) return backendToken
 
-  if (url.includes('/cart') || url.includes('/orders')) {
+  if (url.includes('/cart') || url.includes('/orders') || url.includes('/favorites')) {
     if (!syncPromise) {
       syncPromise = import('@/store/auth')
         .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
