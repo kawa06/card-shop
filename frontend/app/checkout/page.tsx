@@ -132,6 +132,8 @@ export default function CheckoutPage() {
   const [saveAddress, setSaveAddress] = useState(true)
   const [stripeEnabled, setStripeEnabled] = useState(false)
 
+  const isInternational = country !== 'JP'
+
   useEffect(() => {
     if (!stripeEnabled && (paymentMethod === 'credit_card' || paymentMethod === 'konbini')) {
       setPaymentMethod('bank_transfer')
@@ -144,7 +146,6 @@ export default function CheckoutPage() {
     }
   }, [isInternational, paymentMethod])
 
-  const isInternational = country !== 'JP'
   
   // Fetch shipping rates
   useEffect(() => {
