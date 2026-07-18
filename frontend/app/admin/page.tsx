@@ -13,6 +13,7 @@ import {
   Truck,
   Package,
   FileSpreadsheet,
+  Settings,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useLangStore } from '@/store/lang'
@@ -83,6 +84,7 @@ export default function AdminPage() {
     { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
     { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
     { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
+    { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },
   ]
 
   return (

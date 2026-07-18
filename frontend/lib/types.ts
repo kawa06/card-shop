@@ -137,6 +137,14 @@ export interface AdminOrderDetail extends Order {
   stripe_checkout_session_id?: string | null
 }
 
+export interface InvoiceConfigApi {
+  invoice_enabled: boolean
+  invoice_registration_number: string | null
+  invoice_issuer_name: string | null
+  default_tax_rate: number
+  qualified_invoice_enabled: boolean
+}
+
 export interface AdminClickPostOrder {
   id: number
   buyer_name: string

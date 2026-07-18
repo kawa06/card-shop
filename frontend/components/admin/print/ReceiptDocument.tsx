@@ -9,17 +9,15 @@ import {
   itemSubtotal,
 } from '@/lib/admin/order-documents'
 import { useInvoiceConfig } from '@/hooks/useInvoiceConfig'
-import { isQualifiedInvoiceEnabled } from '@/lib/invoice/qualified-invoice'
 import { QualifiedInvoiceSection } from '@/components/admin/print/QualifiedInvoiceSection'
 import { OrderLineItemsTable } from '@/components/admin/print/OrderLineItemsTable'
 
-interface PurchaseStatementDocumentProps {
+interface ReceiptDocumentProps {
   order: AdminOrderDetail
 }
 
-export function PurchaseStatementDocument({ order }: PurchaseStatementDocumentProps) {
+export function ReceiptDocument({ order }: ReceiptDocumentProps) {
   const invoiceConfig = useInvoiceConfig()
-  const qualified = isQualifiedInvoiceEnabled(invoiceConfig)
   const subtotal = itemSubtotal(order)
   const shippingFee = order.shipping_fee || 0
   const discount = order.discount_amount || 0
@@ -27,15 +25,14 @@ export function PurchaseStatementDocument({ order }: PurchaseStatementDocumentPr
   const total = order.total_amount ?? subtotal + shippingFee - discount + paymentFee
   const paymentLabel =
     PAYMENT_METHOD_LABELS[order.payment_method || ''] || order.payment_method || '—'
-  const purchaseDate = order.paid_at || order.created_at
-  const displayOrderNumber = order.order_number || '—'
+  const issueDate = order.paid_at || order.created_at
 
   return (
-    <article className="print-doc-root" aria-label="購入明細書">
+    <article className="print-doc-root" aria-label="領収書">
       <header className="print-doc-header">
         <div>
           <p className="print-doc-subtitle">{SELLER_INFO.shopName}</p>
-          <h1 className="print-doc-title">購入明細書</h1>
+          <h1 className="print-doc-title">領収書</h1>
         </div>
         <Image
           src="/logo-main.png"
@@ -50,14 +47,14 @@ export function PurchaseStatementDocument({ order }: PurchaseStatementDocumentPr
       <dl className="print-doc-meta">
         <div>
           <dt>注文番号</dt>
-          <dd className="print-doc-order-number">{displayOrderNumber}</dd>
+          <dd className="print-doc-order-number">{order.order_number || '—'}</dd>
         </div>
         <div>
-          <dt>購入日</dt>
-          <dd>{formatDocumentDate(purchaseDate)}</dd>
+          <dt>発行日</dt>
+          <dd>{formatDocumentDate(issueDate)}</dd>
         </div>
         <div>
-          <dt>お買い上げ先</dt>
+          <dt>宛名</dt>
           <dd>{order.buyer_name || '—'} 様</dd>
         </div>
         <div>
@@ -71,47 +68,47 @@ export function PurchaseStatementDocument({ order }: PurchaseStatementDocumentPr
       <OrderLineItemsTable order={order} />
 
       <div className="print-doc-totals">
+        <div className="print-doc-totals-row grand">
+          <span>領収金額（税込）</span>
+          <span>{formatYen(total)}</span>
+        </div>
         <div className="print-doc-totals-row">
-          <span>商品合計（税込）</span>
+          <span>内訳：商品合計</span>
           <span>{formatYen(subtotal)}</span>
         </div>
         <div className="print-doc-totals-row">
-          <span>送料（税込）</span>
+          <span>送料</span>
           <span>{formatYen(shippingFee)}</span>
         </div>
-        <div className="print-doc-totals-row">
-          <span>割引（税込）</span>
-          <span>{discount > 0 ? `-${formatYen(discount)}` : formatYen(0)}</span>
-        </div>
-        <div className="print-doc-totals-row">
-          <span>クーポン</span>
-          <span>{couponLabel(order)}</span>
-        </div>
-        <div className="print-doc-totals-row">
-          <span>手数料（税込）</span>
-          <span>{formatYen(paymentFee)}</span>
-        </div>
-        <div className="print-doc-totals-row grand">
-          <span>お支払い合計（税込）</span>
-          <span>{formatYen(total)}</span>
-        </div>
+        {discount > 0 && (
+          <div className="print-doc-totals-row">
+            <span>割引</span>
+            <span>-{formatYen(discount)}</span>
+          </div>
+        )}
+        {paymentFee > 0 && (
+          <div className="print-doc-totals-row">
+            <span>手数料</span>
+            <span>{formatYen(paymentFee)}</span>
+          </div>
+        )}
+        {(order.coupon_name || order.coupon_code) && (
+          <div className="print-doc-totals-row">
+            <span>クーポン</span>
+            <span>{couponLabel(order)}</span>
+          </div>
+        )}
       </div>
 
-      {order.buyer_note && (
-        <div className="print-doc-footer-note">
-          <strong>備考：</strong>
-          {order.buyer_note}
-        </div>
-      )}
-
       <footer className="print-doc-footer-note">
+        <p>
+          <strong>但し：</strong>
+          商品代金として上記正に領収いたしました。
+        </p>
         <p>
           <strong>お問い合わせ：</strong>
           {SELLER_INFO.email}
         </p>
-        {!qualified && (
-          <p className="print-doc-disclaimer">※ この書類は領収書ではありません。</p>
-        )}
       </footer>
 
       <div className="print-doc-page-footer">{SELLER_INFO.shopName}</div>

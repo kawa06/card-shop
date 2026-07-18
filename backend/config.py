@@ -91,8 +91,9 @@ class Settings(BaseSettings):
     # Bank transfer: payment deadline hours from order creation
     BANK_TRANSFER_PAYMENT_DEADLINE_HOURS: int = 48
 
-    # Optional qualified invoice registration number (empty = do not show on receipts)
+    # Optional qualified invoice settings (seed shop_settings on first migrate; DB is source of truth)
     INVOICE_REGISTRATION_NUMBER: str = ""
+    INVOICE_ISSUER_NAME: str = ""
 
     # Twilio SMS (Verify API)
     TWILIO_ACCOUNT_SID: Optional[str] = None

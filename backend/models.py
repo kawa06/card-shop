@@ -200,6 +200,19 @@ class StripeProcessedEvent(Base):
     processed_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ShopSettings(Base):
+    """Singleton shop configuration (id=1)."""
+
+    __tablename__ = "shop_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    invoice_enabled = Column(Boolean, default=False, nullable=False)
+    invoice_registration_number = Column(String(20), nullable=True)
+    invoice_issuer_name = Column(String(128), nullable=True)
+    default_tax_rate = Column(Integer, default=10, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 

@@ -200,8 +200,12 @@
   color: #000;
 }
 
-.print-doc-page-footer {
-  display: none;
+.print-doc-qualified-invoice {
+  margin-bottom: 14px;
+}
+
+.print-doc-tax-table {
+  margin-top: 8px;
 }
 
 .print-doc-section-title {

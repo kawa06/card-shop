@@ -400,6 +400,27 @@ class PaymentDeadlineExtend(BaseModel):
     payment_deadline: Optional[datetime] = None
 
 
+class TaxBreakdownRowOut(BaseModel):
+    rate_percent: int
+    amount_inclusive: int
+    consumption_tax: int
+
+
+class InvoiceConfigOut(BaseModel):
+    invoice_enabled: bool = False
+    invoice_registration_number: Optional[str] = None
+    invoice_issuer_name: Optional[str] = None
+    default_tax_rate: int = 10
+    qualified_invoice_enabled: bool = False
+
+
+class InvoiceSettingsUpdate(BaseModel):
+    invoice_enabled: Optional[bool] = None
+    invoice_registration_number: Optional[str] = None
+    invoice_issuer_name: Optional[str] = None
+    default_tax_rate: Optional[int] = None
+
+
 class AdminClickPostOrderOut(BaseModel):
     id: int
     buyer_name: str

@@ -33,6 +33,7 @@ def run_schema_upgrades() -> None:
     _migrate_order_document_columns()
     _create_table_if_missing("order_number_sequences", models.OrderNumberSequence)
     _create_table_if_missing("stripe_processed_events", models.StripeProcessedEvent)
+    _migrate_shop_settings()
 
 
 def _migrate_order_management_columns() -> None:
@@ -101,6 +102,24 @@ def _backfill_order_document_fields() -> None:
         except Exception as exc:
             db.rollback()
             logger.error("order document backfill failed: %s", exc)
+
+
+def _migrate_shop_settings() -> None:
+    """Singleton shop_settings table for invoice / shop config."""
+    import models
+
+    _create_table_if_missing("shop_settings", models.ShopSettings)
+    from sqlalchemy.orm import sessionmaker
+
+    from services.invoice_config import seed_shop_settings_from_env
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_shop_settings_from_env(db)
+        except Exception as exc:
+            db.rollback()
+            logger.error("shop_settings seed failed: %s", exc)
 
 
 def _backfill_shipping_status() -> None:

@@ -321,6 +321,14 @@ export const adminApi = {
   }) => apiClient.get('/admin/orders', { params }),
   getOrderById: (id: number) =>
     apiClient.get<import('./types').AdminOrderDetail>(`/admin/orders/${id}`),
+  getInvoiceSettings: () =>
+    apiClient.get<import('./types').InvoiceConfigApi>('/admin/shop/invoice-settings'),
+  updateInvoiceSettings: (data: {
+    invoice_enabled?: boolean
+    invoice_registration_number?: string | null
+    invoice_issuer_name?: string | null
+    default_tax_rate?: number
+  }) => apiClient.put<import('./types').InvoiceConfigApi>('/admin/shop/invoice-settings', data),
   updateOrderStatus: (id: number, status: string) =>
     apiClient.put(`/admin/orders/${id}/status`, { status }),
   updateOrderShipping: (

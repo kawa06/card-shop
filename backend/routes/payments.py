@@ -92,14 +92,20 @@ def _handle_bank_transfer_pending(db: Session, order: models.Order) -> models.Or
 
 
 @router.get("/stripe/config")
-def stripe_public_config():
+def stripe_public_config(db: Session = Depends(get_db)):
+    from services.invoice_config import get_invoice_config
+
     valid = stripe_key_valid()
-    inv = (settings.INVOICE_REGISTRATION_NUMBER or "").strip()
+    invoice = get_invoice_config(db)
     return {
         "enabled": valid,
         "publishable_key": None,
         "bank_transfer_enabled": valid,
-        "invoice_registration_number": inv or None,
+        "invoice_registration_number": invoice.invoice_registration_number,
+        "invoice_enabled": invoice.invoice_enabled,
+        "invoice_issuer_name": invoice.invoice_issuer_name,
+        "default_tax_rate": invoice.default_tax_rate,
+        "qualified_invoice_enabled": invoice.qualified_invoice_enabled,
     }
 
 

@@ -461,6 +461,18 @@ export default function AdminOrderDetailPage() {
                     購入明細書を印刷
                   </Button>
                 </Link>
+                <Link href={`/admin/orders/${order.id}/print/receipt`}>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    領収書を印刷
+                  </Button>
+                </Link>
+                <Link href={`/admin/orders/${order.id}/print/invoice`}>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    請求書を印刷
+                  </Button>
+                </Link>
                 <Link href={`/admin/orders/${order.id}/print/order-copy`}>
                   <Button variant="outline" size="sm" className="gap-2">
                     <Printer className="h-4 w-4" />

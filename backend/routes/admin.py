@@ -19,6 +19,7 @@ from services.image_upload import save_uploaded_image
 from services.shipping_rates import refresh_all_rates
 from services.order_checkout import cancel_unpaid_order, extend_payment_deadline, fulfill_order_inventory
 from services.order_emails import send_purchase_confirmation_email, send_shipping_completion_email
+from services.invoice_config import get_invoice_config, update_invoice_settings
 
 router = APIRouter(
     prefix="/api/admin",
@@ -733,3 +734,25 @@ async def admin_refresh_shipping_rates(
 ):
     await refresh_all_rates(db)
     return {"message": "Shipping rates refreshed"}
+
+
+# ──────────────────────── Shop settings ───────────────────────────
+
+@router.get("/shop/invoice-settings", response_model=schemas.InvoiceConfigOut)
+def admin_get_invoice_settings(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    return get_invoice_config(db)
+
+
+@router.put("/shop/invoice-settings", response_model=schemas.InvoiceConfigOut)
+def admin_update_invoice_settings(
+    payload: schemas.InvoiceSettingsUpdate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    try:
+        return update_invoice_settings(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
