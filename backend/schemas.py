@@ -299,7 +299,6 @@ class StripeCheckoutSessionCreate(BaseModel):
     shipping_address: Optional[str] = None
     shipping_method: Optional[str] = None
     locale: Optional[str] = "ja"
-    checkout_type: Optional[str] = "card"
 
 
 class StripeCheckoutSessionOut(BaseModel):
@@ -311,7 +310,6 @@ class StripeCheckoutSessionOut(BaseModel):
 class StripeCheckoutConfirmOut(BaseModel):
     order: "OrderOut"
     payment_status: str
-    pending_konbini: bool = False
 
 
 class OrderOut(BaseModel):

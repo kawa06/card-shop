@@ -94,7 +94,6 @@ def create_checkout_session(
     customer_email: str,
     line_items: list[dict[str, Any]],
     locale: str = "ja",
-    checkout_type: str = "card",
 ) -> stripe.checkout.Session:
     require_stripe()
     _configure_stripe()
@@ -103,20 +102,13 @@ def create_checkout_session(
         "mode": "payment",
         "customer_email": customer_email,
         "line_items": line_items,
-        "metadata": {"order_id": str(order_id), "checkout_type": checkout_type},
+        "metadata": {"order_id": str(order_id), "checkout_type": "card"},
         "client_reference_id": str(order_id),
         "locale": locale if locale in {"ja", "en"} else "auto",
         "success_url": f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{settings.FRONTEND_URL.rstrip('/')}/checkout/cancel?order_id={order_id}",
+        "payment_method_types": ["card"],
     }
-
-    if checkout_type == "konbini":
-        params["payment_method_types"] = ["konbini"]
-        params["payment_method_options"] = {
-            "konbini": {"expires_after_days": 3},
-        }
-    else:
-        params["payment_method_types"] = ["card"]
 
     return stripe.checkout.Session.create(**params)
 
