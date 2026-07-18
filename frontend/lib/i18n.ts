@@ -54,7 +54,7 @@ const dict: Record<string, string> = {
   '入金待ち': 'Awaiting Payment',
   '支払い済み': 'Paid',
   '期限切れ': 'Expired',
-  'キャンセル': 'Cancelled',
+  'キャンセル済み': 'Cancelled',
   '商品は取り置き中です。期限内にお振込みください。': 'Items are reserved. Please pay before the deadline.',
   '注文を確定する': 'Place Order',
   '注文が完了しました': 'Order Completed',

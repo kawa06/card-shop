@@ -28,7 +28,7 @@ const paymentStatusLabels: Record<string, string> = {
   pending: '未決済',
   paid: '支払い済み',
   expired: '期限切れ',
-  cancelled: 'キャンセル',
+  cancelled: 'キャンセル済み',
 }
 
 const paymentMethodLabels: Record<string, string> = {
