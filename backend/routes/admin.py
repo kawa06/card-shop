@@ -357,6 +357,14 @@ def _to_admin_order(order: models.Order) -> schemas.AdminOrderOut:
     )
 
 
+def _to_admin_order_detail(order: models.Order) -> schemas.AdminOrderDetailOut:
+    base = _to_admin_order(order)
+    return schemas.AdminOrderDetailOut(
+        **base.model_dump(),
+        stripe_checkout_session_id=order.stripe_checkout_session_id,
+    )
+
+
 def _sync_legacy_status_from_shipping(order: models.Order) -> None:
     target = _SHIPPING_TO_LEGACY_STATUS.get(order.shipping_status or "")
     if target is not None:
@@ -410,6 +418,23 @@ def admin_list_orders(
             query = query.filter(or_(*filters))
     orders = query.all()
     return [_to_admin_order(o) for o in orders]
+
+
+@router.get("/orders/{order_id}", response_model=schemas.AdminOrderDetailOut)
+def admin_get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = (
+        db.query(models.Order)
+        .options(*_order_query_options())
+        .filter(models.Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    return _to_admin_order_detail(order)
 
 
 @router.put("/orders/{order_id}/status", response_model=schemas.AdminOrderOut)

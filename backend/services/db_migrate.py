@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from sqlalchemy import inspect, text
+from sqlalchemy.orm import joinedload
 
 from config import settings
 from database import engine
@@ -28,6 +30,7 @@ def run_schema_upgrades() -> None:
     _add_column_if_missing("packs", "name_en", "VARCHAR(100)")
     _add_column_if_missing("cards", "price_usd", "FLOAT")
     _migrate_order_management_columns()
+    _migrate_order_document_columns()
     _create_table_if_missing("order_number_sequences", models.OrderNumberSequence)
     _create_table_if_missing("stripe_processed_events", models.StripeProcessedEvent)
 
@@ -49,6 +52,55 @@ def _migrate_order_management_columns() -> None:
     for col, col_type in order_cols:
         _add_column_if_missing("orders", col, col_type)
     _backfill_shipping_status()
+
+
+def _migrate_order_document_columns() -> None:
+    """Columns for printable purchase statement / order copy documents."""
+    order_cols = [
+        ("discount_amount", "INTEGER DEFAULT 0"),
+        ("coupon_code", "VARCHAR(64)"),
+        ("coupon_name", "VARCHAR(128)"),
+        ("payment_fee", "INTEGER DEFAULT 0"),
+        ("packaging_fee", "INTEGER DEFAULT 0"),
+        ("buyer_note", "TEXT"),
+        ("buyer_phone", "VARCHAR(20)"),
+        ("updated_at", "DATETIME"),
+    ]
+    for col, col_type in order_cols:
+        _add_column_if_missing("orders", col, col_type)
+    _backfill_order_document_fields()
+
+
+def _backfill_order_document_fields() -> None:
+    """Safe backfill for document columns on existing orders."""
+    from sqlalchemy.orm import sessionmaker
+
+    import models
+
+    inspector = inspect(engine)
+    if "orders" not in inspector.get_table_names():
+        return
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            updated = 0
+            for order in db.query(models.Order).options(joinedload(models.Order.user)).all():
+                changed = False
+                if order.updated_at is None:
+                    order.updated_at = order.paid_at or order.created_at or datetime.utcnow()
+                    changed = True
+                if not order.buyer_phone and order.user and order.user.phone_number:
+                    order.buyer_phone = order.user.phone_number
+                    changed = True
+                if changed:
+                    updated += 1
+            if updated:
+                db.commit()
+                logger.info("Backfilled order document fields on %s orders", updated)
+        except Exception as exc:
+            db.rollback()
+            logger.error("order document backfill failed: %s", exc)
 
 
 def _backfill_shipping_status() -> None:

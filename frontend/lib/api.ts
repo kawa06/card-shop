@@ -319,6 +319,8 @@ export const adminApi = {
     shipping_status?: string
     q?: string
   }) => apiClient.get('/admin/orders', { params }),
+  getOrderById: (id: number) =>
+    apiClient.get<import('./types').AdminOrderDetail>(`/admin/orders/${id}`),
   updateOrderStatus: (id: number, status: string) =>
     apiClient.put(`/admin/orders/${id}/status`, { status }),
   updateOrderShipping: (

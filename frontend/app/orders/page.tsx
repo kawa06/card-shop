@@ -10,7 +10,6 @@ import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
-import { OrderReceiptDialog } from '@/components/orders/OrderReceiptDialog'
 import { buildTrackingUrl } from '@/lib/tracking'
 
 const statusLabels: Record<string, string> = {
@@ -50,7 +49,7 @@ const statusColors: Record<string, string> = {
 
 export default function OrdersPage() {
   const router = useRouter()
-  const { isLoggedIn, isReady, requireAuth, user } = useBackendAuth()
+  const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { formatPrice } = usePrice()
   const { lang } = useLangStore()
   const [orders, setOrders] = useState<Order[]>([])
@@ -198,14 +197,6 @@ export default function OrdersPage() {
                             </p>
                           )
                         })()}
-                      </div>
-                    )}
-                    {order.payment_status === 'paid' && (user?.name || user?.email) && (
-                      <div className="border-t border-gray-200 pt-3">
-                        <OrderReceiptDialog
-                          order={order}
-                          buyerName={user.name || user.email.split('@')[0]}
-                        />
                       </div>
                     )}
                   </div>

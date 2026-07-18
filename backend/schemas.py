@@ -350,8 +350,16 @@ class OrderOut(BaseModel):
     shipping_email_sent_at: Optional[datetime] = None
     email_send_status: Optional[str] = None
     admin_note: Optional[str] = None
+    discount_amount: int = 0
+    coupon_code: Optional[str] = None
+    coupon_name: Optional[str] = None
+    payment_fee: int = 0
+    packaging_fee: int = 0
+    buyer_note: Optional[str] = None
+    buyer_phone: Optional[str] = None
     click_post_csv_exported_at: Optional[datetime] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
     items: List[OrderItemOut] = []
 
     class Config:
@@ -373,6 +381,15 @@ class OrderShippingUpdate(BaseModel):
 class AdminOrderOut(OrderOut):
     buyer_name: Optional[str] = None
     buyer_email: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdminOrderDetailOut(AdminOrderOut):
+    """Full order payload for admin detail / printable documents."""
+
+    stripe_checkout_session_id: Optional[str] = None
 
     class Config:
         from_attributes = True

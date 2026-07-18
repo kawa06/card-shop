@@ -1,0 +1,266 @@
+/* Admin printable order documents — A4 portrait */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 14mm 18mm 14mm;
+  }
+
+  body.admin-print-document-page header,
+  body.admin-print-document-page footer,
+  body.admin-print-document-page .no-print {
+    display: none !important;
+  }
+
+  body.admin-print-document-page main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  body.admin-print-document-page .print-doc-wrapper {
+    background: white !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  body.admin-print-document-page .print-doc-root {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    color: #000 !important;
+    background: #fff !important;
+  }
+}
+
+.print-doc-root {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm;
+  background: #fff;
+  color: #000;
+  font-size: 10.5pt;
+  line-height: 1.45;
+}
+
+.print-doc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 10px;
+  margin-bottom: 14px;
+}
+
+.print-doc-title {
+  font-size: 20pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.print-doc-subtitle {
+  font-size: 10pt;
+  color: #333;
+  margin: 4px 0 0;
+}
+
+.print-doc-logo {
+  height: 44px;
+  width: auto;
+  object-fit: contain;
+}
+
+.print-doc-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+  margin-bottom: 16px;
+}
+
+.print-doc-meta dt {
+  font-size: 9pt;
+  color: #444;
+  margin-bottom: 2px;
+}
+
+.print-doc-meta dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.print-doc-order-number {
+  font-size: 13pt;
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+}
+
+.print-doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+  font-size: 9.5pt;
+}
+
+.print-doc-table th {
+  border-bottom: 1.5px solid #000;
+  padding: 6px 4px;
+  text-align: left;
+  font-weight: 700;
+}
+
+.print-doc-table th.num,
+.print-doc-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.print-doc-table th.center,
+.print-doc-table td.center {
+  text-align: center;
+}
+
+.print-doc-table td {
+  border-bottom: 1px solid #ccc;
+  padding: 8px 4px;
+  vertical-align: top;
+}
+
+.print-doc-table tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-doc-product-cell {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.print-doc-product-thumb {
+  width: 36px;
+  height: 50px;
+  object-fit: cover;
+  border: 1px solid #ccc;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.print-doc-product-name {
+  word-break: break-word;
+  font-weight: 500;
+}
+
+.print-doc-product-id {
+  font-size: 8.5pt;
+  color: #555;
+  margin-top: 2px;
+}
+
+.print-doc-totals {
+  margin-left: auto;
+  width: 100%;
+  max-width: 280px;
+  font-size: 10pt;
+}
+
+.print-doc-totals-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.print-doc-totals-row.grand {
+  border-bottom: none;
+  border-top: 2px solid #000;
+  margin-top: 6px;
+  padding-top: 8px;
+  font-size: 12pt;
+  font-weight: 700;
+}
+
+.print-doc-footer-note {
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #ccc;
+  font-size: 9pt;
+  color: #333;
+}
+
+.print-doc-disclaimer {
+  margin-top: 10px;
+  font-size: 9pt;
+  font-weight: 600;
+  color: #000;
+}
+
+.print-doc-page-footer {
+  display: none;
+}
+
+.print-doc-section-title {
+  font-size: 10pt;
+  font-weight: 700;
+  margin: 0 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #999;
+}
+
+.print-doc-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  margin-bottom: 14px;
+  font-size: 9.5pt;
+}
+
+.print-doc-info-row {
+  display: grid;
+  grid-template-columns: 7em 1fr;
+  gap: 6px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-doc-info-label {
+  color: #444;
+}
+
+.print-doc-info-value {
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.print-doc-info-value.mono {
+  font-family: ui-monospace, monospace;
+  font-size: 8.5pt;
+}
+
+.print-doc-stack > .print-doc-page-break {
+  height: 0;
+  margin: 0;
+}
+
+@media print {
+  .print-doc-page-footer {
+    display: block;
+    position: fixed;
+    bottom: 8mm;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8pt;
+    color: #666;
+  }
+
+  .print-doc-page-break {
+    break-before: page;
+    page-break-before: always;
+  }
+}

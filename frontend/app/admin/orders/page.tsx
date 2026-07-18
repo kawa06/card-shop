@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle, Search, ExternalLink } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { Order } from '@/lib/types'
@@ -222,9 +222,13 @@ export default function AdminOrdersPage() {
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
                       <div className="flex-1 min-w-[160px]">
-                        <p className="text-gray-900 font-medium">
+                        <Link
+                          href={`/admin/orders/${order.id}`}
+                          className="group inline-flex items-center gap-1 text-gray-900 font-medium hover:text-yellow-600"
+                        >
                           {order.order_number || `注文 #${order.id}`}
-                        </p>
+                          <ExternalLink className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100" />
+                        </Link>
                         {order.order_number && (
                           <p className="text-gray-400 text-xs">ID #{order.id}</p>
                         )}
@@ -261,6 +265,11 @@ export default function AdminOrdersPage() {
                         </span>
                       )}
                       <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount || 0)}</span>
+                      <Link href={`/admin/orders/${order.id}`}>
+                        <Button size="sm" variant="outline" className="text-xs">
+                          詳細
+                        </Button>
+                      </Link>
                     </div>
 
                     {isExpanded && (

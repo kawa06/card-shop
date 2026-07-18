@@ -117,12 +117,24 @@ export interface Order {
   shipping_email_sent_at: string | null
   email_send_status: string | null
   admin_note: string | null
+  discount_amount?: number
+  coupon_code?: string | null
+  coupon_name?: string | null
+  payment_fee?: number
+  packaging_fee?: number
+  buyer_note?: string | null
+  buyer_phone?: string | null
   click_post_csv_exported_at: string | null
   created_at: string
+  updated_at?: string | null
   items: OrderItem[]
   /** Admin list only */
   buyer_name?: string | null
   buyer_email?: string | null
+}
+
+export interface AdminOrderDetail extends Order {
+  stripe_checkout_session_id?: string | null
 }
 
 export interface AdminClickPostOrder {
