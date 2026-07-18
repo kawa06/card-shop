@@ -323,6 +323,14 @@ def admin_delete_announcement(
 
 # ──────────────────────── Orders ─────────────────────────────
 
+@router.get("/users", response_model=list[schemas.UserOut])
+def admin_list_users(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    return db.query(models.User).order_by(models.User.created_at.desc()).all()
+
+
 @router.get("/orders", response_model=list[schemas.OrderOut])
 def admin_list_orders(
     status: Optional[str] = None,

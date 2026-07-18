@@ -7,6 +7,7 @@ import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { User } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/lib/use-toast'
 
 export default function AdminUsersPage() {
   const { isReady } = useAdminGuard()
@@ -23,7 +24,15 @@ export default function AdminUsersPage() {
     
     adminApi.getAllUsers().then(res => {
       setUsers(res.data || [])
-    }).catch(() => {}).finally(() => setIsLoading(false))
+    }).catch((err: unknown) => {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({
+        title: '読み込みに失敗しました',
+        description: typeof detail === 'string' ? detail : 'ユーザー一覧の取得に失敗しました。',
+        variant: 'destructive',
+      })
+    }).finally(() => setIsLoading(false))
   }, [isMounted, isReady])
 
   if (!isMounted || !isReady) return null
