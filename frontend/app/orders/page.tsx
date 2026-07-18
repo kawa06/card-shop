@@ -27,7 +27,6 @@ const paymentStatusLabels: Record<string, string> = {
 
 const paymentMethodLabels: Record<string, string> = {
   stripe_card: 'クレジットカード',
-  stripe_card: 'クレジットカード',
   stripe_bank_transfer: '銀行振込（Stripe）',
   bank_transfer: '銀行振込',
   cod: '代金引換',
