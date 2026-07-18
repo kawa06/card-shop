@@ -35,49 +35,50 @@ YAMATO_ZONES = {
     "okinawa": ["沖縄県"]
 }
 
-# Regional rates from Hyogo (兵庫県) — kansai zone is local base
+# Regional rates from Hyogo (兵庫県 / 関西発) — Yamato Oct 2025 cash table
+# https://www.yamato-hd.co.jp/important/pdf/info_250501_1.pdf
 REGIONAL_RATES_MASTER = {
     "takkyubin_compact": {
-        "kansai": 600,
+        "hokkaido": 1040,
+        "kita_tohoku": 820,
+        "minami_tohoku": 760,
+        "kanto": 710,
+        "shinetsu": 710,
+        "hokuriku": 650,
+        "chubu": 650,
+        "kansai": 650,
         "chugoku": 650,
         "shikoku": 650,
-        "chubu": 710,
-        "hokuriku": 710,
-        "shinetsu": 710,
-        "kanto": 710,
-        "minami_tohoku": 710,
-        "kita_tohoku": 770,
-        "kyushu": 850,
-        "hokkaido": 880,
-        "okinawa": 880,
+        "kyushu": 710,
+        "okinawa": 870,
     },
     "takkyubin_60": {
-        "kansai": 940,
-        "chugoku": 1060,
-        "shikoku": 1060,
-        "chubu": 1060,
-        "hokuriku": 1060,
-        "shinetsu": 1060,
+        "hokkaido": 1920,
+        "kita_tohoku": 1320,
+        "minami_tohoku": 1190,
         "kanto": 1060,
-        "minami_tohoku": 1060,
-        "kita_tohoku": 1190,
-        "kyushu": 1460,
-        "hokkaido": 1460,
-        "okinawa": 2010,
+        "shinetsu": 1060,
+        "hokuriku": 940,
+        "chubu": 940,
+        "kansai": 940,
+        "chugoku": 940,
+        "shikoku": 940,
+        "kyushu": 1060,
+        "okinawa": 1460,
     },
     "takkyubin_80": {
-        "kansai": 1230,
-        "chugoku": 1350,
-        "shikoku": 1350,
-        "chubu": 1350,
-        "hokuriku": 1350,
-        "shinetsu": 1350,
+        "hokkaido": 2200,
+        "kita_tohoku": 1610,
+        "minami_tohoku": 1480,
         "kanto": 1350,
-        "minami_tohoku": 1350,
-        "kita_tohoku": 1480,
-        "kyushu": 1750,
-        "hokkaido": 1750,
-        "okinawa": 2010,
+        "shinetsu": 1350,
+        "hokuriku": 1230,
+        "chubu": 1230,
+        "kansai": 1230,
+        "chugoku": 1230,
+        "shikoku": 1230,
+        "kyushu": 1350,
+        "okinawa": 2070,
     },
 }
 
@@ -92,12 +93,7 @@ FALLBACK_RATES = {
         "carrier": "yamato",
         "name_ja": "ヤマト運輸コンパクト",
         "name_en": "Takkyubin Compact",
-        "fee_jpy": 600,
-        "has_tracking": True,
-        "has_insurance": True,
-        "is_individual_available": True,
-        "max_size": "25cm x 20cm x 5cm",
-        "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/compact/",
+        "fee_jpy": 650,
     },
     "click_post": {
         "carrier": "japan_post",
@@ -280,7 +276,7 @@ def generate_prefecture_rates(method_code):
     """Generate a map of all 47 prefectures to their respective fees for a method"""
     if method_code not in REGIONAL_RATES_MASTER:
         return None
-    
+
     rates = {}
     master = REGIONAL_RATES_MASTER[method_code]
     for zone, prefectures in YAMATO_ZONES.items():
@@ -289,6 +285,27 @@ def generate_prefecture_rates(method_code):
             for pref in prefectures:
                 rates[pref] = fee
     return rates
+
+
+def _prefecture_to_zone(region: str | None) -> str | None:
+    if not region:
+        return None
+    region_str = str(region).replace("都", "").replace("府", "").replace("県", "").replace(" ", "").strip()
+    for zone, prefectures in YAMATO_ZONES.items():
+        for pref in prefectures:
+            clean_pref = pref.replace("都", "").replace("府", "").replace("県", "")
+            if region_str == clean_pref or region_str in clean_pref or clean_pref in region_str:
+                return zone
+    return None
+
+
+def _domestic_regional_fee(method_code: str, region: str | None) -> int | None:
+    if method_code not in REGIONAL_RATES_MASTER:
+        return None
+    zone = _prefecture_to_zone(region)
+    if not zone:
+        return None
+    return REGIONAL_RATES_MASTER[method_code].get(zone)
 
 async def fetch_page(url):
     async with httpx.AsyncClient(headers=HEADERS, timeout=15.0, follow_redirects=True) as client:
@@ -318,8 +335,8 @@ async def refresh_all_rates(db: Session):
     # 1. Yamato Compact (Kanto base)
     compact_html = await fetch_page(FALLBACK_RATES["takkyubin_compact"]["source_url"])
     compact_fee = extract_fee(compact_html, r'([0-9,]+)円')
-    if not compact_fee or compact_fee < 400:
-        compact_fee = 600 # Force base 600 per requirements
+    if not compact_fee or compact_fee < 650:
+        compact_fee = 650  # Kansai local base (Yamato Oct 2025)
 
     # 2. Click Post (Fixed to 200 JPY as per requirements)
     click_fee = 200
@@ -453,7 +470,11 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
         if method_code in INTERNATIONAL_METHOD_CODES:
             return 0
 
-        # Japan Domestic
+        # Japan Domestic — official 関西発 zone table takes precedence over DB cache
+        regional = _domestic_regional_fee(method_code, region)
+        if regional is not None:
+            return regional
+
         if db and region:
             db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
             if db_rate and db_rate.regional_rates:
@@ -474,70 +495,6 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
             return 110
         if method_code in ["letter_pack_light", "letter_pack_plus"]:
             return base_rate
-        if not region:
-            return base_rate
-
-        region_str = str(region).replace("都", "").replace("府", "").replace("県", "").replace(" ", "").strip()
-
-        def match_region(target_list):
-            return any(r.replace("都", "").replace("府", "").replace("県", "") in region_str for r in target_list)
-
-        if method_code == "takkyubin_compact":
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["okinawa"]):
-                return 880
-            if match_region(YAMATO_ZONES["kyushu"]):
-                return 850
-            if match_region(YAMATO_ZONES["kita_tohoku"]):
-                return 770
-            if match_region(
-                YAMATO_ZONES["kanto"]
-                + YAMATO_ZONES["chubu"]
-                + YAMATO_ZONES["hokuriku"]
-                + YAMATO_ZONES["shinetsu"]
-                + YAMATO_ZONES["minami_tohoku"]
-            ):
-                return 710
-            if match_region(YAMATO_ZONES["chugoku"] + YAMATO_ZONES["shikoku"]):
-                return 650
-            return 600
-
-        if method_code in ["takkyubin_60", "yu_pack_60"]:
-            if match_region(YAMATO_ZONES["okinawa"]):
-                return 2010
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"]):
-                return 1460
-            if match_region(YAMATO_ZONES["kita_tohoku"]):
-                return 1190
-            if match_region(
-                YAMATO_ZONES["kanto"]
-                + YAMATO_ZONES["chubu"]
-                + YAMATO_ZONES["hokuriku"]
-                + YAMATO_ZONES["shinetsu"]
-                + YAMATO_ZONES["minami_tohoku"]
-                + YAMATO_ZONES["chugoku"]
-                + YAMATO_ZONES["shikoku"]
-            ):
-                return 1060
-            return 940
-
-        if method_code == "takkyubin_80":
-            if match_region(YAMATO_ZONES["okinawa"]):
-                return 2010
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"]):
-                return 1750
-            if match_region(YAMATO_ZONES["kita_tohoku"]):
-                return 1480
-            if match_region(
-                YAMATO_ZONES["kanto"]
-                + YAMATO_ZONES["chubu"]
-                + YAMATO_ZONES["hokuriku"]
-                + YAMATO_ZONES["shinetsu"]
-                + YAMATO_ZONES["minami_tohoku"]
-                + YAMATO_ZONES["chugoku"]
-                + YAMATO_ZONES["shikoku"]
-            ):
-                return 1350
-            return 1230
 
         return base_rate
 
