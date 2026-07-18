@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, joinedload
 
 import models
-from services.inquiry_constants import DEFAULT_AUTO_REPLY_BODY
+from services.inquiry_constants import INQUIRY_CATEGORIES, INQUIRY_CATEGORY_LABELS, DEFAULT_AUTO_REPLY_BODY
 from services.inquiry_number import assign_inquiry_number
 from services.inquiry_template_render import build_template_context, render_template_body
 from services.inquiry_upload import read_inquiry_upload, save_inquiry_bytes
@@ -96,6 +96,9 @@ def create_inquiry(
 
     subject = subject.strip()
     message = message.strip()
+    category = (category or "").strip()
+    if not category or category not in INQUIRY_CATEGORY_LABELS:
+        raise ValueError("カテゴリを選択してください")
     if not subject or not message:
         raise ValueError("件名と問い合わせ内容は必須です")
 

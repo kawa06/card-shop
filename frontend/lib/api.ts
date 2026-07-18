@@ -35,7 +35,7 @@ const PROTECTED_API_PREFIXES = [
   '/inquiries',
 ]
 
-const PUBLIC_API_PATHS = ['/payments/stripe/config']
+const PUBLIC_API_PATHS = ['/payments/stripe/config', '/inquiries/meta/categories']
 
 function needsBackendAuth(url: string): boolean {
   if (PUBLIC_API_PATHS.some((path) => url.includes(path))) return false

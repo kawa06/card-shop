@@ -10,7 +10,7 @@ import models
 import schemas
 from auth import get_current_user
 from database import get_db
-from services.inquiry_constants import INQUIRY_CATEGORY_LABELS
+from services.inquiry_constants import INQUIRY_CATEGORIES, INQUIRY_CATEGORY_LABELS
 from services.inquiry_emails import (
     notify_admin_customer_reply,
     notify_admin_new_inquiry,
@@ -164,7 +164,7 @@ def preview_customer_template(
 
 @router.get("/meta/categories")
 def inquiry_categories():
-    return [{"value": k, "label": v} for k, v in INQUIRY_CATEGORY_LABELS.items()]
+    return [{"value": k, "label": INQUIRY_CATEGORY_LABELS[k]} for k in INQUIRY_CATEGORIES]
 
 
 @router.get("/attachments/{attachment_id}/download")

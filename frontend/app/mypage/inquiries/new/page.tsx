@@ -18,6 +18,13 @@ import {
   INQUIRY_ACCEPTED_IMAGE_TYPES,
   validateInquiryFiles,
 } from '@/components/inquiries/InquiryAttachmentList'
+import { InquiryCategorySelect } from '@/components/inquiries/InquiryCategorySelect'
+import {
+  INQUIRY_CATEGORY_OPTIONS,
+  inquiryCategoryLabel,
+  inquiryTemplateMatchesCategory,
+  resolveInquiryCategories,
+} from '@/lib/inquiry-labels'
 
 export default function NewInquiryPage() {
   const router = useRouter()
@@ -25,10 +32,11 @@ export default function NewInquiryPage() {
   const { fetchMe } = useAuthStore()
   const { lang } = useLangStore()
 
-  const [categories, setCategories] = useState<{ value: string; label: string }[]>([])
+  const [categories, setCategories] = useState(INQUIRY_CATEGORY_OPTIONS)
   const [templates, setTemplates] = useState<InquiryTemplate[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [category, setCategory] = useState('')
+  const [categoryError, setCategoryError] = useState('')
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [replyEmail, setReplyEmail] = useState('')
@@ -45,15 +53,25 @@ export default function NewInquiryPage() {
   }, [])
 
   const loadMeta = useCallback(async () => {
-    const [catRes, tplRes, ordRes] = await Promise.all([
+    const [catRes, tplRes, ordRes] = await Promise.allSettled([
       inquiriesApi.getCategories(),
       inquiriesApi.getTemplates(),
       ordersApi.getAll(),
     ])
-    setCategories(catRes.data || [])
-    setTemplates(tplRes.data || [])
-    setOrders(ordRes.data || [])
-    if (catRes.data?.[0]) setCategory(catRes.data[0].value)
+
+    if (catRes.status === 'fulfilled') {
+      setCategories(resolveInquiryCategories(catRes.value.data))
+    } else {
+      setCategories(INQUIRY_CATEGORY_OPTIONS)
+    }
+
+    if (tplRes.status === 'fulfilled') {
+      setTemplates(tplRes.value.data || [])
+    }
+
+    if (ordRes.status === 'fulfilled') {
+      setOrders(ordRes.value.data || [])
+    }
   }, [])
 
   useEffect(() => {
@@ -74,18 +92,26 @@ export default function NewInquiryPage() {
     if (user?.email) setReplyEmail(user.email)
   }, [user?.email])
 
-  const buildPayload = (): InquiryCreatePayload => ({
-    category,
-    subject: subject.trim(),
-    message: message.trim(),
-    reply_email: replyEmail.trim() || undefined,
-    related_order_id: relatedOrderId ? parseInt(relatedOrderId, 10) : null,
-    template_id: templateId ? parseInt(templateId, 10) : null,
-  })
+  const buildPayload = (): InquiryCreatePayload => {
+    const selectedCategory = category.trim()
+    return {
+      category: selectedCategory,
+      subject: subject.trim(),
+      message: message.trim(),
+      reply_email: replyEmail.trim() || undefined,
+      related_order_id: relatedOrderId ? parseInt(relatedOrderId, 10) : null,
+      template_id: templateId ? parseInt(templateId, 10) : null,
+    }
+  }
 
   const handleTemplateChange = async (value: string) => {
     setTemplateId(value)
     if (!value) return
+    if (!category.trim()) {
+      setCategoryError('カテゴリを選択してください')
+      setTemplateId('')
+      return
+    }
     setIsPreviewLoading(true)
     try {
       const res = await inquiriesApi.previewTemplate(parseInt(value, 10), buildPayload())
@@ -103,9 +129,27 @@ export default function NewInquiryPage() {
     }
   }
 
-  const handleSubmit = async () => {
-    if (!category || !subject.trim() || !message.trim()) {
+  const validateBeforeConfirm = (): boolean => {
+    if (!category.trim()) {
+      setCategoryError('カテゴリを選択してください')
+      return false
+    }
+    setCategoryError('')
+    if (!subject.trim() || !message.trim()) {
       toast({ title: '必須項目を入力してください', variant: 'destructive' })
+      return false
+    }
+    return true
+  }
+
+  const handleOpenConfirm = () => {
+    if (!validateBeforeConfirm()) return
+    setShowConfirm(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!validateBeforeConfirm()) {
+      setShowConfirm(false)
       return
     }
     setIsSubmitting(true)
@@ -129,7 +173,11 @@ export default function NewInquiryPage() {
     }
   }
 
-  const filteredTemplates = templates.filter((tpl) => !tpl.category || tpl.category === category)
+  const filteredTemplates = templates.filter((tpl) =>
+    inquiryTemplateMatchesCategory(tpl.category, category)
+  )
+
+  const selectedCategoryLabel = category ? inquiryCategoryLabel(category) : ''
 
   if (!isMounted || !isReady) return null
 
@@ -148,21 +196,17 @@ export default function NewInquiryPage() {
         <div className="space-y-5">
           <div>
             <Label htmlFor="category">{lang === 'ja' ? 'カテゴリ' : 'Category'}</Label>
-            <select
+            <InquiryCategorySelect
               id="category"
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value)
+              onChange={(value) => {
+                setCategory(value)
+                setCategoryError('')
                 setTemplateId('')
               }}
-            >
-              {categories.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+              options={categories}
+              error={categoryError}
+            />
           </div>
 
           <div>
@@ -175,10 +219,10 @@ export default function NewInquiryPage() {
               <Label htmlFor="template">{lang === 'ja' ? '定型文（任意）' : 'Template (optional)'}</Label>
               <select
                 id="template"
-                className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 min-h-[44px] appearance-auto"
                 value={templateId}
                 onChange={(e) => void handleTemplateChange(e.target.value)}
-                disabled={isPreviewLoading}
+                disabled={isPreviewLoading || !category}
               >
                 <option value="">{lang === 'ja' ? '選択しない' : 'None'}</option>
                 {filteredTemplates.map((tpl) => (
@@ -216,7 +260,7 @@ export default function NewInquiryPage() {
             <Label htmlFor="order">{lang === 'ja' ? '関連注文（任意）' : 'Related order (optional)'}</Label>
             <select
               id="order"
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 min-h-[44px] appearance-auto"
               value={relatedOrderId}
               onChange={(e) => setRelatedOrderId(e.target.value)}
             >
@@ -257,7 +301,7 @@ export default function NewInquiryPage() {
 
           <Button
             className="w-full"
-            onClick={() => setShowConfirm(true)}
+            onClick={handleOpenConfirm}
             disabled={isSubmitting || isPreviewLoading}
           >
             {lang === 'ja' ? '内容を確認して送信' : 'Review and submit'}
@@ -269,6 +313,10 @@ export default function NewInquiryPage() {
             <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-xl">
               <h2 className="text-lg font-semibold mb-4">{lang === 'ja' ? '送信内容の確認' : 'Confirm submission'}</h2>
               <dl className="space-y-2 text-sm mb-6">
+                <div>
+                  <dt className="text-gray-500">{lang === 'ja' ? 'カテゴリ' : 'Category'}</dt>
+                  <dd className="text-gray-900">{selectedCategoryLabel}</dd>
+                </div>
                 <div>
                   <dt className="text-gray-500">{lang === 'ja' ? '件名' : 'Subject'}</dt>
                   <dd className="text-gray-900">{subject}</dd>

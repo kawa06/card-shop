@@ -6,8 +6,9 @@ import { ArrowLeft, MessageSquare, Search } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminInquiriesApi } from '@/lib/api'
 import { AdminInquiryListItem, InquiryStats } from '@/lib/types'
-import { inquiryCategoryLabel, inquiryStatusLabel, INQUIRY_STATUS_COLORS } from '@/lib/inquiry-labels'
+import { inquiryCategoryLabel, inquiryStatusLabel, INQUIRY_CATEGORY_OPTIONS, INQUIRY_STATUS_COLORS } from '@/lib/inquiry-labels'
 import { Input } from '@/components/ui/input'
+import { InquiryCategorySelect } from '@/components/inquiries/InquiryCategorySelect'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -21,6 +22,7 @@ export default function AdminInquiriesPage() {
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -36,9 +38,10 @@ export default function AdminInquiriesPage() {
   const fetchAll = useCallback(async () => {
     setIsLoading(true)
     try {
-      const params: { q?: string; status?: string } = {}
+      const params: { q?: string; status?: string; category?: string } = {}
       if (searchQuery) params.q = searchQuery
       if (statusFilter) params.status = statusFilter
+      if (categoryFilter) params.category = categoryFilter
       const [listRes, statsRes] = await Promise.all([
         adminInquiriesApi.list(params),
         adminInquiriesApi.getStats(),
@@ -48,7 +51,7 @@ export default function AdminInquiriesPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery, statusFilter])
+  }, [searchQuery, statusFilter, categoryFilter])
 
   useEffect(() => {
     if (!isMounted || !isReady) return
@@ -101,7 +104,7 @@ export default function AdminInquiriesPage() {
             />
           </div>
           <select
-            className="rounded-md border border-gray-200 px-3 py-2 text-sm"
+            className="rounded-md border border-gray-200 px-3 py-2.5 text-base min-h-[44px] appearance-auto"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
@@ -112,6 +115,16 @@ export default function AdminInquiriesPage() {
               </option>
             ))}
           </select>
+          <div className="min-w-[180px]">
+            <InquiryCategorySelect
+              id="admin-inquiry-category-filter"
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              options={INQUIRY_CATEGORY_OPTIONS}
+              includeAllOption
+              allOptionLabel="すべてのカテゴリ"
+            />
+          </div>
         </div>
 
         {isLoading ? (

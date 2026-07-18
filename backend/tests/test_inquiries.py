@@ -30,7 +30,7 @@ def test_create_inquiry_assigns_number(db, test_user):
     inquiry = create_inquiry(
         db,
         user=test_user,
-        category="order",
+        category="order_payment",
         subject="配送について",
         message="いつ届きますか？",
     )

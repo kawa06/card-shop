@@ -1,25 +1,28 @@
 INQUIRY_CATEGORIES = [
-    "order",
-    "payment",
-    "shipping",
     "product",
-    "points",
+    "order_payment",
+    "shipping",
+    "refund",
     "account",
-    "bug",
+    "points",
     "buyback",
+    "bug",
     "other",
 ]
 
 INQUIRY_CATEGORY_LABELS = {
-    "order": "注文について",
-    "payment": "支払いについて",
-    "shipping": "発送について",
     "product": "商品について",
-    "points": "ポイントについて",
+    "order_payment": "注文・支払いについて",
+    "shipping": "発送・配送について",
+    "refund": "返品・返金について",
     "account": "会員情報について",
-    "bug": "サイトの不具合について",
+    "points": "ポイントについて",
     "buyback": "買取について",
+    "bug": "サイトの不具合",
     "other": "その他",
+    # legacy slugs (existing records / old templates)
+    "order": "注文・支払いについて",
+    "payment": "注文・支払いについて",
 }
 
 INQUIRY_STATUSES = [

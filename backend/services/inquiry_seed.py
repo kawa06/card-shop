@@ -23,12 +23,12 @@ CUSTOMER_TEMPLATES = [
     },
     {
         "name": "注文内容を確認したい",
-        "category": "order",
+        "category": "order_payment",
         "body": "注文番号：{orderNumber}\n\n上記注文の内容を確認したく、ご連絡しました。\n\nよろしくお願いいたします。",
     },
     {
         "name": "支払い状況を確認したい",
-        "category": "payment",
+        "category": "order_payment",
         "body": "注文番号：{orderNumber}\n\n上記注文の支払い状況を確認したく、ご連絡しました。\n\nよろしくお願いいたします。",
     },
     {
@@ -48,8 +48,13 @@ CUSTOMER_TEMPLATES = [
     },
     {
         "name": "キャンセルについて確認したい",
-        "category": "order",
+        "category": "order_payment",
         "body": "注文番号：{orderNumber}\n\nキャンセルについて確認したく、ご連絡しました。\n\nよろしくお願いいたします。",
+    },
+    {
+        "name": "返品・返金について",
+        "category": "refund",
+        "body": "注文番号：{orderNumber}\n\n返品・返金についてご連絡しました。\n\n内容：\n\nよろしくお願いいたします。",
     },
     {
         "name": "その他",
@@ -71,12 +76,12 @@ ADMIN_TEMPLATES = [
     },
     {
         "name": "注文確認",
-        "category": "order",
+        "category": "order_payment",
         "body": "お問い合わせありがとうございます。\n\n以下の注文内容を確認しました。\n\n注文番号：{orderNumber}\n注文日：{orderedAt}\n注文金額：{totalAmount}\n注文状況：{orderStatus}\n\nご不明な点がございましたら、この問い合わせへご返信ください。",
     },
     {
         "name": "入金確認済み",
-        "category": "payment",
+        "category": "order_payment",
         "body": "お問い合わせありがとうございます。\n\nご注文のお支払いは正常に確認できています。\n現在、商品の発送準備を進めています。\n\n発送完了まで今しばらくお待ちください。",
     },
     {

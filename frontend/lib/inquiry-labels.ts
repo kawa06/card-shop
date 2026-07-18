@@ -1,13 +1,32 @@
+/** Inquiry category options (single source of truth for the frontend). */
+
+export const INQUIRY_CATEGORY_OPTIONS: { value: string; label: string }[] = [
+  { value: 'product', label: '商品について' },
+  { value: 'order_payment', label: '注文・支払いについて' },
+  { value: 'shipping', label: '発送・配送について' },
+  { value: 'refund', label: '返品・返金について' },
+  { value: 'account', label: '会員情報について' },
+  { value: 'points', label: 'ポイントについて' },
+  { value: 'buyback', label: '買取について' },
+  { value: 'bug', label: 'サイトの不具合' },
+  { value: 'other', label: 'その他' },
+]
+
+export const INQUIRY_CATEGORY_PLACEHOLDER = 'カテゴリを選択してください'
+
 export const INQUIRY_CATEGORY_LABELS: Record<string, string> = {
-  order: '注文について',
-  payment: '支払いについて',
-  shipping: '発送について',
   product: '商品について',
-  points: 'ポイントについて',
+  order_payment: '注文・支払いについて',
+  shipping: '発送・配送について',
+  refund: '返品・返金について',
   account: '会員情報について',
-  bug: 'サイトの不具合について',
+  points: 'ポイントについて',
   buyback: '買取について',
+  bug: 'サイトの不具合',
   other: 'その他',
+  // legacy slugs (existing inquiries / seeded templates)
+  order: '注文・支払いについて',
+  payment: '注文・支払いについて',
 }
 
 export const INQUIRY_STATUS_LABELS: Record<string, string> = {
@@ -34,4 +53,37 @@ export function inquiryCategoryLabel(value: string): string {
 
 export function inquiryStatusLabel(value: string): string {
   return INQUIRY_STATUS_LABELS[value] || value
+}
+
+/** Merge API categories with fixed fallback (API order wins when present). */
+export function resolveInquiryCategories(
+  fromApi?: { value: string; label: string }[] | null
+): { value: string; label: string }[] {
+  if (fromApi?.length) {
+    const known = new Set(INQUIRY_CATEGORY_OPTIONS.map((c) => c.value))
+    const merged = [...INQUIRY_CATEGORY_OPTIONS]
+    for (const item of fromApi) {
+      if (!known.has(item.value)) {
+        merged.push(item)
+      }
+    }
+    return merged
+  }
+  return INQUIRY_CATEGORY_OPTIONS
+}
+
+/** Template category slug may use legacy values from seeded data. */
+export function inquiryTemplateMatchesCategory(
+  templateCategory: string | null | undefined,
+  selectedCategory: string
+): boolean {
+  if (!templateCategory) return true
+  if (templateCategory === selectedCategory) return true
+  if (
+    selectedCategory === 'order_payment' &&
+    (templateCategory === 'order' || templateCategory === 'payment')
+  ) {
+    return true
+  }
+  return false
 }
