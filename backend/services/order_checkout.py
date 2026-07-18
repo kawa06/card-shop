@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 import models
 from services.shipping_rates import calculate_shipping_fee
+from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
 
 
 def get_user_cart_items(db: Session, user_id: int) -> list[models.CartItem]:
@@ -23,7 +24,14 @@ def get_user_cart_items(db: Session, user_id: int) -> list[models.CartItem]:
     return items
 
 
-def validate_shipping_method(cart_items: Iterable[models.CartItem], shipping_method: str | None) -> None:
+def validate_shipping_method(
+    cart_items: Iterable[models.CartItem],
+    shipping_method: str | None,
+    country: str | None = None,
+) -> None:
+    if shipping_method in INTERNATIONAL_METHOD_CODES and not is_domestic_japan(country):
+        return
+
     allowed_methods_set: set[str] | None = None
     for item in cart_items:
         card = item.card

@@ -15,6 +15,7 @@ from services.order_checkout import (
     resolve_shipping_fee,
     validate_shipping_method,
 )
+from services.countries import is_domestic_japan
 from services.stripe_service import (
     build_line_items,
     construct_webhook_event,
@@ -75,7 +76,7 @@ def create_stripe_checkout_session(
     if checkout_type not in {"card", "bank_transfer"}:
         raise HTTPException(status_code=400, detail="不正な決済種別です")
 
-    if checkout_type == "bank_transfer" and payload.country not in (None, "日本", "Japan"):
+    if checkout_type == "bank_transfer" and not is_domestic_japan(payload.country):
         raise HTTPException(status_code=400, detail="Stripe銀行振込は日本国内のみ利用できます")
 
     if not stripe_key_valid():
@@ -85,7 +86,7 @@ def create_stripe_checkout_session(
         )
 
     cart_items = get_user_cart_items(db, current_user.id)
-    validate_shipping_method(cart_items, payload.shipping_method)
+    validate_shipping_method(cart_items, payload.shipping_method, payload.country)
     shipping_fee = resolve_shipping_fee(payload.shipping_method, payload.region, payload.country, db)
 
     payment_method = "stripe_bank_transfer" if checkout_type == "bank_transfer" else "stripe_card"

@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 import models
 import re
 from services.countries import (
-    get_country_ems_zone,
-    get_ems_fee_500g,
-    get_yamato_global_fee_500g,
+    EMS_ZONE_FEES_500G,
+    INTERNATIONAL_METHOD_CODES,
+    YAMATO_GLOBAL_ZONE_FEES_500G,
+    get_international_shipping_quote,
     is_domestic_japan,
 )
 
@@ -82,10 +83,8 @@ REGIONAL_RATES_MASTER = {
     },
 }
 
-EMS_ZONE_RATES_JSON = json.dumps({"1": 1450, "2": 1900, "3": 3150, "4": 3900, "5": 3600})
-YAMATO_GLOBAL_ZONE_RATES_JSON = json.dumps({"1": 1700, "2": 2200, "3": 3600, "4": 4500, "5": 4100})
-
-INTERNATIONAL_METHOD_CODES = frozenset({"ems", "international", "yamato_global"})
+EMS_ZONE_RATES_JSON = json.dumps({str(k): v for k, v in EMS_ZONE_FEES_500G.items()})
+YAMATO_GLOBAL_ZONE_RATES_JSON = json.dumps({str(k): v for k, v in YAMATO_GLOBAL_ZONE_FEES_500G.items()})
 
 # Fallback values (2024 pricing)
 FALLBACK_RATES = {
@@ -94,6 +93,11 @@ FALLBACK_RATES = {
         "name_ja": "ヤマト運輸コンパクト",
         "name_en": "Takkyubin Compact",
         "fee_jpy": 650,
+        "has_tracking": True,
+        "has_insurance": True,
+        "is_individual_available": True,
+        "max_size": "25cm x 20cm x 5cm",
+        "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/compact/",
     },
     "click_post": {
         "carrier": "japan_post",
@@ -442,22 +446,39 @@ async def refresh_all_rates(db: Session):
         logger.error(f"Failed to commit shipping rates: {e}")
 
 def _international_fee(method_code: str, country: str, db: Session | None) -> int:
-    zone = get_country_ems_zone(country)
-    zone_key = str(zone)
+    quote = get_international_shipping_quote(method_code, country)
+    return int(quote["fee_jpy"])
 
+
+def calculate_shipping_quote(
+    method_code: str,
+    region: str | None = None,
+    country: str = "Japan",
+    db: Session | None = None,
+) -> dict:
+    """Full shipping quote including fee, delivery estimate, and insurance."""
+    fee = calculate_shipping_fee(method_code, region, country, db=db)
+
+    if not is_domestic_japan(country) and method_code in INTERNATIONAL_METHOD_CODES:
+        quote = get_international_shipping_quote(method_code, country)
+        quote["fee_jpy"] = fee
+        return quote
+
+    db_rate = None
     if db:
         db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
-        if db_rate and db_rate.international_zones:
-            try:
-                zones_map = json.loads(db_rate.international_zones)
-                if zone_key in zones_map:
-                    return int(zones_map[zone_key])
-            except Exception as e:
-                logger.error(f"Error parsing international_zones for {method_code}: {e}")
 
-    if method_code == "yamato_global":
-        return get_yamato_global_fee_500g(country)
-    return get_ems_fee_500g(country)
+    return {
+        "method_code": method_code,
+        "fee_jpy": fee,
+        "ems_zone": None,
+        "zone_label_ja": None,
+        "zone_label_en": None,
+        "estimated_delivery_min_days": db_rate.estimated_delivery_min_days if db_rate else None,
+        "estimated_delivery_max_days": db_rate.estimated_delivery_max_days if db_rate else None,
+        "has_insurance": db_rate.has_insurance if db_rate else FALLBACK_RATES.get(method_code, {}).get("has_insurance", False),
+        "insurance_max_amount": db_rate.insurance_max_amount if db_rate else FALLBACK_RATES.get(method_code, {}).get("insurance_max_amount"),
+    }
 
 
 def calculate_shipping_fee(method_code: str, region: str = None, country: str = "Japan", db: Session = None) -> int:

@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 import schemas
-from services.shipping_rates import refresh_all_rates, calculate_shipping_fee
+from services.shipping_rates import refresh_all_rates, calculate_shipping_fee, calculate_shipping_quote
+from services.countries import is_domestic_japan, is_supported_checkout_country
 from services.countries import get_all_countries
 from auth import get_current_user
 from typing import Optional
@@ -32,8 +33,9 @@ def get_calculated_shipping(
     country: str = "Japan",
     db: Session = Depends(get_db)
 ):
-    fee = calculate_shipping_fee(method_code, region, country, db=db)
-    return {"method_code": method_code, "fee_jpy": fee}
+    if not is_domestic_japan(country) and not is_supported_checkout_country(country):
+        raise HTTPException(status_code=400, detail="Unsupported destination country")
+    return calculate_shipping_quote(method_code, region, country, db=db)
 
 @router.post("/shipping-rates/international")
 def post_calculate_international_shipping(

@@ -128,6 +128,18 @@ export interface ShippingRate {
   updated_at: string
 }
 
+export interface ShippingQuote {
+  method_code: string
+  fee_jpy: number
+  ems_zone?: number | null
+  zone_label_ja?: string | null
+  zone_label_en?: string | null
+  estimated_delivery_min_days?: number | null
+  estimated_delivery_max_days?: number | null
+  has_insurance?: boolean
+  insurance_max_amount?: number | null
+}
+
 export interface PaginatedResponse<T> {
   items: T[]
   total: number

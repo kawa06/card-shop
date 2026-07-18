@@ -16,7 +16,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ShippingRate, User } from '@/lib/types'
+import { ShippingRate, ShippingQuote, User } from '@/lib/types'
 import { Check, ShieldCheck, Truck, ExternalLink, Info, RefreshCw } from 'lucide-react'
 
 import { CHECKOUT_COUNTRIES, countryDisplayName, isDomesticJapan, normalizeCountryCode } from '@/lib/country'
@@ -108,7 +108,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
-  const [methodFees, setMethodFees] = useState<Record<string, number>>({})
+  const [methodQuotes, setMethodQuotes] = useState<Record<string, ShippingQuote>>({})
   const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -179,16 +179,14 @@ export default function CheckoutPage() {
 
   const availableRates = shippingRates.filter(rate => {
     if (rate.method_code === 'nekopos' || rate.method_code === 'yu_pack_60') return false
-    const isAlwaysShown = ['takkyubin_compact', 'click_post', 'teikei_post'].includes(rate.method_code)
-    if (!isAlwaysShown && !rate.is_individual_available) return false
     if (isInternational) {
       if (!rate.is_international_available) return false
-      if (rate.method_code === 'international' && shippingRates.some((r) => r.method_code === 'ems')) {
-        return false
-      }
-      return true
+      if (rate.method_code === 'international') return false
+      return ['ems', 'yamato_global'].includes(rate.method_code)
     }
     if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
+    const isAlwaysShown = ['takkyubin_compact', 'click_post', 'teikei_post'].includes(rate.method_code)
+    if (!isAlwaysShown && !rate.is_individual_available) return false
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)
   })
@@ -209,10 +207,10 @@ export default function CheckoutPage() {
     }
   }, [availableRates, shippingMethod, isInternational])
 
-  // Fetch regional/international fees for every available shipping method
+  // Fetch regional/international quotes for every available shipping method
   useEffect(() => {
     if (!availableRates.length) {
-      setMethodFees({})
+      setMethodQuotes({})
       return
     }
 
@@ -227,12 +225,12 @@ export default function CheckoutPage() {
             prefecture: debouncedAddress.region,
             country: countryLabel,
           })
-          .then((res) => [rate.method_code, res.data.fee_jpy] as const)
-          .catch(() => [rate.method_code, rate.fee_jpy || 0] as const)
+          .then((res) => [rate.method_code, res.data] as const)
+          .catch(() => [rate.method_code, { method_code: rate.method_code, fee_jpy: rate.fee_jpy || 0 }] as const)
       )
     ).then((pairs) => {
       if (!cancelled) {
-        setMethodFees(Object.fromEntries(pairs))
+        setMethodQuotes(Object.fromEntries(pairs))
       }
     })
 
@@ -261,13 +259,33 @@ export default function CheckoutPage() {
   }, [shippingMethod, debouncedAddress, shippingRates, lang])
 
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
+  const selectedQuote = shippingMethod ? methodQuotes[shippingMethod] : undefined
   const shippingFee =
-    methodFees[shippingMethod] ??
+    selectedQuote?.fee_jpy ??
     dynamicShippingFee ??
     (selectedRate?.fee_jpy || 0)
   const finalTotal = total + shippingFee
 
-  const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
+  const displayDelivery = (rate: ShippingRate) => {
+    const quote = methodQuotes[rate.method_code]
+    const min = quote?.estimated_delivery_min_days ?? rate.estimated_delivery_min_days
+    const max = quote?.estimated_delivery_max_days ?? rate.estimated_delivery_max_days
+    if (min == null || max == null) return null
+    return `${min}〜${max}${t('日', lang)}`
+  }
+
+  const displayInsurance = (rate: ShippingRate) => {
+    const quote = methodQuotes[rate.method_code]
+    const hasInsurance = quote?.has_insurance ?? rate.has_insurance
+    const maxAmount = quote?.insurance_max_amount ?? rate.insurance_max_amount
+    if (!hasInsurance) return t('なし', lang)
+    if (maxAmount) return `Max ${formatPrice(maxAmount)}`
+    return t('あり', lang)
+  }
+
+  const needsCompensationAgreement =
+    selectedRate &&
+    !(selectedQuote?.has_insurance ?? selectedRate.has_insurance)
 
   // Pre-fill address if available
   useEffect(() => {
@@ -338,12 +356,12 @@ export default function CheckoutPage() {
       return
     }
 
-    if (!isInternational && !shippingMethod) {
+    if (!shippingMethod) {
       toast({ title: t('エラー', lang), description: t('発送方法を選択してください', lang), variant: 'destructive' })
       return
     }
 
-    if (!isInternational && availableRates.length === 0) {
+    if (availableRates.length === 0) {
       toast({ title: t('エラー', lang), description: t('利用可能な発送方法がありません', lang), variant: 'destructive' })
       return
     }
@@ -684,7 +702,7 @@ export default function CheckoutPage() {
                             </div>
                           </div>
                           <p className="shrink-0 text-yellow-400 font-bold text-sm tabular-nums">
-                            {formatPrice(methodFees[rate.method_code] ?? rate.fee_jpy ?? 0)}
+                            {formatPrice(methodQuotes[rate.method_code]?.fee_jpy ?? rate.fee_jpy ?? 0)}
                           </p>
                         </div>
 
@@ -696,15 +714,17 @@ export default function CheckoutPage() {
                           <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
                             <ShieldCheck className="h-3 w-3 text-gray-500" />
                             <span>
-                              {t('補償', lang)}: {rate.has_insurance ? (rate.insurance_max_amount ? `Max ${formatPrice(rate.insurance_max_amount)}` : t('あり', lang)) : t('なし', lang)}
+                              {t('補償', lang)}: {displayInsurance(rate)}
                             </span>
                           </div>
+                          {displayDelivery(rate) && (
                           <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
                             <Info className="h-3 w-3 text-gray-500" />
                             <span>
-                              {t('到着目安', lang)}: {rate.estimated_delivery_min_days}〜{rate.estimated_delivery_max_days}{t('日', lang)}
+                              {t('到着目安', lang)}: {displayDelivery(rate)}
                             </span>
                           </div>
+                          )}
                           {rate.insurance_url && (
                             <a 
                               href={rate.insurance_url} 
@@ -863,7 +883,7 @@ export default function CheckoutPage() {
           <div className="pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || (!isInternational && availableRates.length === 0)}
+              disabled={isSubmitting || availableRates.length === 0}
               className="w-full h-14 bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-black text-lg shadow-xl shadow-yellow-400/10"
             >
               {isSubmitting
