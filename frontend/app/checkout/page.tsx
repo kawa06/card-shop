@@ -72,13 +72,12 @@ export default function CheckoutPage() {
     "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"
   ];
 
-  // Language to Default Country sync
+  // Default country once from language (do not reset when user already picked a country)
   useEffect(() => {
-    if (lang === 'en') {
-      setCountry('US')
-    } else {
-      setCountry('JP')
-    }
+    setCountry((current) => {
+      if (current) return current
+      return lang === 'en' ? 'US' : 'JP'
+    })
   }, [lang])
 
   // Fetch address from zipcloud when postal code is 7 digits
@@ -124,7 +123,7 @@ export default function CheckoutPage() {
     return () => clearTimeout(timer)
   }, [region, country])
 
-  const [paymentMethod, setPaymentMethod] = useState('credit_card')
+  const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
   const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
@@ -133,14 +132,20 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
   const [stripeEnabled, setStripeEnabled] = useState(false)
+  const [konbiniEnabled, setKonbiniEnabled] = useState(false)
+  const [stripeConfigLoaded, setStripeConfigLoaded] = useState(false)
 
   const isInternational = country !== 'JP'
 
   useEffect(() => {
-    if (!stripeEnabled && (paymentMethod === 'credit_card' || paymentMethod === 'konbini')) {
+    if (
+      stripeConfigLoaded &&
+      !stripeEnabled &&
+      (paymentMethod === 'credit_card' || paymentMethod === 'konbini')
+    ) {
       setPaymentMethod('bank_transfer')
     }
-  }, [stripeEnabled, paymentMethod])
+  }, [stripeEnabled, stripeConfigLoaded, paymentMethod])
 
   useEffect(() => {
     if (isInternational && paymentMethod === 'konbini') {
@@ -148,8 +153,7 @@ export default function CheckoutPage() {
     }
   }, [isInternational, paymentMethod])
 
-  
-  // Fetch shipping rates
+  // Fetch shipping rates and Stripe availability (public config — no auth required)
   useEffect(() => {
     if (!isMounted) return
     shippingApi.getRates().then(res => {
@@ -157,7 +161,13 @@ export default function CheckoutPage() {
     })
     paymentsApi.getStripeConfig().then(res => {
       setStripeEnabled(Boolean(res.data?.enabled))
-    }).catch(() => setStripeEnabled(false))
+      setKonbiniEnabled(Boolean(res.data?.konbini_enabled))
+    }).catch(() => {
+      setStripeEnabled(false)
+      setKonbiniEnabled(false)
+    }).finally(() => {
+      setStripeConfigLoaded(true)
+    })
   }, [isMounted])
 
   // Calculate allowed shipping methods intersection
@@ -741,8 +751,8 @@ export default function CheckoutPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
-                { value: 'credit_card', label: t('クレジットカード（Stripe）', lang), disabled: !stripeEnabled },
-                { value: 'konbini', label: t('コンビニ決済（Stripe）', lang), disabled: !stripeEnabled || isInternational },
+                { value: 'credit_card', label: t('クレジットカード（Stripe）', lang), disabled: !stripeConfigLoaded || !stripeEnabled },
+                { value: 'konbini', label: t('コンビニ決済（Stripe）', lang), disabled: !stripeConfigLoaded || !stripeEnabled || !konbiniEnabled || isInternational },
                 { value: 'bank_transfer', label: t('銀行振込', lang), disabled: false },
                 { value: 'cod', label: t('代金引換', lang), disabled: false },
               ].map((method) => (
@@ -760,6 +770,16 @@ export default function CheckoutPage() {
                 </label>
               ))}
             </div>
+            {!stripeConfigLoaded && (
+              <p className="text-xs text-gray-500">{lang === 'ja' ? '決済方法を読み込み中...' : 'Loading payment methods...'}</p>
+            )}
+            {stripeConfigLoaded && !stripeEnabled && (
+              <p className="text-xs text-gray-500">
+                {lang === 'ja'
+                  ? 'Stripe決済は現在ご利用いただけません。銀行振込または代金引換をお選びください。'
+                  : 'Stripe is unavailable. Please use bank transfer or cash on delivery.'}
+              </p>
+            )}
             {paymentMethod === 'credit_card' && (
               <p className="text-xs text-gray-500">
                 {t('Stripeの安全な決済ページに移動してカード情報を入力します', lang)}
