@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ShippingRate, User } from '@/lib/types'
-import { Badge } from '@/components/ui/badge'
 import { Check, ShieldCheck, Truck, ExternalLink, Info, RefreshCw } from 'lucide-react'
 
 import { CHECKOUT_COUNTRIES, countryDisplayName, isDomesticJapan, normalizeCountryCode } from '@/lib/country'
@@ -109,6 +108,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
+  const [methodFees, setMethodFees] = useState<Record<string, number>>({})
   const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
@@ -209,7 +209,39 @@ export default function CheckoutPage() {
     }
   }, [availableRates, shippingMethod, isInternational])
 
-  // Fetch dynamic shipping fee when method or destination changes
+  // Fetch regional/international fees for every available shipping method
+  useEffect(() => {
+    if (!availableRates.length) {
+      setMethodFees({})
+      return
+    }
+
+    const countryLabel = countryDisplayName(debouncedAddress.country, lang)
+    let cancelled = false
+
+    Promise.all(
+      availableRates.map((rate) =>
+        shippingApi
+          .calculateRate({
+            method: rate.method_code,
+            prefecture: debouncedAddress.region,
+            country: countryLabel,
+          })
+          .then((res) => [rate.method_code, res.data.fee_jpy] as const)
+          .catch(() => [rate.method_code, rate.fee_jpy || 0] as const)
+      )
+    ).then((pairs) => {
+      if (!cancelled) {
+        setMethodFees(Object.fromEntries(pairs))
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [availableRates, debouncedAddress, lang])
+
+  // Keep selected method fee in sync (fallback if batch above is slow)
   useEffect(() => {
     if (!shippingMethod) {
       setDynamicShippingFee(null)
@@ -226,10 +258,13 @@ export default function CheckoutPage() {
       const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
       setDynamicShippingFee(selectedRate?.fee_jpy || 0)
     })
-  }, [shippingMethod, debouncedAddress, shippingRates])
+  }, [shippingMethod, debouncedAddress, shippingRates, lang])
 
   const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
-  const shippingFee = dynamicShippingFee ?? (selectedRate?.fee_jpy || 0)
+  const shippingFee =
+    methodFees[shippingMethod] ??
+    dynamicShippingFee ??
+    (selectedRate?.fee_jpy || 0)
   const finalTotal = total + shippingFee
 
   const needsCompensationAgreement = selectedRate && !selectedRate.has_insurance
@@ -635,19 +670,21 @@ export default function CheckoutPage() {
                               onChange={() => setShippingMethod(rate.method_code)}
                               className="w-4 h-4 accent-yellow-400"
                             />
-                            <div>
-                              <p className="text-gray-900 text-sm font-bold flex items-center gap-2">
-                                {lang === 'ja' ? rate.name_ja : rate.name_en}
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="text-gray-900 text-sm font-bold leading-snug">
+                                  {lang === 'ja' ? rate.name_ja : rate.name_en}
+                                </span>
                                 {rate.is_recommended && (
-                                  <Badge className="bg-yellow-400 text-gray-950 hover:bg-yellow-400 text-[9px] h-4 px-1 font-bold">
+                                  <span className="inline-flex shrink-0 items-center rounded-full bg-yellow-400 px-1.5 py-0.5 text-[10px] font-bold leading-none text-gray-950">
                                     {t('推奨', lang)}
-                                  </Badge>
+                                  </span>
                                 )}
-                              </p>
+                              </div>
                             </div>
                           </div>
-                          <p className="text-yellow-400 font-bold text-sm">
-                            {formatPrice(rate.fee_jpy || 0)}
+                          <p className="shrink-0 text-yellow-400 font-bold text-sm tabular-nums">
+                            {formatPrice(methodFees[rate.method_code] ?? rate.fee_jpy ?? 0)}
                           </p>
                         </div>
 
