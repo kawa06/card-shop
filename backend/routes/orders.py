@@ -21,35 +21,12 @@ def create_order(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if payload.payment_method == "credit_card":
+    if payload.payment_method in ("credit_card", "bank_transfer"):
         raise HTTPException(
             status_code=400,
-            detail="カード決済はStripe Checkoutをご利用ください。",
+            detail="決済はStripe Checkoutをご利用ください。",
         )
-    if payload.payment_method not in ("bank_transfer",):
-        raise HTTPException(status_code=400, detail="利用できない支払い方法です")
-
-    cart_items = get_user_cart_items(db, current_user.id)
-    validate_shipping_method(cart_items, payload.shipping_method)
-    shipping_fee = resolve_shipping_fee(payload.shipping_method, payload.region, payload.country, db)
-
-    return create_order_from_cart(
-        db,
-        user=current_user,
-        cart_items=cart_items,
-        postal_code=payload.postal_code,
-        country=payload.country,
-        region=payload.region,
-        city=payload.city,
-        address_line1=payload.address_line1,
-        address_line2=payload.address_line2,
-        shipping_address=payload.shipping_address,
-        shipping_method=payload.shipping_method,
-        shipping_fee=shipping_fee,
-        payment_method=payload.payment_method,
-        payment_status="pending",
-        finalize=True,
-    )
+    raise HTTPException(status_code=400, detail="利用できない支払い方法です")
 
 
 @router.get("", response_model=list[schemas.OrderOut])

@@ -132,6 +132,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [saveAddress, setSaveAddress] = useState(true)
   const [stripeEnabled, setStripeEnabled] = useState(false)
+  const [stripeBankTransferEnabled, setStripeBankTransferEnabled] = useState(false)
   const [stripeConfigLoaded, setStripeConfigLoaded] = useState(false)
 
   const isInternational = country !== 'JP'
@@ -142,6 +143,12 @@ export default function CheckoutPage() {
     }
   }, [stripeEnabled, stripeConfigLoaded, paymentMethod])
 
+  useEffect(() => {
+    if (isInternational && paymentMethod === 'bank_transfer' && stripeBankTransferEnabled) {
+      setPaymentMethod('credit_card')
+    }
+  }, [isInternational, paymentMethod, stripeBankTransferEnabled])
+
   // Fetch shipping rates and Stripe availability (public config — no auth required)
   useEffect(() => {
     if (!isMounted) return
@@ -150,8 +157,10 @@ export default function CheckoutPage() {
     })
     paymentsApi.getStripeConfig().then(res => {
       setStripeEnabled(Boolean(res.data?.enabled))
+      setStripeBankTransferEnabled(Boolean(res.data?.bank_transfer_enabled))
     }).catch(() => {
       setStripeEnabled(false)
+      setStripeBankTransferEnabled(false)
     }).finally(() => {
       setStripeConfigLoaded(true)
     })
@@ -347,11 +356,21 @@ export default function CheckoutPage() {
         fetchMe()
       }
 
-      if (paymentMethod === 'credit_card') {
-        if (!stripeEnabled) {
+      if (paymentMethod === 'credit_card' || paymentMethod === 'bank_transfer') {
+        const useStripe =
+          paymentMethod === 'credit_card'
+            ? stripeEnabled
+            : stripeBankTransferEnabled && !isInternational
+
+        if (!useStripe) {
           toast({
             title: t('エラー', lang),
-            description: t('Stripe決済は現在利用できません', lang),
+            description:
+              paymentMethod === 'credit_card'
+                ? t('Stripe決済は現在利用できません', lang)
+                : lang === 'ja'
+                  ? 'Stripe銀行振込は現在ご利用いただけません'
+                  : 'Stripe bank transfer is unavailable',
             variant: 'destructive',
           })
           return
@@ -367,28 +386,18 @@ export default function CheckoutPage() {
           shipping_address: shippingAddress,
           shipping_method: shippingMethod,
           locale: lang,
+          checkout_type: paymentMethod === 'bank_transfer' ? 'bank_transfer' : 'card',
         })
 
         window.location.href = stripeRes.data.checkout_url
         return
       }
 
-      const res = await ordersApi.create({
-        postal_code: postalCode,
-        country: currentCountryName,
-        region: region,
-        city: city,
-        address_line1: addressLine1,
-        address_line2: addressLine2,
-        shipping_address: shippingAddress,
-        shipping_method: shippingMethod,
-        shipping_fee: shippingFee,
-        payment_method: paymentMethod,
+      toast({
+        title: t('エラー', lang),
+        description: lang === 'ja' ? '利用できない支払い方法です' : 'Invalid payment method',
+        variant: 'destructive',
       })
-      
-      clearCart()
-      toast({ title: t('注文が完了しました！', lang), description: `${t('注文番号', lang)}: #${res.data.id}` })
-      router.push('/orders')
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -729,7 +738,11 @@ export default function CheckoutPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {[
                 { value: 'credit_card', label: t('クレジットカード（Stripe）', lang), disabled: !stripeConfigLoaded || !stripeEnabled },
-                { value: 'bank_transfer', label: t('銀行振込', lang), disabled: false },
+                {
+                  value: 'bank_transfer',
+                  label: t('銀行振込（Stripe）', lang),
+                  disabled: !stripeConfigLoaded || !stripeBankTransferEnabled || isInternational,
+                },
               ].map((method) => (
                 <label key={method.value} className={`flex items-center gap-2 p-3 rounded-lg border transition-colors ${method.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${paymentMethod === method.value ? 'bg-yellow-400/5 border-yellow-400/50' : 'bg-gray-50 border-gray-100'}`}>
                   <input
@@ -751,13 +764,20 @@ export default function CheckoutPage() {
             {stripeConfigLoaded && !stripeEnabled && (
               <p className="text-xs text-gray-500">
                 {lang === 'ja'
-                  ? 'Stripe決済は現在ご利用いただけません。銀行振込をお選びください。'
-                  : 'Stripe is unavailable. Please use bank transfer.'}
+                  ? 'クレジットカード決済は現在ご利用いただけません。'
+                  : 'Credit card payments are currently unavailable.'}
               </p>
             )}
             {paymentMethod === 'credit_card' && (
               <p className="text-xs text-gray-500">
                 {t('Stripeの安全な決済ページに移動してカード情報を入力します', lang)}
+              </p>
+            )}
+            {paymentMethod === 'bank_transfer' && (
+              <p className="text-xs text-gray-500">
+                {lang === 'ja'
+                  ? 'Stripeのページで振込先口座を確認し、表示された金額をお振り込みください。入金確認後に発送します。'
+                  : 'You will receive bank transfer instructions on Stripe. We ship after payment is confirmed.'}
               </p>
             )}
           </section>
@@ -819,7 +839,9 @@ export default function CheckoutPage() {
                 ? t('注文処理中...', lang)
                 : paymentMethod === 'credit_card'
                   ? t('Stripeで支払う', lang)
-                  : t('注文を確定する', lang)}
+                  : paymentMethod === 'bank_transfer'
+                    ? t('振込手続きへ進む', lang)
+                    : t('注文を確定する', lang)}
             </Button>
             <p className="text-center text-[10px] text-gray-500 mt-4">
               By clicking confirm, you agree to our Terms of Service and Privacy Policy.

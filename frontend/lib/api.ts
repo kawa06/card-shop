@@ -270,6 +270,7 @@ export const paymentsApi = {
     shipping_address?: string
     shipping_method?: string
     locale?: string
+    checkout_type?: 'card' | 'bank_transfer'
   }) => apiClient.post('/payments/stripe/create-checkout-session', data),
   confirmStripeCheckout: (sessionId: string) =>
     apiClient.get('/payments/stripe/confirm', { params: { session_id: sessionId } }),

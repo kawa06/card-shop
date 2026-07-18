@@ -88,27 +88,52 @@ def build_line_items(cart_items, shipping_fee: int, shipping_label: str) -> list
     return line_items
 
 
+def get_or_create_stripe_customer(email: str) -> str:
+    _configure_stripe()
+    existing = stripe.Customer.list(email=email, limit=1)
+    if existing.data:
+        return existing.data[0].id
+    customer = stripe.Customer.create(email=email)
+    return customer.id
+
+
 def create_checkout_session(
     *,
     order_id: int,
     customer_email: str,
     line_items: list[dict[str, Any]],
     locale: str = "ja",
+    checkout_type: str = "card",
 ) -> stripe.checkout.Session:
     require_stripe()
     _configure_stripe()
 
+    checkout_type = (checkout_type or "card").lower()
+    if checkout_type not in {"card", "bank_transfer"}:
+        raise HTTPException(status_code=400, detail="不正な決済種別です")
+
     params: dict[str, Any] = {
         "mode": "payment",
-        "customer_email": customer_email,
         "line_items": line_items,
-        "metadata": {"order_id": str(order_id), "checkout_type": "card"},
+        "metadata": {"order_id": str(order_id), "checkout_type": checkout_type},
         "client_reference_id": str(order_id),
         "locale": locale if locale in {"ja", "en"} else "auto",
         "success_url": f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
         "cancel_url": f"{settings.FRONTEND_URL.rstrip('/')}/checkout/cancel?order_id={order_id}",
-        "payment_method_types": ["card"],
     }
+
+    if checkout_type == "bank_transfer":
+        params["customer"] = get_or_create_stripe_customer(customer_email)
+        params["payment_method_types"] = ["customer_balance"]
+        params["payment_method_options"] = {
+            "customer_balance": {
+                "funding_type": "bank_transfer",
+                "bank_transfer": {"type": "jp_bank_transfer"},
+            }
+        }
+    else:
+        params["customer_email"] = customer_email
+        params["payment_method_types"] = ["card"]
 
     return stripe.checkout.Session.create(**params)
 

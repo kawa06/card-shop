@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { CheckCircle2, Landmark, Loader2 } from 'lucide-react'
 import { paymentsApi } from '@/lib/api'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
@@ -31,6 +31,7 @@ function CheckoutSuccessContent() {
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { lang } = useLangStore()
   const [orderId, setOrderId] = useState<number | null>(null)
+  const [pendingBankTransfer, setPendingBankTransfer] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -59,6 +60,7 @@ function CheckoutSuccessContent() {
         .confirmStripeCheckout(sessionId)
         .then((res) => {
           setOrderId(res.data.order.id)
+          setPendingBankTransfer(Boolean(res.data.pending_bank_transfer))
           clearCart()
           fetchCart()
         })
@@ -83,7 +85,31 @@ function CheckoutSuccessContent() {
           </>
         )}
 
-        {orderId && (
+        {orderId && pendingBankTransfer && (
+          <>
+            <Landmark className="h-16 w-16 text-yellow-500 mx-auto" />
+            <h1 className="text-2xl font-bold text-gray-900">
+              {lang === 'ja' ? '銀行振込のお手続きを受け付けました' : 'Bank transfer instructions received'}
+            </h1>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {t('注文番号', lang)}: #{orderId}
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {lang === 'ja'
+                ? 'Stripeの画面で表示された振込先へ、指定金額をお振り込みください。入金確認後に発送します。'
+                : 'Please transfer the exact amount to the bank account shown on Stripe. We ship after payment is confirmed.'}
+            </p>
+            <div className="flex flex-col gap-3 pt-4">
+              <Link href="/orders">
+                <Button className="w-full bg-yellow-400 text-gray-950 hover:bg-yellow-300 font-bold">
+                  {t('注文履歴を見る', lang)}
+                </Button>
+              </Link>
+            </div>
+          </>
+        )}
+
+        {orderId && !pendingBankTransfer && (
           <>
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
             <h1 className="text-2xl font-bold text-gray-900">{t('決済が完了しました', lang)}</h1>
