@@ -21,6 +21,7 @@ from services.stripe_service import (
     create_checkout_session,
     retrieve_checkout_session,
     stripe_configured,
+    stripe_key_valid,
 )
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -57,10 +58,11 @@ def _handle_konbini_pending(db: Session, order: models.Order) -> models.Order:
 
 @router.get("/stripe/config")
 def stripe_public_config():
+    valid = stripe_key_valid()
     return {
-        "enabled": stripe_configured(),
+        "enabled": valid,
         "publishable_key": None,
-        "konbini_enabled": stripe_configured(),
+        "konbini_enabled": valid,
     }
 
 
@@ -73,6 +75,12 @@ def create_stripe_checkout_session(
     checkout_type = (payload.checkout_type or "card").lower()
     if checkout_type not in {"card", "konbini"}:
         raise HTTPException(status_code=400, detail="不正な決済種別です")
+
+    if not stripe_key_valid():
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe APIキーが無効です。Stripeダッシュボードで新しいSecret keyを発行し、RailwayのSTRIPE_SECRET_KEYを1行で設定してください。",
+        )
 
     if checkout_type == "konbini" and payload.country not in (None, "日本", "Japan"):
         raise HTTPException(status_code=400, detail="コンビニ決済は日本国内のみ利用できます")
@@ -111,6 +119,12 @@ def create_stripe_checkout_session(
             locale=payload.locale or "ja",
             checkout_type=checkout_type,
         )
+    except stripe.error.AuthenticationError as exc:
+        cancel_unpaid_order(db, order)
+        raise HTTPException(
+            status_code=503,
+            detail="Stripe APIキーが無効です。Stripeダッシュボードで新しいSecret keyを発行し、RailwayのSTRIPE_SECRET_KEYを1行で設定してください。",
+        ) from exc
     except stripe.error.StripeError as exc:
         cancel_unpaid_order(db, order)
         message = getattr(exc, "user_message", None) or str(exc)

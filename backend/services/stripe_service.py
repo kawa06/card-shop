@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 from typing import Any
 
 import stripe
@@ -13,6 +14,22 @@ logger = logging.getLogger(__name__)
 
 def stripe_configured() -> bool:
     return bool(settings.STRIPE_SECRET_KEY.strip())
+
+
+@lru_cache(maxsize=1)
+def stripe_key_valid() -> bool:
+    if not stripe_configured():
+        return False
+    _configure_stripe()
+    try:
+        stripe.Account.retrieve()
+        return True
+    except stripe.error.AuthenticationError:
+        logger.error("Stripe secret key is invalid or revoked")
+        return False
+    except stripe.error.StripeError as exc:
+        logger.warning("Stripe key validation failed: %s", exc)
+        return False
 
 
 def _configure_stripe() -> None:
