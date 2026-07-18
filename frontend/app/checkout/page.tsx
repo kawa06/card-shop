@@ -483,6 +483,9 @@ export default function CheckoutPage() {
                         <option key={c.code} value={c.code}>{lang === 'ja' ? c.ja : c.en}</option>
                       ))}
                     </select>
+                    <p className="text-[11px] sm:text-xs leading-relaxed text-gray-500 break-words">
+                      {t('現在発送可能な国のみ表示しています。国際情勢や配送会社の受付状況により、注文後に発送できない場合があります。', lang)}
+                    </p>
                   </div>
 
                 {isInternational ? (

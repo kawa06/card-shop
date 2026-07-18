@@ -135,6 +135,7 @@ const dict: Record<string, string> = {
   '住所番地を入力してください': 'Please enter street address',
   '電話番号を入力してください': 'Please enter phone number',
   '国を選択してください': 'Please select a country',
+  '現在発送可能な国のみ表示しています。国際情勢や配送会社の受付状況により、注文後に発送できない場合があります。': 'Only countries we can currently ship to are listed. Due to international conditions or carrier restrictions, we may be unable to ship after your order is placed.',
   '配送方法': 'Shipping Method',
   '追跡': 'Tracking',
   '補償': 'Insurance',
