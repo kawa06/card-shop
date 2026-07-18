@@ -67,6 +67,7 @@ def add_columns_if_missing():
             ("payment_method", "VARCHAR(50)"),
             ("payment_status", "VARCHAR(50) DEFAULT 'pending'"),
             ("stripe_checkout_session_id", "VARCHAR(255)"),
+            ("click_post_csv_exported_at", "DATETIME"),
         ],
         "shipping_rates": [
             ("carrier", "VARCHAR(50)"),

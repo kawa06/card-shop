@@ -178,14 +178,21 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
-    if (rate.method_code === 'nekopos' || rate.method_code === 'yu_pack_60') return false
+    if (rate.method_code === 'nekopos') return false
     if (isInternational) {
       if (!rate.is_international_available) return false
       if (rate.method_code === 'international') return false
       return ['ems', 'yamato_global'].includes(rate.method_code)
     }
     if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
-    const isAlwaysShown = ['takkyubin_compact', 'click_post', 'teikei_post'].includes(rate.method_code)
+    const isAlwaysShown = [
+      'takkyubin_compact',
+      'click_post',
+      'teikei_post',
+      'teigai_post',
+      'letter_pack_light',
+      'letter_pack_plus',
+    ].includes(rate.method_code)
     if (!isAlwaysShown && !rate.is_individual_available) return false
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)

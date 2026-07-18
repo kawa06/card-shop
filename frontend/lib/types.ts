@@ -100,8 +100,23 @@ export interface Order {
   shipping_fee: number
   payment_method: string | null
   payment_status: string | null
+  click_post_csv_exported_at: string | null
   created_at: string
   items: OrderItem[]
+}
+
+export interface AdminClickPostOrder {
+  id: number
+  buyer_name: string
+  postal_code: string | null
+  region: string | null
+  city: string | null
+  address_line1: string | null
+  address_line2: string | null
+  product_names: string
+  created_at: string
+  payment_status: string | null
+  click_post_csv_exported_at: string | null
 }
 
 export interface ShippingRate {

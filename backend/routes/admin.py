@@ -1,8 +1,12 @@
 import math
+import csv
+import io
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy.orm import Session
+from fastapi.responses import Response
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from auth import get_current_admin
@@ -362,6 +366,122 @@ def admin_update_order_status(
     safe_commit(db, action="注文ステータス更新")
     db.refresh(order)
     return order
+
+
+def _format_order_datetime_jst(dt: datetime | None) -> str:
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    jst = timezone(timedelta(hours=9))
+    return dt.astimezone(jst).strftime("%Y/%m/%d %H:%M")
+
+
+def _order_product_names(order: models.Order) -> str:
+    parts = []
+    for item in order.items:
+        name = item.card.name if item.card else f"商品#{item.card_id}"
+        parts.append(f"{name} x{item.quantity}")
+    return " / ".join(parts)
+
+
+def _serialize_click_post_order(order: models.Order) -> schemas.AdminClickPostOrderOut:
+    buyer = order.user.name if order.user else ""
+    return schemas.AdminClickPostOrderOut(
+        id=order.id,
+        buyer_name=buyer,
+        postal_code=order.postal_code,
+        region=order.region,
+        city=order.city,
+        address_line1=order.address_line1,
+        address_line2=order.address_line2,
+        product_names=_order_product_names(order),
+        created_at=order.created_at,
+        payment_status=order.payment_status,
+        click_post_csv_exported_at=order.click_post_csv_exported_at,
+    )
+
+
+@router.get("/orders/click-post", response_model=list[schemas.AdminClickPostOrderOut])
+def admin_list_click_post_orders(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    orders = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.user),
+            joinedload(models.Order.items).joinedload(models.OrderItem.card),
+        )
+        .filter(models.Order.shipping_method == "click_post")
+        .order_by(models.Order.created_at.desc())
+        .all()
+    )
+    return [_serialize_click_post_order(o) for o in orders]
+
+
+@router.post("/orders/click-post/export")
+def admin_export_click_post_csv(
+    payload: schemas.ClickPostExportRequest,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    if not payload.order_ids:
+        raise HTTPException(status_code=400, detail="出力する注文を選択してください")
+
+    orders = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.user),
+            joinedload(models.Order.items).joinedload(models.OrderItem.card),
+        )
+        .filter(
+            models.Order.id.in_(payload.order_ids),
+            models.Order.shipping_method == "click_post",
+        )
+        .order_by(models.Order.created_at.asc())
+        .all()
+    )
+    if not orders:
+        raise HTTPException(status_code=404, detail="対象のクリックポスト注文が見つかりません")
+
+    output = io.StringIO()
+    writer = csv.writer(output, lineterminator="\r\n")
+    writer.writerow([
+        "注文番号",
+        "購入者氏名",
+        "郵便番号",
+        "都道府県",
+        "市区町村",
+        "番地",
+        "建物名",
+        "商品名",
+        "注文日時",
+    ])
+    for order in orders:
+        writer.writerow([
+            order.id,
+            order.user.name if order.user else "",
+            order.postal_code or "",
+            order.region or "",
+            order.city or "",
+            order.address_line1 or "",
+            order.address_line2 or "",
+            _order_product_names(order),
+            _format_order_datetime_jst(order.created_at),
+        ])
+        if payload.mark_exported:
+            order.click_post_csv_exported_at = datetime.utcnow()
+
+    safe_commit(db, action="クリックポストCSV出力")
+
+    filename = f"click_post_orders_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+    content = output.getvalue()
+    return Response(
+        content=content.encode("utf-8-sig"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ──────────────────────── Shipping ───────────────────────────

@@ -81,7 +81,61 @@ REGIONAL_RATES_MASTER = {
         "kyushu": 1350,
         "okinawa": 2070,
     },
+    # ゆうパック — 兵庫県（関西）発 / Japan Post zone table (60サイズ)
+    "yu_pack_60": {
+        "kansai": 770,
+        "chugoku": 870,
+        "shikoku": 870,
+        "chubu": 870,
+        "hokuriku": 870,
+        "shinetsu": 970,
+        "kanto": 970,
+        "minami_tohoku": 1070,
+        "kita_tohoku": 1190,
+        "kyushu": 1070,
+        "hokkaido": 1430,
+        "okinawa": 1460,
+    },
+    "yu_pack_80": {
+        "kansai": 870,
+        "chugoku": 970,
+        "shikoku": 970,
+        "chubu": 970,
+        "hokuriku": 970,
+        "shinetsu": 1070,
+        "kanto": 1070,
+        "minami_tohoku": 1190,
+        "kita_tohoku": 1320,
+        "kyushu": 1190,
+        "hokkaido": 1750,
+        "okinawa": 1780,
+    },
+    "yu_pack_100": {
+        "kansai": 970,
+        "chugoku": 1070,
+        "shikoku": 1070,
+        "chubu": 1070,
+        "hokuriku": 1070,
+        "shinetsu": 1190,
+        "kanto": 1190,
+        "minami_tohoku": 1320,
+        "kita_tohoku": 1460,
+        "kyushu": 1320,
+        "hokkaido": 1980,
+        "okinawa": 2010,
+    },
 }
+
+# Japan Post flat-rate methods (nationwide, no prefecture variation)
+FLAT_DOMESTIC_FEES = {
+    "teikei_post": 110,
+    "teigai_post": 320,
+    "click_post": 200,
+    "letter_pack_light": 430,
+    "letter_pack_plus": 600,
+}
+
+FLAT_DOMESTIC_METHOD_CODES = frozenset(FLAT_DOMESTIC_FEES.keys())
 
 EMS_ZONE_RATES_JSON = json.dumps({str(k): v for k, v in EMS_ZONE_FEES_500G.items()})
 YAMATO_GLOBAL_ZONE_RATES_JSON = json.dumps({str(k): v for k, v in YAMATO_GLOBAL_ZONE_FEES_500G.items()})
@@ -121,6 +175,17 @@ FALLBACK_RATES = {
         "max_size": "14cm x 9cm x 1cm (50g以内)",
         "source_url": "https://www.post.japanpost.jp/service/standard/",
     },
+    "teigai_post": {
+        "carrier": "japan_post",
+        "name_ja": "定形外郵便",
+        "name_en": "Non-Standard Letter Post",
+        "fee_jpy": 320,
+        "has_tracking": False,
+        "has_insurance": False,
+        "is_individual_available": True,
+        "max_size": "34cm x 25cm x 3cm (250g以内)",
+        "source_url": "https://www.post.japanpost.jp/service/standard/one_size/",
+    },
     "nekopos": {
         "carrier": "yamato",
         "name_ja": "ネコポス",
@@ -156,13 +221,35 @@ FALLBACK_RATES = {
     },
     "yu_pack_60": {
         "carrier": "japan_post",
-        "name_ja": "ゆうパック (60サイズ)",
+        "name_ja": "ゆうパック（60サイズ）",
         "name_en": "Yu-Pack (Size 60)",
+        "fee_jpy": 770,
+        "has_tracking": True,
+        "has_insurance": True,
+        "is_individual_available": True,
+        "max_size": "3辺合計60cm・2kgまで",
+        "source_url": "https://www.post.japanpost.jp/service/you_pack/",
+    },
+    "yu_pack_80": {
+        "carrier": "japan_post",
+        "name_ja": "ゆうパック（80サイズ）",
+        "name_en": "Yu-Pack (Size 80)",
+        "fee_jpy": 870,
+        "has_tracking": True,
+        "has_insurance": True,
+        "is_individual_available": True,
+        "max_size": "3辺合計80cm・5kgまで",
+        "source_url": "https://www.post.japanpost.jp/service/you_pack/",
+    },
+    "yu_pack_100": {
+        "carrier": "japan_post",
+        "name_ja": "ゆうパック（100サイズ）",
+        "name_en": "Yu-Pack (Size 100)",
         "fee_jpy": 970,
         "has_tracking": True,
         "has_insurance": True,
-        "is_individual_available": False,
-        "max_size": "60cm total",
+        "is_individual_available": True,
+        "max_size": "3辺合計100cm・10kgまで",
         "source_url": "https://www.post.japanpost.jp/service/you_pack/",
     },
     "takkyubin_60": {
@@ -261,6 +348,30 @@ METHOD_DEFAULTS = {
         "estimated_delivery_min_days": 2,
         "estimated_delivery_max_days": 4,
     },
+    "teigai_post": {
+        "insurance_max_amount": 0,
+        "insurance_url": "https://www.post.japanpost.jp/service/standard/one_size/",
+        "estimated_delivery_min_days": 2,
+        "estimated_delivery_max_days": 5,
+    },
+    "yu_pack_60": {
+        "insurance_max_amount": 500000,
+        "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
+        "estimated_delivery_min_days": 1,
+        "estimated_delivery_max_days": 3,
+    },
+    "yu_pack_80": {
+        "insurance_max_amount": 500000,
+        "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
+        "estimated_delivery_min_days": 1,
+        "estimated_delivery_max_days": 3,
+    },
+    "yu_pack_100": {
+        "insurance_max_amount": 500000,
+        "insurance_url": "https://www.post.japanpost.jp/service/you_pack/",
+        "estimated_delivery_min_days": 1,
+        "estimated_delivery_max_days": 3,
+    },
     "ems": {
         "is_recommended": True,
         "estimated_delivery_min_days": 3,
@@ -354,10 +465,17 @@ async def refresh_all_rates(db: Session):
         "takkyubin_compact": compact_fee,
         "click_post": click_fee,
         "teikei_post": 110,
+        "teigai_post": 320,
         "letter_pack_light": lp_light,
         "letter_pack_plus": lp_plus,
         "takkyubin_60": 940,
         "takkyubin_80": 1230,
+    }
+
+    yu_pack_updates = {
+        "yu_pack_60": 770,
+        "yu_pack_80": 870,
+        "yu_pack_100": 970,
     }
     
     for code, fee in updates.items():
@@ -400,6 +518,23 @@ async def refresh_all_rates(db: Session):
                 **rate_data
             )
             db.add(db_rate)
+
+    for code, fee in yu_pack_updates.items():
+        db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == code).first()
+        reg_rates_json = json.dumps(generate_prefecture_rates(code), ensure_ascii=False)
+        defaults = METHOD_DEFAULTS.get(code, {})
+        if db_rate:
+            db_rate.fee_jpy = fee
+            db_rate.regional_rates = reg_rates_json
+            db_rate.is_individual_available = True
+            db_rate.updated_at = datetime.utcnow()
+        elif code in FALLBACK_RATES:
+            rate_data = FALLBACK_RATES[code].copy()
+            rate_data["fee_jpy"] = fee
+            for k, v in defaults.items():
+                if k not in rate_data:
+                    rate_data[k] = v
+            db.add(models.ShippingRate(method_code=code, regional_rates=reg_rates_json, **rate_data))
     
     # Disable Nekopos for individual sellers
     neko_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == "nekopos").first()
@@ -491,7 +626,10 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
         if method_code in INTERNATIONAL_METHOD_CODES:
             return 0
 
-        # Japan Domestic — official 関西発 zone table takes precedence over DB cache
+        if method_code in FLAT_DOMESTIC_METHOD_CODES:
+            return FLAT_DOMESTIC_FEES[method_code]
+
+        # Regional (Yamato / Yu-Pack) — 兵庫県発 zone table
         regional = _domestic_regional_fee(method_code, region)
         if regional is not None:
             return regional
@@ -509,11 +647,6 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
                     logger.error(f"Error parsing regional_rates for {method_code}: {e}")
 
         base_rate = FALLBACK_RATES.get(method_code, {}).get("fee_jpy", 0)
-
-        if method_code == "click_post":
-            return 200
-        if method_code in ["teikei_post"]:
-            return 110
         if method_code in ["letter_pack_light", "letter_pack_plus"]:
             return base_rate
 

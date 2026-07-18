@@ -317,6 +317,14 @@ export const adminApi = {
   getAllOrders: () => apiClient.get('/admin/orders'),
   updateOrderStatus: (id: number, status: string) =>
     apiClient.put(`/admin/orders/${id}/status`, { status }),
+  getClickPostOrders: () =>
+    apiClient.get<import('./types').AdminClickPostOrder[]>('/admin/orders/click-post'),
+  exportClickPostCsv: (orderIds: number[], markExported = true) =>
+    apiClient.post(
+      '/admin/orders/click-post/export',
+      { order_ids: orderIds, mark_exported: markExported },
+      { responseType: 'blob' }
+    ),
 
   // Announcements
   createAnnouncement: (data: {

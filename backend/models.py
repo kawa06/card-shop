@@ -143,6 +143,7 @@ class Order(Base):
     payment_method = Column(String(50), nullable=True)
     payment_status = Column(String(50), default="pending")
     stripe_checkout_session_id = Column(String(255), nullable=True)
+    click_post_csv_exported_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="orders")
