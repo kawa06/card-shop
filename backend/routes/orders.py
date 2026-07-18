@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from database import get_db
 from auth import get_current_user
@@ -30,6 +30,7 @@ def list_orders(
 ):
     return (
         db.query(models.Order)
+        .options(joinedload(models.Order.items).joinedload(models.OrderItem.card))
         .filter(models.Order.user_id == current_user.id)
         .order_by(models.Order.created_at.desc())
         .all()

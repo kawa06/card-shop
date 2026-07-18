@@ -41,6 +41,22 @@ def _load_product(db: Session, product_id: int | None) -> models.Card | None:
     return db.query(models.Card).filter(models.Card.id == product_id).first()
 
 
+def _product_in_user_orders(
+    db: Session,
+    user_id: int,
+    product_id: int,
+    order_id: int | None = None,
+) -> bool:
+    query = (
+        db.query(models.OrderItem.id)
+        .join(models.Order, models.OrderItem.order_id == models.Order.id)
+        .filter(models.Order.user_id == user_id, models.OrderItem.card_id == product_id)
+    )
+    if order_id:
+        query = query.filter(models.Order.id == order_id)
+    return query.first() is not None
+
+
 def _content_hash(user_id: int, subject: str, message: str) -> str:
     raw = f"{user_id}|{subject.strip()}|{message.strip()}"
     return hashlib.sha256(raw.encode()).hexdigest()
@@ -122,6 +138,8 @@ def create_inquiry(
 
     product = _load_product(db, related_product_id)
     if related_product_id and not product:
+        raise ValueError("関連商品が見つかりません")
+    if related_product_id and not _product_in_user_orders(db, user.id, related_product_id, related_order_id):
         raise ValueError("関連商品が見つかりません")
 
     now = datetime.utcnow()

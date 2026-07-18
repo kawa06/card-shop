@@ -88,6 +88,7 @@ def _detail_out(inquiry: models.Inquiry) -> schemas.InquiryDetailOut:
         reply_email=inquiry.reply_email,
         related_order_id=inquiry.related_order_id,
         related_product_id=inquiry.related_product_id,
+        related_product_name=inquiry.related_product.name if inquiry.related_product else None,
         messages=[_message_out(m, inquiry) for m in visible_messages],
         attachments=[_attachment_out(a, user_id=inquiry.user_id) for a in (inquiry.attachments or [])],
     )

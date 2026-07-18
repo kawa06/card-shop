@@ -163,6 +163,9 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
                     注文 {inquiry.related_order_number}
                   </Link>
                 )}
+                {inquiry.related_product_name && (
+                  <p className="text-xs text-gray-500">関連商品: {inquiry.related_product_name}</p>
+                )}
               </div>
             </div>
 

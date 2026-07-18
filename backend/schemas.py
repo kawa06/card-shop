@@ -492,6 +492,7 @@ class InquiryDetailOut(InquiryListOut):
     reply_email: str
     related_order_id: Optional[int] = None
     related_product_id: Optional[int] = None
+    related_product_name: Optional[str] = None
     messages: List[InquiryMessageOut] = []
     attachments: List[InquiryAttachmentOut] = []
 

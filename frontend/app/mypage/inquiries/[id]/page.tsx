@@ -116,6 +116,9 @@ export default function InquiryDetailPage({ params }: { params: { id: string } }
                 {inquiry.related_order_number && (
                   <span className="text-gray-500">注文: {inquiry.related_order_number}</span>
                 )}
+                {inquiry.related_product_name && (
+                  <span className="text-gray-500">商品: {inquiry.related_product_name}</span>
+                )}
               </div>
             </div>
 

@@ -272,6 +272,7 @@ export interface InquiryDetail extends InquiryListItem {
   reply_email: string
   related_order_id: number | null
   related_product_id: number | null
+  related_product_name: string | null
   messages: InquiryMessage[]
   attachments: InquiryAttachment[]
 }
@@ -307,6 +308,7 @@ export interface AdminInquiryDetail extends AdminInquiryListItem {
   reply_email: string
   related_order_id: number | null
   related_product_id: number | null
+  related_product_name: string | null
   messages: InquiryMessage[]
   attachments: InquiryAttachment[]
 }

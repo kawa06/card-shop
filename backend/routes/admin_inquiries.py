@@ -320,6 +320,7 @@ def get_inquiry_detail(
         "reply_email": inquiry.reply_email,
         "related_order_id": inquiry.related_order_id,
         "related_product_id": inquiry.related_product_id,
+        "related_product_name": inquiry.related_product.name if inquiry.related_product else None,
         "messages": _admin_detail_messages(inquiry),
         "attachments": [_admin_attachment_out(a) for a in (inquiry.attachments or [])],
     }

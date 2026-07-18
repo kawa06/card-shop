@@ -75,6 +75,33 @@ def test_customer_cannot_see_internal_notes(db, test_user):
     assert "購入者への返信" in visible
 
 
+def test_customer_cannot_use_unrelated_product(db, test_user, paid_order):
+    seed_inquiry_data(db)
+    other_card = models.Card(
+        name="他人の商品",
+        description="x",
+        price=100,
+        stock=1,
+        rarity="common",
+    )
+    db.add(other_card)
+    db.commit()
+    db.refresh(other_card)
+
+    try:
+        create_inquiry(
+            db,
+            user=test_user,
+            category="product",
+            subject="商品",
+            message="テスト",
+            related_product_id=other_card.id,
+        )
+        assert False, "expected ValueError"
+    except ValueError as exc:
+        assert "関連商品" in str(exc)
+
+
 def test_customer_cannot_access_other_users_inquiry(db, test_user):
     seed_inquiry_data(db)
     other = models.User(email="other@example.com", password_hash="x", name="Other")

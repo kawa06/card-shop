@@ -19,6 +19,15 @@ import {
   validateInquiryFiles,
 } from '@/components/inquiries/InquiryAttachmentList'
 import { InquiryCategorySelect } from '@/components/inquiries/InquiryCategorySelect'
+import { InquiryRelatedOrderPanel } from '@/components/inquiries/InquiryRelatedOrderPanel'
+import {
+  collectProductsFromOrders,
+  findOrderById,
+  findProductLabel,
+  formatInquiryOrderStatus,
+  formatOrderDate,
+  productsForSelectedOrder,
+} from '@/lib/inquiry-order-utils'
 import {
   INQUIRY_CATEGORY_OPTIONS,
   inquiryCategoryLabel,
@@ -41,6 +50,7 @@ export default function NewInquiryPage() {
   const [message, setMessage] = useState('')
   const [replyEmail, setReplyEmail] = useState('')
   const [relatedOrderId, setRelatedOrderId] = useState<string>('')
+  const [relatedProductId, setRelatedProductId] = useState<string>('')
   const [templateId, setTemplateId] = useState<string>('')
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
@@ -100,6 +110,7 @@ export default function NewInquiryPage() {
       message: message.trim(),
       reply_email: replyEmail.trim() || undefined,
       related_order_id: relatedOrderId ? parseInt(relatedOrderId, 10) : null,
+      related_product_id: relatedProductId ? parseInt(relatedProductId, 10) : null,
       template_id: templateId ? parseInt(templateId, 10) : null,
     }
   }
@@ -178,6 +189,24 @@ export default function NewInquiryPage() {
   )
 
   const selectedCategoryLabel = category ? inquiryCategoryLabel(category) : ''
+  const selectedOrder = findOrderById(orders, relatedOrderId)
+  const productOptions = relatedOrderId
+    ? productsForSelectedOrder(selectedOrder).map((item) => ({
+        value: String(item.card_id),
+        label: `${item.card?.name || `商品 #${item.card_id}`} ×${item.quantity}`,
+      }))
+    : collectProductsFromOrders(orders).map((p) => ({
+        value: String(p.cardId),
+        label: `${p.name}（注文 ${p.orderLabel}）`,
+      }))
+  const selectedProductLabel = relatedProductId
+    ? findProductLabel(orders, relatedProductId, relatedOrderId || undefined)
+    : ''
+
+  const handleOrderChange = (value: string) => {
+    setRelatedOrderId(value)
+    setRelatedProductId('')
+  }
 
   if (!isMounted || !isReady) return null
 
@@ -194,6 +223,12 @@ export default function NewInquiryPage() {
         </h1>
 
         <div className="space-y-5">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm space-y-1">
+            <p className="text-gray-500 text-xs">{lang === 'ja' ? 'お客様情報' : 'Your info'}</p>
+            <p className="text-gray-900 font-medium">{user?.name || '—'}</p>
+            <p className="text-gray-600">{replyEmail || user?.email || '—'}</p>
+          </div>
+
           <div>
             <Label htmlFor="category">{lang === 'ja' ? 'カテゴリ' : 'Category'}</Label>
             <InquiryCategorySelect
@@ -262,15 +297,45 @@ export default function NewInquiryPage() {
               id="order"
               className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 min-h-[44px] appearance-auto"
               value={relatedOrderId}
-              onChange={(e) => setRelatedOrderId(e.target.value)}
+              onChange={(e) => handleOrderChange(e.target.value)}
             >
               <option value="">{lang === 'ja' ? 'なし' : 'None'}</option>
               {orders.map((o) => (
                 <option key={o.id} value={String(o.id)}>
-                  #{o.id} — {new Date(o.created_at).toLocaleDateString('ja-JP')}
+                  {o.order_number || `#${o.id}`} — {formatOrderDate(o)}
                 </option>
               ))}
             </select>
+            <InquiryRelatedOrderPanel order={selectedOrder} />
+          </div>
+
+          <div>
+            <Label htmlFor="product">{lang === 'ja' ? '関連商品（任意）' : 'Related product (optional)'}</Label>
+            <select
+              id="product"
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 min-h-[44px] appearance-auto"
+              value={relatedProductId}
+              onChange={(e) => setRelatedProductId(e.target.value)}
+              disabled={productOptions.length === 0}
+            >
+              <option value="">
+                {productOptions.length === 0
+                  ? lang === 'ja'
+                    ? '注文履歴に商品がありません'
+                    : 'No products in order history'
+                  : lang === 'ja'
+                    ? '選択しない'
+                    : 'None'}
+              </option>
+              {productOptions.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            {relatedOrderId && productOptions.length === 0 && (
+              <p className="text-xs text-gray-500 mt-1">この注文に商品明細がありません</p>
+            )}
           </div>
 
           <div>
@@ -325,6 +390,21 @@ export default function NewInquiryPage() {
                   <dt className="text-gray-500">{lang === 'ja' ? '内容' : 'Message'}</dt>
                   <dd className="text-gray-900 whitespace-pre-wrap max-h-40 overflow-y-auto">{message}</dd>
                 </div>
+                {selectedOrder && (
+                  <div>
+                    <dt className="text-gray-500">{lang === 'ja' ? '関連注文' : 'Related order'}</dt>
+                    <dd className="text-gray-900">
+                      {selectedOrder.order_number || `#${selectedOrder.id}`}（{formatOrderDate(selectedOrder)} /
+                      {formatInquiryOrderStatus(selectedOrder)}）
+                    </dd>
+                  </div>
+                )}
+                {selectedProductLabel && (
+                  <div>
+                    <dt className="text-gray-500">{lang === 'ja' ? '関連商品' : 'Related product'}</dt>
+                    <dd className="text-gray-900">{selectedProductLabel}</dd>
+                  </div>
+                )}
               </dl>
               <div className="flex gap-3 justify-end">
                 <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={isSubmitting}>
