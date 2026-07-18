@@ -16,6 +16,13 @@ def stripe_configured() -> bool:
     return bool(settings.STRIPE_SECRET_KEY.strip())
 
 
+def _is_stripe_permission_denied(exc: stripe.error.StripeError) -> bool:
+    code = getattr(exc, "code", None)
+    if code == "permission_denied":
+        return True
+    return "permission denied" in str(exc).lower()
+
+
 @lru_cache(maxsize=1)
 def stripe_key_valid() -> bool:
     if not stripe_configured():
@@ -28,6 +35,10 @@ def stripe_key_valid() -> bool:
         logger.error("Stripe secret key is invalid or revoked")
         return False
     except stripe.error.StripeError as exc:
+        # Restricted keys (rk_live_...) often cannot read Account but still work for Checkout.
+        if _is_stripe_permission_denied(exc) and settings.STRIPE_SECRET_KEY.strip().startswith("rk_"):
+            logger.info("Stripe restricted key authenticated without Account read scope")
+            return True
         logger.warning("Stripe key validation failed: %s", exc)
         return False
 

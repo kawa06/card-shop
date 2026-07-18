@@ -17,6 +17,15 @@ try:
 except stripe.error.AuthenticationError as exc:
     print("STRIPE_FAIL auth", str(exc)[:120])
     sys.exit(1)
+except stripe.error.StripeError as exc:
+    if key.startswith("rk_") and (
+        getattr(exc, "code", None) == "permission_denied"
+        or "permission denied" in str(exc).lower()
+    ):
+        print("STRIPE_OK restricted")
+        sys.exit(0)
+    print("STRIPE_FAIL", str(exc)[:120])
+    sys.exit(1)
 except Exception as exc:
     print("STRIPE_FAIL", str(exc)[:120])
     sys.exit(1)
