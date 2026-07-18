@@ -100,6 +100,14 @@ export default function AdminCardsPage() {
       setCategories(catsRes.data || [])
       setPacks(packsRes.data || [])
       setShippingRates(shipRes.data || [])
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      toast({
+        title: '読み込みに失敗しました',
+        description: typeof detail === 'string' ? detail : '管理APIへの接続に失敗しました。ページを再読み込みしてください。',
+        variant: 'destructive',
+      })
     } finally {
       setIsLoading(false)
     }
