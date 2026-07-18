@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getClerkSessionToken } from '@/lib/clerk-token'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -13,6 +14,7 @@ const BASE_URL =
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,9 +40,9 @@ function needsBackendAuth(url: string): boolean {
 async function resolveRequestToken(url: string): Promise<string | null> {
   if (typeof window === 'undefined') return null
 
-  // Admin routes are authenticated by the Next.js proxy (Clerk session cookies).
+  // Admin routes use Clerk session via the Next.js proxy (never backend JWT).
   if (url.includes('/admin/')) {
-    return null
+    return getClerkSessionToken()
   }
 
   if (needsBackendAuth(url)) {
@@ -64,9 +66,18 @@ apiClient.interceptors.request.use(async (config) => {
   }
   if (typeof window !== 'undefined') {
     const url = config.url || ''
-    const token = (await resolveRequestToken(url)) || localStorage.getItem('auth_token')
+    const isAdminRoute = url.includes('/admin/')
+    const token = await resolveRequestToken(url)
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    } else if (isAdminRoute) {
+      delete config.headers.Authorization
+    } else {
+      const fallback = localStorage.getItem('auth_token')
+      if (fallback) {
+        config.headers.Authorization = `Bearer ${fallback}`
+      }
     }
   }
   return config
