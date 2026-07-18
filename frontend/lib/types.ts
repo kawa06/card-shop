@@ -104,6 +104,9 @@ export interface Order {
   shipping_fee: number
   payment_method: string | null
   payment_status: string | null
+  payment_deadline: string | null
+  stock_reserved: boolean
+  paid_at: string | null
   click_post_csv_exported_at: string | null
   created_at: string
   items: OrderItem[]

@@ -336,6 +336,9 @@ class OrderOut(BaseModel):
     shipping_fee: int = 0
     payment_method: Optional[str] = None
     payment_status: Optional[str] = None
+    payment_deadline: Optional[datetime] = None
+    stock_reserved: bool = False
+    paid_at: Optional[datetime] = None
     click_post_csv_exported_at: Optional[datetime] = None
     created_at: datetime
     items: List[OrderItemOut] = []
@@ -346,6 +349,11 @@ class OrderOut(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus
+
+
+class PaymentDeadlineExtend(BaseModel):
+    hours: Optional[int] = None
+    payment_deadline: Optional[datetime] = None
 
 
 class AdminClickPostOrderOut(BaseModel):

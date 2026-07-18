@@ -7,11 +7,13 @@ from auth import get_current_user
 import models
 import schemas
 from services.order_checkout import (
+    bank_transfer_payment_deadline,
     cancel_unpaid_order,
     clear_cart_for_order,
     create_order_from_cart,
     fulfill_order_inventory,
     get_user_cart_items,
+    reserve_inventory_for_order,
     resolve_shipping_fee,
     validate_shipping_method,
 )
@@ -50,7 +52,14 @@ def _order_id_from_session(session) -> int | None:
 def _handle_bank_transfer_pending(db: Session, order: models.Order) -> models.Order:
     order.payment_method = "stripe_bank_transfer"
     order.payment_status = "awaiting_payment"
-    clear_cart_for_order(db, order)
+    if not order.stock_reserved:
+        db.refresh(order)
+        reserve_inventory_for_order(db, order)
+        if not order.payment_deadline:
+            order.payment_deadline = bank_transfer_payment_deadline()
+        clear_cart_for_order(db, order)
+    elif not order.payment_deadline:
+        order.payment_deadline = bank_transfer_payment_deadline()
     db.commit()
     db.refresh(order)
     return order
@@ -91,6 +100,8 @@ def create_stripe_checkout_session(
 
     payment_method = "stripe_bank_transfer" if checkout_type == "bank_transfer" else "stripe_card"
 
+    is_bank_transfer = checkout_type == "bank_transfer"
+
     order = create_order_from_cart(
         db,
         user=current_user,
@@ -107,6 +118,8 @@ def create_stripe_checkout_session(
         payment_method=payment_method,
         payment_status="awaiting_payment",
         finalize=False,
+        reserve_stock=is_bank_transfer,
+        payment_deadline=bank_transfer_payment_deadline() if is_bank_transfer else None,
     )
 
     shipping_label = payload.shipping_method or "送料"

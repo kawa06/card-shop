@@ -146,6 +146,9 @@ class Order(Base):
     payment_method = Column(String(50), nullable=True)
     payment_status = Column(String(50), default="pending")
     stripe_checkout_session_id = Column(String(255), nullable=True)
+    payment_deadline = Column(DateTime, nullable=True)
+    stock_reserved = Column(Boolean, default=False)
+    paid_at = Column(DateTime, nullable=True)
     click_post_csv_exported_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

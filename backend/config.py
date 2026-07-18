@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     # Exchange Rate (USD -> JPY)
     EXCHANGE_RATE_USD_JPY: float = 150.0
 
+    # Bank transfer: payment deadline hours from order creation
+    BANK_TRANSFER_PAYMENT_DEADLINE_HOURS: int = 48
+
     # Twilio SMS (Verify API)
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None

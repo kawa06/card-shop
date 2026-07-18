@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from typing import Iterable
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 import models
+from config import settings
 from services.shipping_rates import calculate_shipping_fee
 from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
 from services.shipping_display import normalize_method_code
+
+BANK_TRANSFER_METHODS = {"stripe_bank_transfer", "bank_transfer"}
+TERMINAL_PAYMENT_STATUSES = {"paid", "cancelled", "expired"}
 
 
 def get_user_cart_items(db: Session, user_id: int) -> list[models.CartItem]:
@@ -78,6 +83,54 @@ def validate_cart_stock(cart_items: Iterable[models.CartItem]) -> float:
     return subtotal
 
 
+def _deduct_stock_locked(db: Session, order: models.Order) -> None:
+    """Decrement stock with row-level locks to prevent overselling."""
+    for order_item in order.items:
+        card = (
+            db.query(models.Card)
+            .filter(models.Card.id == order_item.card_id)
+            .with_for_update()
+            .first()
+        )
+        if not card:
+            raise HTTPException(status_code=400, detail="カードが見つかりません")
+        if card.stock < order_item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"カード「{card.name}」の在庫が不足しています（取り置き競合）",
+            )
+        card.stock -= order_item.quantity
+
+
+def reserve_inventory_for_order(db: Session, order: models.Order) -> None:
+    """Hold stock for a bank-transfer order (deduct from available inventory)."""
+    if order.stock_reserved:
+        return
+    _deduct_stock_locked(db, order)
+    order.stock_reserved = True
+
+
+def release_inventory_for_order(db: Session, order: models.Order) -> None:
+    """Restore stock when a reserved bank-transfer order is cancelled or expires."""
+    if not order.stock_reserved:
+        return
+    for order_item in order.items:
+        card = (
+            db.query(models.Card)
+            .filter(models.Card.id == order_item.card_id)
+            .with_for_update()
+            .first()
+        )
+        if card:
+            card.stock += order_item.quantity
+    order.stock_reserved = False
+
+
+def bank_transfer_payment_deadline() -> datetime:
+    hours = settings.BANK_TRANSFER_PAYMENT_DEADLINE_HOURS
+    return datetime.utcnow() + timedelta(hours=hours)
+
+
 def create_order_from_cart(
     db: Session,
     *,
@@ -96,8 +149,12 @@ def create_order_from_cart(
     payment_status: str,
     stripe_checkout_session_id: str | None = None,
     finalize: bool,
+    reserve_stock: bool = False,
+    payment_deadline: datetime | None = None,
 ) -> models.Order:
-    subtotal = validate_cart_stock(cart_items)
+    validate_cart_stock(cart_items)
+    subtotal = sum(item.card.price * item.quantity for item in cart_items)
+
     order = models.Order(
         user_id=user.id,
         total_amount=round(subtotal + shipping_fee, 2),
@@ -114,6 +171,7 @@ def create_order_from_cart(
         payment_status=payment_status,
         stripe_checkout_session_id=stripe_checkout_session_id,
         status=models.OrderStatus.pending,
+        payment_deadline=payment_deadline,
     )
     db.add(order)
     db.flush()
@@ -128,7 +186,13 @@ def create_order_from_cart(
             )
         )
 
-    if finalize:
+    db.flush()
+    db.refresh(order)
+
+    if reserve_stock:
+        reserve_inventory_for_order(db, order)
+        clear_cart_for_order(db, order)
+    elif finalize:
         apply_inventory_for_order(db, order)
 
     db.commit()
@@ -137,28 +201,10 @@ def create_order_from_cart(
 
 
 def apply_inventory_for_order(db: Session, order: models.Order) -> None:
-    for order_item in order.items:
-        card = db.query(models.Card).filter(models.Card.id == order_item.card_id).with_for_update().first()
-        if not card:
-            raise HTTPException(status_code=400, detail="カードが見つかりません")
-        if card.stock < order_item.quantity:
-            raise HTTPException(status_code=400, detail=f"カード「{card.name}」の在庫が不足しています")
-        card.stock -= order_item.quantity
-
-    for order_item in order.items:
-        cart_item = (
-            db.query(models.CartItem)
-            .filter(
-                models.CartItem.user_id == order.user_id,
-                models.CartItem.card_id == order_item.card_id,
-            )
-            .first()
-        )
-        if cart_item:
-            if cart_item.quantity <= order_item.quantity:
-                db.delete(cart_item)
-            else:
-                cart_item.quantity -= order_item.quantity
+    if order.stock_reserved:
+        return
+    _deduct_stock_locked(db, order)
+    clear_cart_for_order(db, order)
 
 
 def fulfill_order_inventory(
@@ -172,10 +218,17 @@ def fulfill_order_inventory(
     if order.payment_status == "paid":
         return order
 
-    apply_inventory_for_order(db, order)
+    if order.payment_status in TERMINAL_PAYMENT_STATUSES - {"paid"}:
+        raise HTTPException(status_code=400, detail="この注文は入金待ちではありません")
+
+    if not order.stock_reserved:
+        apply_inventory_for_order(db, order)
+    else:
+        order.stock_reserved = False
 
     order.payment_status = "paid"
     order.status = models.OrderStatus.processing
+    order.paid_at = datetime.utcnow()
     db.commit()
     db.refresh(order)
     return order
@@ -198,12 +251,66 @@ def clear_cart_for_order(db: Session, order: models.Order) -> None:
                 cart_item.quantity -= order_item.quantity
 
 
-def cancel_unpaid_order(db: Session, order: models.Order) -> None:
+def cancel_unpaid_order(
+    db: Session,
+    order: models.Order,
+    *,
+    as_expired: bool = False,
+) -> None:
+    """Cancel an unpaid order, releasing reserved stock when applicable."""
     if order.payment_status == "paid":
         return
-    db.query(models.OrderItem).filter(models.OrderItem.order_id == order.id).delete()
-    db.delete(order)
+    if order.payment_status in TERMINAL_PAYMENT_STATUSES - {"paid"}:
+        return
+
+    release_inventory_for_order(db, order)
+    order.payment_status = "expired" if as_expired else "cancelled"
+    order.status = models.OrderStatus.cancelled
     db.commit()
+
+
+def expire_overdue_bank_transfer_orders(db: Session) -> int:
+    """Auto-cancel bank transfer orders past payment_deadline. Returns count expired."""
+    now = datetime.utcnow()
+    orders = (
+        db.query(models.Order)
+        .filter(
+            models.Order.payment_status == "awaiting_payment",
+            models.Order.payment_deadline.isnot(None),
+            models.Order.payment_deadline < now,
+        )
+        .all()
+    )
+    count = 0
+    for order in orders:
+        if order.payment_status != "awaiting_payment":
+            continue
+        cancel_unpaid_order(db, order, as_expired=True)
+        count += 1
+    return count
+
+
+def extend_payment_deadline(
+    db: Session,
+    order: models.Order,
+    *,
+    hours: int | None = None,
+    new_deadline: datetime | None = None,
+) -> models.Order:
+    if order.payment_status != "awaiting_payment":
+        raise HTTPException(status_code=400, detail="入金待ちの注文のみ期限延長できます")
+
+    if new_deadline:
+        order.payment_deadline = new_deadline
+    elif hours is not None:
+        base = order.payment_deadline or datetime.utcnow()
+        order.payment_deadline = base + timedelta(hours=hours)
+    else:
+        raise HTTPException(status_code=400, detail="延長時間または新しい期限を指定してください")
+
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 def resolve_shipping_fee(shipping_method: str | None, region: str | None, country: str | None, db: Session) -> int:

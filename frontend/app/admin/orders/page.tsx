@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, CheckCircle, XCircle } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminApi } from '@/lib/api'
 import { Order } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { toast } from '@/lib/use-toast'
 
-const statusOptions = [
+const fulfillmentStatusOptions = [
   { value: 'pending', label: '処理中' },
   { value: 'processing', label: '準備中' },
   { value: 'shipped', label: '発送済み' },
@@ -18,12 +19,37 @@ const statusOptions = [
   { value: 'cancelled', label: 'キャンセル' },
 ]
 
-const statusColors: Record<string, string> = {
+const paymentStatusLabels: Record<string, string> = {
+  awaiting_payment: '入金待ち',
+  paid: '支払い済み',
+  expired: '期限切れ',
+  cancelled: 'キャンセル',
+  pending: '未決済',
+}
+
+const paymentStatusColors: Record<string, string> = {
+  awaiting_payment: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
+  paid: 'text-green-600 bg-green-500/10 border-green-500/30',
+  expired: 'text-gray-500 bg-gray-500/10 border-gray-500/30',
+  cancelled: 'text-red-500 bg-red-500/10 border-red-500/30',
+}
+
+const fulfillmentStatusColors: Record<string, string> = {
   pending: 'text-yellow-400',
   processing: 'text-blue-400',
   shipped: 'text-purple-400',
   delivered: 'text-green-400',
   cancelled: 'text-red-400',
+}
+
+function formatDeadline(deadline: string | null): string {
+  if (!deadline) return '—'
+  return new Date(deadline).toLocaleString('ja-JP')
+}
+
+function isDeadlinePast(deadline: string | null): boolean {
+  if (!deadline) return false
+  return new Date(deadline).getTime() < Date.now()
 }
 
 export default function AdminOrdersPage() {
@@ -33,6 +59,9 @@ export default function AdminOrdersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [isMounted, setIsMounted] = useState(false)
+  const [paymentFilter, setPaymentFilter] = useState<string>('')
+  const [extendHours, setExtendHours] = useState<Record<number, string>>({})
+  const [actionLoading, setActionLoading] = useState<number | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
@@ -41,12 +70,13 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     if (!isMounted || !isReady) return
     fetchAll()
-  }, [isMounted, isReady])
+  }, [isMounted, isReady, paymentFilter])
 
   const fetchAll = async () => {
     setIsLoading(true)
     try {
-      const res = await adminApi.getAllOrders()
+      const params = paymentFilter ? { payment_status: paymentFilter } : undefined
+      const res = await adminApi.getAllOrders(params)
       setOrders(res.data || [])
     } finally {
       setIsLoading(false)
@@ -56,10 +86,57 @@ export default function AdminOrdersPage() {
   const handleStatusChange = async (orderId: number, newStatus: string) => {
     try {
       await adminApi.updateOrderStatus(orderId, newStatus)
-      toast({ title: 'ステータスを更新しました' })
+      toast({ title: '発送ステータスを更新しました' })
       fetchAll()
     } catch {
       toast({ title: 'エラー', description: '更新に失敗しました', variant: 'destructive' })
+    }
+  }
+
+  const handleConfirmPayment = async (orderId: number) => {
+    if (!confirm('入金を確認し、支払い済みにしますか？')) return
+    setActionLoading(orderId)
+    try {
+      await adminApi.confirmOrderPayment(orderId)
+      toast({ title: '入金を確認しました' })
+      fetchAll()
+    } catch {
+      toast({ title: 'エラー', description: '入金確認に失敗しました', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (!confirm('注文をキャンセルし、取り置き在庫を解放しますか？')) return
+    setActionLoading(orderId)
+    try {
+      await adminApi.cancelOrder(orderId)
+      toast({ title: '注文をキャンセルしました' })
+      fetchAll()
+    } catch {
+      toast({ title: 'エラー', description: 'キャンセルに失敗しました', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleExtendDeadline = async (orderId: number) => {
+    const hours = parseInt(extendHours[orderId] || '24', 10)
+    if (!hours || hours < 1) {
+      toast({ title: 'エラー', description: '延長時間を入力してください', variant: 'destructive' })
+      return
+    }
+    setActionLoading(orderId)
+    try {
+      await adminApi.extendPaymentDeadline(orderId, hours)
+      toast({ title: `支払期限を${hours}時間延長しました` })
+      setExtendHours((prev) => ({ ...prev, [orderId]: '' }))
+      fetchAll()
+    } catch {
+      toast({ title: 'エラー', description: '期限延長に失敗しました', variant: 'destructive' })
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -72,7 +149,18 @@ export default function AdminOrdersPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">注文管理</h1>
+          <h1 className="text-2xl font-bold text-gray-900 flex-1">注文管理</h1>
+          <select
+            value={paymentFilter}
+            onChange={(e) => setPaymentFilter(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            <option value="">すべての決済状態</option>
+            <option value="awaiting_payment">入金待ち</option>
+            <option value="paid">支払い済み</option>
+            <option value="expired">期限切れ</option>
+            <option value="cancelled">キャンセル</option>
+          </select>
         </div>
 
         <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
@@ -84,20 +172,32 @@ export default function AdminOrdersPage() {
             <div className="divide-y divide-gray-200">
               {orders.map((order) => {
                 const isExpanded = expandedId === order.id
+                const ps = order.payment_status || 'pending'
+                const isBankTransfer = order.payment_method === 'stripe_bank_transfer'
+                const canManagePayment = ps === 'awaiting_payment' && isBankTransfer
+
                 return (
                   <div key={order.id}>
-                    <div className="flex items-center gap-4 p-4">
+                    <div className="flex flex-wrap items-center gap-3 p-4">
                       <button onClick={() => setExpandedId(isExpanded ? null : order.id)} className="text-gray-400">
                         {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </button>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[140px]">
                         <p className="text-gray-900 font-medium">注文 #{order.id}</p>
                         <p className="text-gray-500 text-xs">
                           {order.created_at ? new Date(order.created_at).toLocaleString('ja-JP') : '不明'}
                         </p>
                       </div>
-                      <span className={`text-sm font-medium ${statusColors[order.status] || 'text-gray-400'}`}>
-                        {statusOptions.find(s => s.value === order.status)?.label || order.status}
+                      <span className={`text-xs font-bold px-2 py-1 rounded border ${paymentStatusColors[ps] || 'text-gray-500'}`}>
+                        {paymentStatusLabels[ps] || ps}
+                      </span>
+                      {order.stock_reserved && ps === 'awaiting_payment' && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-600 border border-orange-500/20">
+                          取り置き中
+                        </span>
+                      )}
+                      <span className={`text-sm font-medium ${fulfillmentStatusColors[order.status] || 'text-gray-400'}`}>
+                        {fulfillmentStatusOptions.find(s => s.value === order.status)?.label || order.status}
                       </span>
                       <span className="text-yellow-400 font-bold">{formatPrice(order.total_amount || 0)}</span>
                       <select
@@ -106,13 +206,16 @@ export default function AdminOrdersPage() {
                         className="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        {fulfillmentStatusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </div>
-                    {isExpanded && order.items && (
-                      <div className="bg-black/20 px-12 pb-4 space-y-2">
-                        {order.items.map((item) => {
-                          const displayName = item.card?.name_en ? `${item.card.name} (${item.card.name_en})` : (item.card?.name || `カード #${item.card_id}`)
+
+                    {isExpanded && (
+                      <div className="bg-black/5 px-6 pb-5 space-y-3">
+                        {order.items?.map((item) => {
+                          const displayName = item.card?.name_en
+                            ? `${item.card.name} (${item.card.name_en})`
+                            : (item.card?.name || `カード #${item.card_id}`)
                           return (
                             <div key={item.id} className="flex justify-between text-sm">
                               <span className="text-gray-600">{displayName}</span>
@@ -120,8 +223,60 @@ export default function AdminOrdersPage() {
                             </div>
                           )
                         })}
+
                         {order.shipping_address && (
-                          <p className="text-xs text-gray-500 pt-1">配送先: {order.shipping_address}</p>
+                          <p className="text-xs text-gray-500">配送先: {order.shipping_address}</p>
+                        )}
+
+                        {isBankTransfer && order.payment_deadline && (
+                          <div className={`flex items-center gap-2 text-xs ${isDeadlinePast(order.payment_deadline) && ps === 'awaiting_payment' ? 'text-red-500' : 'text-gray-500'}`}>
+                            <Clock className="h-3.5 w-3.5" />
+                            支払期限: {formatDeadline(order.payment_deadline)}
+                          </div>
+                        )}
+
+                        {canManagePayment && (
+                          <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                            <Button
+                              size="sm"
+                              disabled={actionLoading === order.id}
+                              onClick={() => handleConfirmPayment(order.id)}
+                              className="bg-green-600 hover:bg-green-500 text-white text-xs"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                              入金確認
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={actionLoading === order.id}
+                              onClick={() => handleCancelOrder(order.id)}
+                              className="text-red-600 border-red-300 text-xs"
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              キャンセル
+                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                placeholder="24"
+                                value={extendHours[order.id] || ''}
+                                onChange={(e) => setExtendHours((prev) => ({ ...prev, [order.id]: e.target.value }))}
+                                className="w-20 h-8 text-xs bg-white"
+                              />
+                              <span className="text-xs text-gray-500">時間延長</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={actionLoading === order.id}
+                                onClick={() => handleExtendDeadline(order.id)}
+                                className="text-xs"
+                              >
+                                期限延長
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}

@@ -16,6 +16,7 @@ from routes.cards import _apply_card_search
 from services.db_persist import PersistDep, safe_commit
 from services.image_upload import save_uploaded_image
 from services.shipping_rates import refresh_all_rates
+from services.order_checkout import cancel_unpaid_order, extend_payment_deadline, fulfill_order_inventory
 
 router = APIRouter(
     prefix="/api/admin",
@@ -339,16 +340,25 @@ def admin_list_users(
 @router.get("/orders", response_model=list[schemas.OrderOut])
 def admin_list_orders(
     status: Optional[str] = None,
+    payment_status: Optional[str] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
-    query = db.query(models.Order).order_by(models.Order.created_at.desc())
+    query = (
+        db.query(models.Order)
+        .options(
+            joinedload(models.Order.items).joinedload(models.OrderItem.card),
+        )
+        .order_by(models.Order.created_at.desc())
+    )
     if status:
         try:
             order_status = models.OrderStatus(status)
             query = query.filter(models.Order.status == order_status)
         except ValueError:
             raise HTTPException(status_code=400, detail="無効なステータスです")
+    if payment_status:
+        query = query.filter(models.Order.payment_status == payment_status)
     return query.all()
 
 
@@ -366,6 +376,54 @@ def admin_update_order_status(
     safe_commit(db, action="注文ステータス更新")
     db.refresh(order)
     return order
+
+
+@router.post("/orders/{order_id}/confirm-payment", response_model=schemas.OrderOut)
+def admin_confirm_payment(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    if order.payment_status != "awaiting_payment":
+        raise HTTPException(status_code=400, detail="入金待ちの注文のみ入金確認できます")
+    return fulfill_order_inventory(db, order_id)
+
+
+@router.post("/orders/{order_id}/cancel", response_model=schemas.OrderOut)
+def admin_cancel_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    if order.payment_status == "paid":
+        raise HTTPException(status_code=400, detail="支払い済みの注文はキャンセルできません")
+    cancel_unpaid_order(db, order, as_expired=False)
+    db.refresh(order)
+    return order
+
+
+@router.patch("/orders/{order_id}/payment-deadline", response_model=schemas.OrderOut)
+def admin_extend_payment_deadline(
+    order_id: int,
+    payload: schemas.PaymentDeadlineExtend,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    return extend_payment_deadline(
+        db,
+        order,
+        hours=payload.hours,
+        new_deadline=payload.payment_deadline,
+    )
 
 
 def _format_order_datetime_jst(dt: datetime | None) -> str:

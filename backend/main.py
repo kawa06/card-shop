@@ -7,6 +7,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from database import Base, engine, SessionLocal
 from services.shipping_rates import background_shipping_update_task, refresh_all_rates
+from services.order_expiry_task import background_order_expiry_task
 from services.db_migrate import run_schema_upgrades
 from services.db_persist import database_info
 from services.image_upload import get_upload_dir
@@ -68,6 +69,9 @@ def add_columns_if_missing():
             ("payment_status", "VARCHAR(50) DEFAULT 'pending'"),
             ("stripe_checkout_session_id", "VARCHAR(255)"),
             ("click_post_csv_exported_at", "DATETIME"),
+            ("payment_deadline", "DATETIME"),
+            ("stock_reserved", "BOOLEAN DEFAULT 0"),
+            ("paid_at", "DATETIME"),
         ],
         "shipping_rates": [
             ("carrier", "VARCHAR(50)"),
@@ -130,14 +134,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Initial shipping rates refresh failed: {e}")
     
-    # Start background task
+    # Start background tasks
     update_task = asyncio.create_task(background_shipping_update_task(SessionLocal))
+    expiry_task = asyncio.create_task(background_order_expiry_task(SessionLocal))
     
     yield
     
     update_task.cancel()
+    expiry_task.cancel()
     try:
         await update_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await expiry_task
     except asyncio.CancelledError:
         pass
 

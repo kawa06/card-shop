@@ -314,9 +314,16 @@ export const adminApi = {
   deletePack: (id: number) => apiClient.delete(`/admin/packs/${id}`),
 
   // Orders
-  getAllOrders: () => apiClient.get('/admin/orders'),
+  getAllOrders: (params?: { payment_status?: string }) =>
+    apiClient.get('/admin/orders', { params }),
   updateOrderStatus: (id: number, status: string) =>
     apiClient.put(`/admin/orders/${id}/status`, { status }),
+  confirmOrderPayment: (id: number) =>
+    apiClient.post(`/admin/orders/${id}/confirm-payment`),
+  cancelOrder: (id: number) =>
+    apiClient.post(`/admin/orders/${id}/cancel`),
+  extendPaymentDeadline: (id: number, hours: number) =>
+    apiClient.patch(`/admin/orders/${id}/payment-deadline`, { hours }),
   getClickPostOrders: () =>
     apiClient.get<import('./types').AdminClickPostOrder[]>('/admin/orders/click-post'),
   exportClickPostCsv: (orderIds: number[], markExported = true) =>

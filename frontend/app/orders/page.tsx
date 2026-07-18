@@ -20,9 +20,11 @@ const statusLabels: Record<string, string> = {
 }
 
 const paymentStatusLabels: Record<string, string> = {
-  awaiting_payment: '決済待ち',
+  awaiting_payment: '入金待ち',
   pending: '未決済',
-  paid: '決済済み',
+  paid: '支払い済み',
+  expired: '期限切れ',
+  cancelled: 'キャンセル',
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -139,15 +141,25 @@ export default function OrdersPage() {
                       </div>
                     )}
                     {order.payment_status && (
-                      <div className="text-sm">
-                        <span className="text-gray-500">{t('支払い方法', lang)}: </span>
-                        <span className="text-gray-600">
-                          {t(paymentMethodLabels[order.payment_method || ''] || order.payment_method || '-', lang)}
-                        </span>
-                        <span className="text-gray-400 mx-2">/</span>
-                        <span className="text-gray-600">
-                          {t(paymentStatusLabels[order.payment_status] || order.payment_status, lang)}
-                        </span>
+                      <div className="text-sm space-y-1">
+                        <div>
+                          <span className="text-gray-500">{t('支払い方法', lang)}: </span>
+                          <span className="text-gray-600">
+                            {t(paymentMethodLabels[order.payment_method || ''] || order.payment_method || '-', lang)}
+                          </span>
+                          <span className="text-gray-400 mx-2">/</span>
+                          <span className="text-gray-600">
+                            {t(paymentStatusLabels[order.payment_status] || order.payment_status, lang)}
+                          </span>
+                        </div>
+                        {order.payment_status === 'awaiting_payment' && order.payment_deadline && (
+                          <p className="text-amber-600 text-xs">
+                            {t('お支払い期限', lang)}: {new Date(order.payment_deadline).toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')}
+                          </p>
+                        )}
+                        {order.stock_reserved && order.payment_status === 'awaiting_payment' && (
+                          <p className="text-orange-600/80 text-xs">{t('商品は取り置き中です。期限内にお振込みください。', lang)}</p>
+                        )}
                       </div>
                     )}
                   </div>
