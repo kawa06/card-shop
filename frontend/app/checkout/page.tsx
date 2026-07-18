@@ -20,24 +20,7 @@ import { ShippingRate, User } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Check, ShieldCheck, Truck, ExternalLink, Info, RefreshCw } from 'lucide-react'
 
-const COUNTRIES = [
-  { code: 'JP', ja: '日本', en: 'Japan' },
-  { code: 'US', ja: 'アメリカ合衆国', en: 'United States' },
-  { code: 'CN', ja: '中国', en: 'China' },
-  { code: 'KR', ja: '韓国', en: 'South Korea' },
-  { code: 'TW', ja: '台湾', en: 'Taiwan' },
-  { code: 'HK', ja: '香港', en: 'Hong Kong' },
-  { code: 'SG', ja: 'シンガポール', en: 'Singapore' },
-  { code: 'TH', ja: 'タイ', en: 'Thailand' },
-  { code: 'GB', ja: 'イギリス', en: 'United Kingdom' },
-  { code: 'FR', ja: 'フランス', en: 'France' },
-  { code: 'DE', ja: 'ドイツ', en: 'Germany' },
-  { code: 'IT', ja: 'イタリア', en: 'Italy' },
-  { code: 'ES', ja: 'スペイン', en: 'Spain' },
-  { code: 'CA', ja: 'カナダ', en: 'Canada' },
-  { code: 'AU', ja: 'オーストラリア', en: 'Australia' },
-  { code: 'NZ', ja: 'ニュージーランド', en: 'New Zealand' },
-];
+import { CHECKOUT_COUNTRIES, countryDisplayName, isDomesticJapan, normalizeCountryCode } from '@/lib/country'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -135,7 +118,7 @@ export default function CheckoutPage() {
   const [stripeBankTransferEnabled, setStripeBankTransferEnabled] = useState(false)
   const [stripeConfigLoaded, setStripeConfigLoaded] = useState(false)
 
-  const isInternational = country !== 'JP'
+  const isInternational = !isDomesticJapan(country)
 
   useEffect(() => {
     if (stripeConfigLoaded && !stripeEnabled && paymentMethod === 'credit_card') {
@@ -195,10 +178,17 @@ export default function CheckoutPage() {
   })()
 
   const availableRates = shippingRates.filter(rate => {
-    const isAlwaysShown = rate.method_code === 'takkyubin_compact' || rate.method_code === 'click_post'
+    if (rate.method_code === 'nekopos' || rate.method_code === 'yu_pack_60') return false
+    const isAlwaysShown = ['takkyubin_compact', 'click_post', 'teikei_post'].includes(rate.method_code)
     if (!isAlwaysShown && !rate.is_individual_available) return false
-    if (isInternational) return rate.is_international_available
-    if (!isInternational && rate.method_code === 'international') return false
+    if (isInternational) {
+      if (!rate.is_international_available) return false
+      if (rate.method_code === 'international' && shippingRates.some((r) => r.method_code === 'ems')) {
+        return false
+      }
+      return true
+    }
+    if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
     if (allowedMethodCodes === null) return true
     return allowedMethodCodes.includes(rate.method_code)
   })
@@ -208,11 +198,16 @@ export default function CheckoutPage() {
     if (availableRates.length > 0) {
       const isCurrentAvailable = availableRates.some(r => r.method_code === shippingMethod)
       if (!isCurrentAvailable) {
+      if (isInternational) {
+        const preferred = availableRates.find((r) => r.method_code === 'ems') || availableRates[0]
+        setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
+      } else {
         const preferred = availableRates.find(r => r.is_recommended) || availableRates.find(r => r.method_code === 'takkyubin_compact')
         setShippingMethod(preferred ? preferred.method_code : availableRates[0].method_code)
       }
+      }
     }
-  }, [availableRates, shippingMethod])
+  }, [availableRates, shippingMethod, isInternational])
 
   // Fetch dynamic shipping fee when method or destination changes
   useEffect(() => {
@@ -224,7 +219,7 @@ export default function CheckoutPage() {
     shippingApi.calculateRate({
       method: shippingMethod,
       prefecture: debouncedAddress.region,
-      country: debouncedAddress.country
+      country: countryDisplayName(debouncedAddress.country, lang),
     }).then(res => {
       setDynamicShippingFee(res.data.fee_jpy)
     }).catch(() => {
@@ -243,7 +238,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (user) {
       if (user.postal_code) setPostalCode(user.postal_code)
-      if (user.country) setCountry(user.country === 'Japan' ? 'JP' : (user.country || 'JP'))
+      if (user.country) setCountry(normalizeCountryCode(user.country))
       if (user.region) setRegion(user.region)
       if (user.city) setCity(user.city)
       if (user.address_line1) setAddressLine1(user.address_line1)
@@ -336,8 +331,7 @@ export default function CheckoutPage() {
         }
       }
 
-      const currentCountryObj = COUNTRIES.find(c => c.code === country)
-      const currentCountryName = currentCountryObj ? (lang === 'ja' ? currentCountryObj.ja : currentCountryObj.en) : country
+      const currentCountryName = countryDisplayName(country, lang)
       const shippingAddress = country === 'JP'
         ? `〒${postalCode} ${region}${city}${addressLine1} ${addressLine2}`
         : `${fullName}, ${addressLine1}, ${addressLine2 ? addressLine2 + ', ' : ''}${city}, ${region} ${postalCode}, ${currentCountryName}`
@@ -346,7 +340,7 @@ export default function CheckoutPage() {
         await authApi.updateProfile({ 
           name: fullName || user?.name,
           postal_code: postalCode,
-          country: currentCountryName,
+          country: country,
           region: region,
           city: city,
           address_line1: addressLine1,
@@ -432,7 +426,7 @@ export default function CheckoutPage() {
                       required
                       className="w-full h-10 px-3 bg-white border border-gray-300 rounded-md text-gray-900 focus:ring-yellow-400/50"
                     >
-                      {COUNTRIES.map(c => (
+                      {CHECKOUT_COUNTRIES.map(c => (
                         <option key={c.code} value={c.code}>{lang === 'ja' ? c.ja : c.en}</option>
                       ))}
                     </select>

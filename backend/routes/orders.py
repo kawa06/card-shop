@@ -5,12 +5,6 @@ from database import get_db
 from auth import get_current_user
 import models
 import schemas
-from services.order_checkout import (
-    create_order_from_cart,
-    get_user_cart_items,
-    resolve_shipping_fee,
-    validate_shipping_method,
-)
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 

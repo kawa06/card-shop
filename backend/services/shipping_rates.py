@@ -7,11 +7,19 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 import models
 import re
-from services.countries import get_country_zone
+from services.countries import (
+    get_country_ems_zone,
+    get_ems_fee_500g,
+    get_yamato_global_fee_500g,
+    is_domestic_japan,
+)
 
 logger = logging.getLogger(__name__)
 
-# Prefectures by Yamato zones (from Kanto/Tokyo shop origin)
+# Shipped from Hyogo prefecture (兵庫県)
+SHIPPING_ORIGIN_PREFECTURE = "兵庫県"
+
+# Prefectures by Yamato zones (from Hyogo / Kansai shop origin)
 YAMATO_ZONES = {
     "hokkaido": ["北海道"],
     "kita_tohoku": ["青森県", "岩手県", "秋田県"],
@@ -27,25 +35,56 @@ YAMATO_ZONES = {
     "okinawa": ["沖縄県"]
 }
 
-# Standard rates from Kanto (approx 2025/2026 cash price)
-# Note: Compact is set to 600 base as per user requirement
+# Regional rates from Hyogo (兵庫県) — kansai zone is local base
 REGIONAL_RATES_MASTER = {
     "takkyubin_compact": {
-        "hokkaido": 850, "kita_tohoku": 710, "minami_tohoku": 650, "kanto": 600, 
-        "shinetsu": 650, "hokuriku": 650, "chubu": 650, "kansai": 710, 
-        "chugoku": 770, "shikoku": 770, "kyushu": 880, "okinawa": 850
+        "kansai": 600,
+        "chugoku": 650,
+        "shikoku": 650,
+        "chubu": 710,
+        "hokuriku": 710,
+        "shinetsu": 710,
+        "kanto": 710,
+        "minami_tohoku": 710,
+        "kita_tohoku": 770,
+        "kyushu": 850,
+        "hokkaido": 880,
+        "okinawa": 880,
     },
     "takkyubin_60": {
-        "hokkaido": 1460, "kita_tohoku": 1060, "minami_tohoku": 940, "kanto": 940,
-        "shinetsu": 940, "hokuriku": 940, "chubu": 940, "kansai": 1060,
-        "chugoku": 1190, "shikoku": 1190, "kyushu": 1460, "okinawa": 1460
+        "kansai": 940,
+        "chugoku": 1060,
+        "shikoku": 1060,
+        "chubu": 1060,
+        "hokuriku": 1060,
+        "shinetsu": 1060,
+        "kanto": 1060,
+        "minami_tohoku": 1060,
+        "kita_tohoku": 1190,
+        "kyushu": 1460,
+        "hokkaido": 1460,
+        "okinawa": 2010,
     },
     "takkyubin_80": {
-        "hokkaido": 1750, "kita_tohoku": 1350, "minami_tohoku": 1230, "kanto": 1230,
-        "shinetsu": 1230, "hokuriku": 1230, "chubu": 1230, "kansai": 1350,
-        "chugoku": 1480, "shikoku": 1480, "kyushu": 1750, "okinawa": 2010
-    }
+        "kansai": 1230,
+        "chugoku": 1350,
+        "shikoku": 1350,
+        "chubu": 1350,
+        "hokuriku": 1350,
+        "shinetsu": 1350,
+        "kanto": 1350,
+        "minami_tohoku": 1350,
+        "kita_tohoku": 1480,
+        "kyushu": 1750,
+        "hokkaido": 1750,
+        "okinawa": 2010,
+    },
 }
+
+EMS_ZONE_RATES_JSON = json.dumps({"1": 1450, "2": 1900, "3": 3150, "4": 3900, "5": 3600})
+YAMATO_GLOBAL_ZONE_RATES_JSON = json.dumps({"1": 1700, "2": 2200, "3": 3600, "4": 4500, "5": 4100})
+
+INTERNATIONAL_METHOD_CODES = frozenset({"ems", "international", "yamato_global"})
 
 # Fallback values (2024 pricing)
 FALLBACK_RATES = {
@@ -71,6 +110,17 @@ FALLBACK_RATES = {
         "max_size": "34cm x 25cm x 3cm",
         "source_url": "https://www.post.japanpost.jp/service/click_post/",
     },
+    "teikei_post": {
+        "carrier": "japan_post",
+        "name_ja": "定形郵便",
+        "name_en": "Standard Letter Post",
+        "fee_jpy": 110,
+        "has_tracking": False,
+        "has_insurance": False,
+        "is_individual_available": True,
+        "max_size": "14cm x 9cm x 1cm (50g以内)",
+        "source_url": "https://www.post.japanpost.jp/service/standard/",
+    },
     "nekopos": {
         "carrier": "yamato",
         "name_ja": "ネコポス",
@@ -78,7 +128,7 @@ FALLBACK_RATES = {
         "fee_jpy": 385,
         "has_tracking": True,
         "has_insurance": True,
-        "is_individual_available": True,
+        "is_individual_available": False,
         "max_size": "31.2cm x 22.8cm x 3cm",
         "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
     },
@@ -139,29 +189,55 @@ FALLBACK_RATES = {
     },
     "international": {
         "carrier": "japan_post",
-        "name_ja": "国際郵便 (EMS/小包)",
-        "name_en": "International Shipping (EMS/Parcel)",
-        "fee_jpy": 2000,
+        "name_ja": "EMS（国際スピード郵便）",
+        "name_en": "EMS (International Express)",
+        "fee_jpy": 1450,
         "has_tracking": True,
         "has_insurance": True,
         "is_individual_available": True,
         "is_international_available": True,
-        "international_zones": json.dumps({
-            "Asia": 1400,
-            "North America": 2500,
-            "Oceania": 2500,
-            "Europe": 2800,
-            "South America": 3500,
-            "Africa": 3500,
-            "Other": 3000
-        }),
+        "international_zones": EMS_ZONE_RATES_JSON,
         "insurance_max_amount": 20000,
         "insurance_url": "https://www.post.japanpost.jp/int/service/ems_all.html",
         "estimated_delivery_min_days": 3,
         "estimated_delivery_max_days": 14,
-        "max_size": "Variable",
-        "source_url": "https://www.post.japanpost.jp/int/index.html",
-    }
+        "max_size": "500gまで（標準）",
+        "source_url": "https://www.post.japanpost.jp/send/oversea/charge/list-ems/all.html",
+    },
+    "ems": {
+        "carrier": "japan_post",
+        "name_ja": "EMS（国際スピード郵便）",
+        "name_en": "EMS (International Express)",
+        "fee_jpy": 1450,
+        "has_tracking": True,
+        "has_insurance": True,
+        "is_individual_available": True,
+        "is_international_available": True,
+        "international_zones": EMS_ZONE_RATES_JSON,
+        "insurance_max_amount": 20000,
+        "insurance_url": "https://www.post.japanpost.jp/int/service/ems_all.html",
+        "estimated_delivery_min_days": 3,
+        "estimated_delivery_max_days": 14,
+        "max_size": "500gまで（標準）",
+        "source_url": "https://www.post.japanpost.jp/send/oversea/charge/list-ems/all.html",
+    },
+    "yamato_global": {
+        "carrier": "yamato",
+        "name_ja": "ヤマト国際宅急便",
+        "name_en": "Yamato Global TA-Q-BIN",
+        "fee_jpy": 1700,
+        "has_tracking": True,
+        "has_insurance": True,
+        "is_individual_available": True,
+        "is_international_available": True,
+        "international_zones": YAMATO_GLOBAL_ZONE_RATES_JSON,
+        "insurance_max_amount": 20000,
+        "insurance_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/international/",
+        "estimated_delivery_min_days": 4,
+        "estimated_delivery_max_days": 16,
+        "max_size": "500gまで（標準）",
+        "source_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/international/",
+    },
 }
 
 # Default values for existing methods
@@ -179,12 +255,21 @@ METHOD_DEFAULTS = {
         "estimated_delivery_min_days": 2,
         "estimated_delivery_max_days": 5,
     },
-    "nekopos": {
-        "insurance_max_amount": 3000,
-        "insurance_url": "https://www.kuronekoyamato.co.jp/ytc/customer/send/services/nekopos/",
-        "estimated_delivery_min_days": 1,
-        "estimated_delivery_max_days": 2,
-    }
+    "teikei_post": {
+        "insurance_max_amount": 0,
+        "insurance_url": "https://www.post.japanpost.jp/service/standard/",
+        "estimated_delivery_min_days": 2,
+        "estimated_delivery_max_days": 4,
+    },
+    "ems": {
+        "is_recommended": True,
+        "estimated_delivery_min_days": 3,
+        "estimated_delivery_max_days": 14,
+    },
+    "yamato_global": {
+        "estimated_delivery_min_days": 4,
+        "estimated_delivery_max_days": 16,
+    },
 }
 
 HEADERS = {
@@ -244,14 +329,10 @@ async def refresh_all_rates(db: Session):
     lp_light = extract_fee(lp_html, r'レターパックライト[^\d]+(\d+)円')
     lp_plus = extract_fee(lp_html, r'レターパックプラス[^\d]+(\d+)円')
 
-    # 4. Nekopos
-    neko_html = await fetch_page(FALLBACK_RATES["nekopos"]["source_url"])
-    neko_fee = extract_fee(neko_html, r'([0-9,]+)円')
-
     updates = {
         "takkyubin_compact": compact_fee,
         "click_post": click_fee,
-        "nekopos": neko_fee,
+        "teikei_post": 110,
         "letter_pack_light": lp_light,
         "letter_pack_plus": lp_plus,
         "takkyubin_60": 940,
@@ -299,25 +380,42 @@ async def refresh_all_rates(db: Session):
             )
             db.add(db_rate)
     
-    # Handle international specifically
-    intl_code = "international"
-    db_intl = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == intl_code).first()
-    if not db_intl:
+    # Disable Nekopos for individual sellers
+    neko_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == "nekopos").first()
+    if neko_rate:
+        neko_rate.is_individual_available = False
+        neko_rate.updated_at = datetime.utcnow()
+
+    # International methods (EMS + Yamato global)
+    for intl_code in ("international", "ems", "yamato_global"):
+        if intl_code not in FALLBACK_RATES:
+            continue
+        db_intl = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == intl_code).first()
         rate_data = FALLBACK_RATES[intl_code].copy()
-        db_intl = models.ShippingRate(
-            method_code=intl_code,
-            **rate_data
-        )
-        db.add(db_intl)
-    else:
-        # Update international if it was old version
-        if not db_intl.international_zones:
-            db_intl.international_zones = FALLBACK_RATES[intl_code].get("international_zones")
+        defaults = METHOD_DEFAULTS.get(intl_code, {})
+        for key, value in defaults.items():
+            if key not in rate_data:
+                rate_data[key] = value
+        if not db_intl:
+            db_intl = models.ShippingRate(method_code=intl_code, **rate_data)
+            db.add(db_intl)
+        else:
+            db_intl.name_ja = rate_data.get("name_ja", db_intl.name_ja)
+            db_intl.name_en = rate_data.get("name_en", db_intl.name_en)
+            db_intl.carrier = rate_data.get("carrier", db_intl.carrier)
             db_intl.is_international_available = True
-            db_intl.insurance_max_amount = 20000
-            db_intl.insurance_url = FALLBACK_RATES[intl_code].get("insurance_url")
-            db_intl.estimated_delivery_min_days = 3
-            db_intl.estimated_delivery_max_days = 14
+            db_intl.is_individual_available = rate_data.get("is_individual_available", True)
+            db_intl.international_zones = rate_data.get("international_zones", db_intl.international_zones)
+            db_intl.insurance_max_amount = rate_data.get("insurance_max_amount", db_intl.insurance_max_amount)
+            db_intl.insurance_url = rate_data.get("insurance_url", db_intl.insurance_url)
+            db_intl.estimated_delivery_min_days = rate_data.get(
+                "estimated_delivery_min_days", db_intl.estimated_delivery_min_days
+            )
+            db_intl.estimated_delivery_max_days = rate_data.get(
+                "estimated_delivery_max_days", db_intl.estimated_delivery_max_days
+            )
+            db_intl.source_url = rate_data.get("source_url", db_intl.source_url)
+            db_intl.updated_at = datetime.utcnow()
     
     try:
         db.commit()
@@ -326,77 +424,128 @@ async def refresh_all_rates(db: Session):
         db.rollback()
         logger.error(f"Failed to commit shipping rates: {e}")
 
+def _international_fee(method_code: str, country: str, db: Session | None) -> int:
+    zone = get_country_ems_zone(country)
+    zone_key = str(zone)
+
+    if db:
+        db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
+        if db_rate and db_rate.international_zones:
+            try:
+                zones_map = json.loads(db_rate.international_zones)
+                if zone_key in zones_map:
+                    return int(zones_map[zone_key])
+            except Exception as e:
+                logger.error(f"Error parsing international_zones for {method_code}: {e}")
+
+    if method_code == "yamato_global":
+        return get_yamato_global_fee_500g(country)
+    return get_ems_fee_500g(country)
+
+
 def calculate_shipping_fee(method_code: str, region: str = None, country: str = "Japan", db: Session = None) -> int:
     """
     Calculate shipping fee based on method, region (prefecture) and country.
+    Domestic rates are from Hyogo prefecture (兵庫県).
+    International EMS/Yamato rates use Japan Post EMS zones (500g tier).
     """
-    if not country or country in ["Japan", "JP", "日本"]:
+    if is_domestic_japan(country):
+        if method_code in INTERNATIONAL_METHOD_CODES:
+            return 0
+
         # Japan Domestic
         if db and region:
             db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
             if db_rate and db_rate.regional_rates:
                 try:
                     rates_map = json.loads(db_rate.regional_rates)
-                    # Robust match (remove 都府県)
                     clean_region = region.replace("都", "").replace("府", "").replace("県", "").strip()
                     for pref, fee in rates_map.items():
-                        if clean_region in pref:
+                        if clean_region in pref.replace("都", "").replace("府", "").replace("県", ""):
                             return fee
                 except Exception as e:
                     logger.error(f"Error parsing regional_rates for {method_code}: {e}")
 
-        # Fallback logic
         base_rate = FALLBACK_RATES.get(method_code, {}).get("fee_jpy", 0)
-        
-        if method_code == "click_post": return 200
-        if method_code in ["nekopos", "letter_pack_light", "letter_pack_plus"]: return base_rate
-        if not region: return base_rate
-            
+
+        if method_code == "click_post":
+            return 200
+        if method_code in ["teikei_post"]:
+            return 110
+        if method_code in ["letter_pack_light", "letter_pack_plus"]:
+            return base_rate
+        if not region:
+            return base_rate
+
         region_str = str(region).replace("都", "").replace("府", "").replace("県", "").replace(" ", "").strip()
-        
+
         def match_region(target_list):
             return any(r.replace("都", "").replace("府", "").replace("県", "") in region_str for r in target_list)
 
         if method_code == "takkyubin_compact":
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["okinawa"]): return 850
-            if match_region(YAMATO_ZONES["kyushu"]): return 880
-            if match_region(YAMATO_ZONES["chugoku"] + YAMATO_ZONES["shikoku"]): return 770
-            if match_region(YAMATO_ZONES["kansai"] + YAMATO_ZONES["kita_tohoku"]): return 710
+            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["okinawa"]):
+                return 880
+            if match_region(YAMATO_ZONES["kyushu"]):
+                return 850
+            if match_region(YAMATO_ZONES["kita_tohoku"]):
+                return 770
+            if match_region(
+                YAMATO_ZONES["kanto"]
+                + YAMATO_ZONES["chubu"]
+                + YAMATO_ZONES["hokuriku"]
+                + YAMATO_ZONES["shinetsu"]
+                + YAMATO_ZONES["minami_tohoku"]
+            ):
+                return 710
+            if match_region(YAMATO_ZONES["chugoku"] + YAMATO_ZONES["shikoku"]):
+                return 650
             return 600
-            
+
         if method_code in ["takkyubin_60", "yu_pack_60"]:
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"] + YAMATO_ZONES["okinawa"]): return 1460
-            if match_region(YAMATO_ZONES["chugoku"] + YAMATO_ZONES["shikoku"]): return 1190
-            if match_region(YAMATO_ZONES["kansai"] + YAMATO_ZONES["kita_tohoku"]): return 1060
+            if match_region(YAMATO_ZONES["okinawa"]):
+                return 2010
+            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"]):
+                return 1460
+            if match_region(YAMATO_ZONES["kita_tohoku"]):
+                return 1190
+            if match_region(
+                YAMATO_ZONES["kanto"]
+                + YAMATO_ZONES["chubu"]
+                + YAMATO_ZONES["hokuriku"]
+                + YAMATO_ZONES["shinetsu"]
+                + YAMATO_ZONES["minami_tohoku"]
+                + YAMATO_ZONES["chugoku"]
+                + YAMATO_ZONES["shikoku"]
+            ):
+                return 1060
             return 940
 
         if method_code == "takkyubin_80":
-            if match_region(YAMATO_ZONES["okinawa"]): return 2010
-            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"]): return 1750
-            if match_region(YAMATO_ZONES["chugoku"] + YAMATO_ZONES["shikoku"]): return 1480
-            if match_region(YAMATO_ZONES["kansai"] + YAMATO_ZONES["kita_tohoku"]): return 1350
+            if match_region(YAMATO_ZONES["okinawa"]):
+                return 2010
+            if match_region(YAMATO_ZONES["hokkaido"] + YAMATO_ZONES["kyushu"]):
+                return 1750
+            if match_region(YAMATO_ZONES["kita_tohoku"]):
+                return 1480
+            if match_region(
+                YAMATO_ZONES["kanto"]
+                + YAMATO_ZONES["chubu"]
+                + YAMATO_ZONES["hokuriku"]
+                + YAMATO_ZONES["shinetsu"]
+                + YAMATO_ZONES["minami_tohoku"]
+                + YAMATO_ZONES["chugoku"]
+                + YAMATO_ZONES["shikoku"]
+            ):
+                return 1350
             return 1230
 
         return base_rate
 
-    # International
-    zone = get_country_zone(country)
-    
-    if db:
-        db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
-        if db_rate and db_rate.international_zones:
-            try:
-                zones_map = json.loads(db_rate.international_zones)
-                if zone in zones_map:
-                    return zones_map[zone]
-                if "Other" in zones_map:
-                    return zones_map["Other"]
-            except Exception as e:
-                logger.error(f"Error parsing international_zones for {method_code}: {e}")
+    if method_code in INTERNATIONAL_METHOD_CODES:
+        resolved = "ems" if method_code == "international" else method_code
+        return _international_fee(resolved, country, db)
 
-    # Fallback International
-    intl_fallback = json.loads(FALLBACK_RATES["international"]["international_zones"])
-    return intl_fallback.get(zone, intl_fallback.get("Other", 3000))
+    return _international_fee("ems", country, db)
 
 async def background_shipping_update_task(db_factory):
     await asyncio.sleep(10) # Reduced wait for testing/first run

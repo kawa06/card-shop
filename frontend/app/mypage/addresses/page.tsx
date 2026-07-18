@@ -14,17 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-const COUNTRIES = [
-  { code: 'JP', ja: '日本', en: 'Japan' },
-  { code: 'US', ja: 'アメリカ合衆国', en: 'United States' },
-  { code: 'CN', ja: '中国', en: 'China' },
-  { code: 'KR', ja: '韓国', en: 'South Korea' },
-  { code: 'TW', ja: '台湾', en: 'Taiwan' },
-  { code: 'HK', ja: '香港', en: 'Hong Kong' },
-  { code: 'SG', ja: 'シンガポール', en: 'Singapore' },
-  { code: 'GB', ja: 'イギリス', en: 'United Kingdom' },
-  { code: 'AU', ja: 'オーストラリア', en: 'Australia' },
-]
+import { CHECKOUT_COUNTRIES, countryDisplayName, normalizeCountryCode } from '@/lib/country'
 
 const PREFECTURES = [
   '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
@@ -72,7 +62,7 @@ export default function AddressesPage() {
   useEffect(() => {
     if (!user) return
     setPostalCode(user.postal_code || '')
-    setCountry(user.country === 'Japan' || !user.country ? 'JP' : user.country)
+    setCountry(normalizeCountryCode(user.country))
     setRegion(user.region || '')
     setCity(user.city || '')
     setAddressLine1(user.address_line1 || '')
@@ -113,10 +103,9 @@ export default function AddressesPage() {
         router.push('/sign-in')
         return
       }
-      const countryName = COUNTRIES.find((c) => c.code === country)?.[lang === 'ja' ? 'ja' : 'en'] || country
       await authApi.updateProfile({
         postal_code: postalCode,
-        country: countryName,
+        country: country,
         region,
         city,
         address_line1: addressLine1,
@@ -179,7 +168,7 @@ export default function AddressesPage() {
                 onChange={(e) => setCountry(e.target.value)}
                 className="mt-1 w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-sm"
               >
-                {COUNTRIES.map((c) => (
+                {CHECKOUT_COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
                     {lang === 'ja' ? c.ja : c.en}
                   </option>
