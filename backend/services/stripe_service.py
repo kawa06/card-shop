@@ -16,7 +16,7 @@ def stripe_configured() -> bool:
 
 
 def _configure_stripe() -> None:
-    stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_key = settings.STRIPE_SECRET_KEY.strip()
 
 
 def require_stripe() -> None:

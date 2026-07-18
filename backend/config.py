@@ -96,5 +96,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
 
-
-settings = Settings()
+    @field_validator("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", mode="before")
+    @classmethod
+    def normalize_stripe_secret(cls, v: object) -> object:
+        if isinstance(v, str):
+            # Railway copy/paste sometimes inserts line breaks into long secrets.
+            return v.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+        return v
