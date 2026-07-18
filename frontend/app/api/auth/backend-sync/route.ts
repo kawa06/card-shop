@@ -81,9 +81,10 @@ export async function POST() {
       email.split('@')[0]
     const password = createSyncPassword(userId)
 
-    let authData = await backendLogin(email, password)
+    // Provision/update Clerk-linked user first, then fall back to login.
+    let authData = await backendClerkProvision(email, password, name)
     if (!authData) {
-      authData = await backendClerkProvision(email, password, name)
+      authData = await backendLogin(email, password)
     }
     if (!authData) {
       authData = await backendRegister(email, password, name)
