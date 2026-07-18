@@ -9,6 +9,7 @@ import { Card } from '@/lib/types'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
 import { usePrice } from '@/lib/format'
+import { useLocalizedName } from '@/lib/localized'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { toast } from '@/lib/use-toast'
@@ -38,7 +39,7 @@ export default function CardDetailClient({ id }: { id: string }) {
   const router = useRouter()
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { addItem } = useCartStore()
-  const { formatPrice } = usePrice()
+  const { formatCardPrice } = usePrice()
   const { lang } = useLangStore()
 
   const [card, setCard] = useState<Card | null>(null)
@@ -47,6 +48,7 @@ export default function CardDetailClient({ id }: { id: string }) {
   const [quantity, setQuantity] = useState(1)
   const [isZoomed, setIsZoomed] = useState(false)
   const [addingToCart, setAddingToCart] = useState(false)
+  const categoryName = useLocalizedName(card?.category ?? null)
 
   useEffect(() => {
     const fetchCard = async () => {
@@ -170,7 +172,7 @@ export default function CardDetailClient({ id }: { id: string }) {
           <div className="space-y-6">
             <div>
               {card.category && (
-                <p className="text-sm text-gray-500 mb-1">{card.category.name}</p>
+                <p className="text-sm text-gray-500 mb-1">{categoryName}</p>
               )}
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{card.name}</h1>
               <span className={`inline-block text-sm font-bold px-3 py-1 rounded border ${rarityClass}`}>
@@ -180,7 +182,7 @@ export default function CardDetailClient({ id }: { id: string }) {
 
             <div className="flex items-center gap-4">
               <span className="text-4xl font-bold text-yellow-400">
-                {formatPrice(card.price)}
+                {card ? formatCardPrice(card) : ''}
               </span>
               <div className="flex items-center gap-1 text-sm text-gray-400">
                 <Package className="h-4 w-4" />

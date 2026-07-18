@@ -21,6 +21,9 @@ def run_schema_upgrades() -> None:
     _create_table_if_missing("favorites", models.Favorite)
     _migrate_cards_image_url_to_text()
     _migrate_international_shipping_to_ems()
+    _add_column_if_missing("categories", "name_en", "VARCHAR(100)")
+    _add_column_if_missing("packs", "name_en", "VARCHAR(100)")
+    _add_column_if_missing("cards", "price_usd", "FLOAT")
 
 
 def _ensure_table_exists(inspector, table_name: str) -> None:
@@ -75,6 +78,28 @@ def _migrate_cards_image_url_to_text() -> None:
             logger.info("SQLite cards.image_url left as-is (SQLite does not enforce VARCHAR length strictly)")
         except Exception as exc:
             logger.error("SQLite image_url check failed: %s", exc)
+
+
+def _add_column_if_missing(table: str, column: str, col_type: str) -> None:
+    inspector = inspect(engine)
+    if table not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns(table)}
+    if column in columns:
+        return
+    url = settings.DATABASE_URL
+    try:
+        with engine.connect() as conn:
+            if url.startswith("postgresql") or url.startswith("postgres"):
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+            elif url.startswith("sqlite"):
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+            else:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+            conn.commit()
+        logger.info("Added column %s.%s", table, column)
+    except Exception as exc:
+        logger.error("Failed to add column %s.%s: %s", table, column, exc)
 
 
 def _migrate_international_shipping_to_ems() -> None:

@@ -4,6 +4,7 @@ import { Pack } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
+import { useLocalizedNames } from '@/lib/localized'
 
 interface PackSidebarProps {
   packs: Pack[]
@@ -17,6 +18,7 @@ export default function PackSidebar({
   onSelect,
 }: PackSidebarProps) {
   const { lang } = useLangStore()
+  const packNames = useLocalizedNames(packs)
 
   if (packs.length === 0) return null
 
@@ -36,7 +38,7 @@ export default function PackSidebar({
       >
         {t('すべて', lang)}
       </button>
-      {packs.map((pack) => (
+      {packs.map((pack, i) => (
         <button
           key={pack.id}
           onClick={() => onSelect(pack.id)}
@@ -47,7 +49,7 @@ export default function PackSidebar({
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
           )}
         >
-          {pack.name}
+          {packNames[i] || pack.name}
         </button>
       ))}
     </aside>

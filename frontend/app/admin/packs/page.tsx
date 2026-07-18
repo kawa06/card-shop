@@ -28,7 +28,7 @@ export default function AdminPacksPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
-  const [form, setForm] = useState({ name: '', sort_order: '0' })
+  const [form, setForm] = useState({ name: '', name_en: '', sort_order: '0' })
 
   useEffect(() => {
     setIsMounted(true)
@@ -51,7 +51,7 @@ export default function AdminPacksPage() {
 
   const handleEdit = (pack: Pack) => {
     setEditingId(pack.id)
-    setForm({ name: pack.name, sort_order: String(pack.sort_order ?? 0) })
+    setForm({ name: pack.name, name_en: pack.name_en || '', sort_order: String(pack.sort_order ?? 0) })
     setShowForm(true)
   }
 
@@ -78,16 +78,20 @@ export default function AdminPacksPage() {
       if (editingId) {
         await adminApi.updatePack(editingId, {
           name: payload.name,
+          name_en: form.name_en.trim() || null,
           sort_order: payload.sort_order,
         })
         toast({ title: '更新しました' })
       } else {
-        await adminApi.createPack(payload)
+        await adminApi.createPack({
+          ...payload,
+          name_en: form.name_en.trim() || null,
+        })
         toast({ title: '作成しました' })
       }
       setShowForm(false)
       setEditingId(null)
-      setForm({ name: '', sort_order: '0' })
+      setForm({ name: '', name_en: '', sort_order: '0' })
       fetchPacks()
     } catch (err) {
       toast({
@@ -112,7 +116,7 @@ export default function AdminPacksPage() {
           <Package className="h-6 w-6 text-sky-400" />
           <h1 className="text-2xl font-bold text-gray-900 flex-1">パック管理</h1>
           <Button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm({ name: '', sort_order: '0' }) }}
+            onClick={() => { setShowForm(true); setEditingId(null); setForm({ name: '', name_en: '', sort_order: '0' }) }}
             className="bg-sky-600 text-white hover:bg-sky-500 font-bold"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -134,6 +138,15 @@ export default function AdminPacksPage() {
                   required
                   className="bg-white border-gray-300 text-gray-900"
                   placeholder="例: 拡張パック「メガシンフォニア」"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-gray-600">英語名</Label>
+                <Input
+                  value={form.name_en}
+                  onChange={(e) => setForm({ ...form, name_en: e.target.value })}
+                  className="bg-white border-gray-300 text-gray-900"
+                  placeholder="例: Mega Symphonia Expansion Pack"
                 />
               </div>
               <div className="space-y-1">
@@ -168,6 +181,9 @@ export default function AdminPacksPage() {
                 <div key={pack.id} className="p-4 flex items-center justify-between hover:bg-gray-100 transition-colors">
                   <div className="flex-1 min-w-0 pr-4">
                     <h3 className="text-gray-900 font-medium truncate">{pack.name}</h3>
+                    {pack.name_en && (
+                      <p className="text-gray-400 text-xs truncate">{pack.name_en}</p>
+                    )}
                     <p className="text-gray-400 text-xs">表示順: {pack.sort_order}</p>
                   </div>
                   <div className="flex gap-2">

@@ -6,7 +6,8 @@ import { Plus, Pencil, Trash2, ArrowLeft, Upload, Images, X } from 'lucide-react
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { cardsApi, categoriesApi, adminApi, shippingApi, packsApi } from '@/lib/api'
 import { Card, Category, ShippingRate, Pack } from '@/lib/types'
-import { usePrice } from '@/lib/format'
+import { usePrice, jpyFromUsd } from '@/lib/format'
+import { useRateStore } from '@/store/rate'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,7 +30,9 @@ interface CardForm {
   name: string
   name_en: string
   description: string
-  price: string
+  priceCurrency: 'jpy' | 'usd'
+  priceJpy: string
+  priceUsd: string
   stock: string
   rarity: string
   condition: string
@@ -40,7 +43,7 @@ interface CardForm {
 }
 
 const emptyForm: CardForm = {
-  name: '', name_en: '', description: '', price: '', stock: '',
+  name: '', name_en: '', description: '', priceCurrency: 'jpy', priceJpy: '', priceUsd: '', stock: '',
   rarity: 'C', condition: '', category_id: '', pack_id: '', images: [''],
   allowed_shipping_methods: [],
 }
@@ -60,6 +63,7 @@ function parseImages(card: Card): string[] {
 export default function AdminCardsPage() {
   const { isReady } = useAdminGuard()
   const { formatPrice } = usePrice()
+  const usdJpyRate = useRateStore((s) => s.usdJpyRate)
   const [cards, setCards] = useState<Card[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [packs, setPacks] = useState<Pack[]>([])
@@ -121,7 +125,9 @@ export default function AdminCardsPage() {
       name: card.name,
       name_en: card.name_en || '',
       description: card.description || '',
-      price: card.price.toString(),
+      priceCurrency: card.price_usd != null ? 'usd' : 'jpy',
+      priceJpy: card.price.toString(),
+      priceUsd: card.price_usd?.toString() || '',
       stock: card.stock.toString(),
       rarity: card.rarity || 'C',
       condition: card.condition || '',
@@ -181,11 +187,37 @@ export default function AdminCardsPage() {
     const imagesChanged =
       JSON.stringify(validImages) !== JSON.stringify(initialImages.filter(u => u.trim() !== ''))
 
+    const rate = usdJpyRate || 150
+    let price = 0
+    let price_usd: number | null = null
+
+    if (form.priceCurrency === 'usd') {
+      price_usd = parseFloat(form.priceUsd)
+      if (Number.isNaN(price_usd) || price_usd <= 0) {
+        toast({ title: 'エラー', description: 'USD価格を入力してください', variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+      price = jpyFromUsd(price_usd, rate)
+    } else {
+      price = parseFloat(form.priceJpy)
+      if (Number.isNaN(price) || price <= 0) {
+        toast({ title: 'エラー', description: '円価格を入力してください', variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+      if (form.priceUsd.trim()) {
+        price_usd = parseFloat(form.priceUsd)
+        if (Number.isNaN(price_usd) || price_usd <= 0) price_usd = null
+      }
+    }
+
     const data: Record<string, unknown> = {
       name: form.name,
       name_en: form.name_en || null,
       description: form.description,
-      price: parseFloat(form.price),
+      price,
+      price_usd,
       stock: parseInt(form.stock),
       rarity: form.rarity,
       condition: form.condition || null,
@@ -341,9 +373,50 @@ export default function AdminCardsPage() {
                 </div>
 
                 {/* 価格 */}
-                <div className="space-y-1">
-                  <Label className="text-gray-600">価格 *</Label>
-                  <Input type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} required min="0" className="bg-white border-gray-300 text-gray-900" />
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-gray-600">価格入力通貨</Label>
+                  <div className="flex gap-4 text-sm">
+                    <label className="flex items-center gap-2 text-gray-700">
+                      <input
+                        type="radio"
+                        name="priceCurrency"
+                        checked={form.priceCurrency === 'jpy'}
+                        onChange={() => setForm({ ...form, priceCurrency: 'jpy' })}
+                      />
+                      日本円（決済用）
+                    </label>
+                    <label className="flex items-center gap-2 text-gray-700">
+                      <input
+                        type="radio"
+                        name="priceCurrency"
+                        checked={form.priceCurrency === 'usd'}
+                        onChange={() => setForm({ ...form, priceCurrency: 'usd' })}
+                      />
+                      米ドル（海外表示・為替で円換算）
+                    </label>
+                  </div>
+                  {form.priceCurrency === 'jpy' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-gray-600">価格（円） *</Label>
+                        <Input type="number" value={form.priceJpy} onChange={e => setForm({...form, priceJpy: e.target.value})} required min="0" step="1" className="bg-white border-gray-300 text-gray-900" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-gray-600">海外表示USD（任意）</Label>
+                        <Input type="number" value={form.priceUsd} onChange={e => setForm({...form, priceUsd: e.target.value})} min="0" step="0.01" className="bg-white border-gray-300 text-gray-900" placeholder="未設定時は為替で自動換算" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Label className="text-gray-600">価格（USD） *</Label>
+                      <Input type="number" value={form.priceUsd} onChange={e => setForm({...form, priceUsd: e.target.value})} required min="0" step="0.01" className="bg-white border-gray-300 text-gray-900" />
+                      {form.priceUsd && (
+                        <p className="text-xs text-gray-500">
+                          決済用円換算: ¥{jpyFromUsd(parseFloat(form.priceUsd) || 0, usdJpyRate || 150).toLocaleString()}（レート {usdJpyRate || 150}）
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 在庫 */}
@@ -600,7 +673,12 @@ export default function AdminCardsPage() {
                           {card.is_active ? '公開中' : '非公開'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-yellow-400">{formatPrice(card.price)}</td>
+                      <td className="px-4 py-3 text-right text-yellow-400">
+                        <div>{formatPrice(card.price)}</div>
+                        {card.price_usd != null && (
+                          <div className="text-[10px] text-gray-400">${card.price_usd.toFixed(2)}</div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right text-gray-400">{card.stock}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">

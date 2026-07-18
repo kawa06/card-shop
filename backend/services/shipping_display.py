@@ -4,11 +4,25 @@ from __future__ import annotations
 
 LEGACY_METHOD_ALIASES = {"international": "ems"}
 
+# Shop packaging materials added to Yamato shipping quotes at checkout.
+PACKAGING_SURCHARGES: dict[str, int] = {
+    "takkyubin_compact": 77,
+    "takkyubin_60": 110,
+    "takkyubin_80": 110,
+}
+
 
 def normalize_method_code(method_code: str | None) -> str | None:
     if not method_code:
         return method_code
     return LEGACY_METHOD_ALIASES.get(method_code, method_code)
+
+
+def get_packaging_surcharge(method_code: str | None) -> int:
+    code = normalize_method_code(method_code) or method_code
+    if not code:
+        return 0
+    return PACKAGING_SURCHARGES.get(code, 0)
 
 
 METHOD_DISPLAY: dict[str, dict] = {
@@ -62,18 +76,22 @@ METHOD_DISPLAY: dict[str, dict] = {
         "has_tracking": True,
         "has_insurance": True,
         "insurance_max_amount": 300000,
+        "extra_note_ja": "表示料金に段ボール代110円を含みます",
+        "extra_note_en": "Price includes ¥110 cardboard box",
     },
     "takkyubin_80": {
         "has_tracking": True,
         "has_insurance": True,
         "insurance_max_amount": 300000,
+        "extra_note_ja": "表示料金に段ボール代110円を含みます",
+        "extra_note_en": "Price includes ¥110 cardboard box",
     },
     "takkyubin_compact": {
         "has_tracking": True,
         "has_insurance": True,
         "insurance_max_amount": 30000,
-        "extra_note_ja": "専用BOX代70円が別途必要です",
-        "extra_note_en": "Dedicated compact box (¥70) required separately",
+        "extra_note_ja": "表示料金に専用BOX代77円を含みます",
+        "extra_note_en": "Price includes ¥77 dedicated compact box",
     },
     "nekopos": {
         "has_tracking": True,

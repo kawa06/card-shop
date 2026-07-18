@@ -26,7 +26,7 @@ export default function CheckoutPage() {
   const { isLoggedIn, isReady, user, requireAuth } = useBackendAuth()
   const { fetchMe } = useAuthStore()
   const { items, total, fetchCart, clearCart } = useCartStore()
-  const { formatPrice } = usePrice()
+  const { formatPrice, formatCardLineTotal } = usePrice()
   const { lang } = useLangStore()
   const [isMounted, setIsMounted] = useState(false)
 
@@ -802,7 +802,7 @@ export default function CheckoutPage() {
             </h2>
             <div className="space-y-3">
               {items.map((item) => (
-                <CheckoutItemRow key={item.id} item={item} formatPrice={formatPrice} lang={lang} />
+                <CheckoutItemRow key={item.id} item={item} formatCardLineTotal={formatCardLineTotal} lang={lang} />
               ))}
               <div className="border-t border-gray-200 pt-3 space-y-1 text-sm">
                 <div className="flex justify-between text-gray-400">
@@ -945,7 +945,7 @@ export default function CheckoutPage() {
   )
 }
 
-function CheckoutItemRow({ item, formatPrice, lang }: any) {
+function CheckoutItemRow({ item, formatCardLineTotal, lang }: any) {
   const translatedCardName = useTranslation(item.card?.name)
   const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
   return (
@@ -962,7 +962,7 @@ function CheckoutItemRow({ item, formatPrice, lang }: any) {
         <p className="text-gray-500 text-xs">{item.card?.rarity} × {item.quantity}</p>
       </div>
       <p className="text-yellow-400 font-bold text-sm">
-        {formatPrice((item.card?.price || 0) * item.quantity)}
+        {item.card ? formatCardLineTotal(item.card, item.quantity) : ''}
       </p>
     </div>
   )

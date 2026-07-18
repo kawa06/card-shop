@@ -4,7 +4,7 @@ import { Category } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { useBatchTranslation } from '@/hooks/useTranslation'
+import { useLocalizedNames } from '@/lib/localized'
 
 interface CategorySidebarProps {
   categories: Category[]
@@ -18,8 +18,7 @@ export default function CategorySidebar({
   onSelect,
 }: CategorySidebarProps) {
   const { lang } = useLangStore()
-  const names = categories.map((c) => c.name)
-  const translatedNames = useBatchTranslation(names)
+  const categoryNames = useLocalizedNames(categories)
 
   return (
     <aside className="w-full space-y-1">
@@ -48,7 +47,7 @@ export default function CategorySidebar({
               : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
           )}
         >
-          {translatedNames[i] || category.name}
+          {categoryNames[i] || category.name}
         </button>
       ))}
     </aside>

@@ -27,6 +27,7 @@ export default function AdminCategoriesPage() {
 
   const [form, setForm] = useState({
     name: '',
+    name_en: '',
     description: '',
   })
 
@@ -49,6 +50,7 @@ export default function AdminCategoriesPage() {
     setEditingId(cat.id)
     setForm({
       name: cat.name,
+      name_en: cat.name_en || '',
       description: cat.description || '',
     })
     setShowForm(true)
@@ -74,7 +76,7 @@ export default function AdminCategoriesPage() {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') || `cat-${Date.now()}`
       
-      const payload = { ...form, slug }
+      const payload = { ...form, name_en: form.name_en || null, slug }
 
       if (editingId) {
         await adminApi.updateCategory(editingId, payload)
@@ -85,7 +87,7 @@ export default function AdminCategoriesPage() {
       }
       setShowForm(false)
       setEditingId(null)
-      setForm({ name: '', description: '' })
+      setForm({ name: '', name_en: '', description: '' })
       fetchCategories()
     } catch (err) {
       toast({
@@ -110,7 +112,7 @@ export default function AdminCategoriesPage() {
           <Tag className="h-6 w-6 text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 flex-1">カテゴリー管理</h1>
           <Button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm({ name: '', description: '' }) }}
+            onClick={() => { setShowForm(true); setEditingId(null); setForm({ name: '', name_en: '', description: '' }) }}
             className="bg-blue-600 text-white hover:bg-blue-500 font-bold"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -132,6 +134,15 @@ export default function AdminCategoriesPage() {
                   required
                   className="bg-white border-gray-300 text-gray-900"
                   placeholder="例: ポケモンカード"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-gray-600">英語名</Label>
+                <Input
+                  value={form.name_en}
+                  onChange={e => setForm({...form, name_en: e.target.value})}
+                  className="bg-white border-gray-300 text-gray-900"
+                  placeholder="例: Pokémon Cards"
                 />
               </div>
               <div className="space-y-1">
@@ -166,6 +177,9 @@ export default function AdminCategoriesPage() {
                 <div key={cat.id} className="p-4 flex items-center justify-between hover:bg-gray-100 transition-colors">
                   <div className="flex-1 min-w-0 pr-4">
                     <h3 className="text-gray-900 font-medium truncate">{cat.name}</h3>
+                    {cat.name_en && (
+                      <p className="text-gray-400 text-xs truncate">{cat.name_en}</p>
+                    )}
                     {cat.description && (
                       <p className="text-gray-400 text-sm truncate">{cat.description}</p>
                     )}

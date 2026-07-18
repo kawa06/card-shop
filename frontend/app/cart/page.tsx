@@ -18,7 +18,7 @@ export default function CartPage() {
   const router = useRouter()
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { items, total, isLoading, fetchCart, updateItem, removeItem } = useCartStore()
-  const { formatPrice } = usePrice()
+  const { formatPrice, formatCardLineTotal } = usePrice()
   const { lang } = useLangStore()
   const [isMounted, setIsMounted] = useState(false)
 
@@ -91,7 +91,7 @@ export default function CartPage() {
           {/* Items */}
           <div className="lg:col-span-2 space-y-3">
             {items.map((item) => (
-              <CartItemRow key={item.id} item={item} formatPrice={formatPrice} handleRemove={handleRemove} handleUpdateQuantity={handleUpdateQuantity} lang={lang} />
+              <CartItemRow key={item.id} item={item} formatCardLineTotal={formatCardLineTotal} handleRemove={handleRemove} handleUpdateQuantity={handleUpdateQuantity} lang={lang} />
             ))}
           </div>
 
@@ -128,7 +128,7 @@ export default function CartPage() {
   )
 }
 
-function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, lang }: any) {
+function CartItemRow({ item, formatCardLineTotal, handleRemove, handleUpdateQuantity, lang }: any) {
   const translatedCardName = useTranslation(item.card?.name)
   const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
   return (
@@ -159,7 +159,7 @@ function CartItemRow({ item, formatPrice, handleRemove, handleUpdateQuantity, la
         </Link>
         <p className="text-xs text-gray-500 mt-0.5">{item.card?.rarity}</p>
         <p className="text-yellow-400 font-bold mt-1">
-          {formatPrice((item.card?.price || 0) * item.quantity)}
+          {item.card ? formatCardLineTotal(item.card, item.quantity) : ''}
         </p>
       </div>
 

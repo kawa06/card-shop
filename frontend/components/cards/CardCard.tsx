@@ -11,6 +11,7 @@ import { toast } from '@/lib/use-toast'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
 import { usePrice } from '@/lib/format'
+import { useLocalizedName } from '@/lib/localized'
 import { Button } from '@/components/ui/button'
 import FavoriteButton from '@/components/cards/FavoriteButton'
 
@@ -49,10 +50,11 @@ export default function CardCard({ card }: CardCardProps) {
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
-  const { formatPrice } = usePrice()
+  const { formatCardPrice } = usePrice()
   const translatedCardName = useTranslation(card.name)
   const cardName = (lang === 'en' && card.name_en) ? card.name_en : translatedCardName
-  const categoryName = useTranslation(card.category?.name || '')
+  const categoryName = useLocalizedName(card.category)
+  const packName = useLocalizedName(card.pack)
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -143,7 +145,7 @@ export default function CardCard({ card }: CardCardProps) {
           <h3 className="text-gray-900 font-medium text-sm truncate mb-1">{cardName}</h3>
           <div className="flex items-center justify-between">
             <span className="text-yellow-400 font-bold">
-              {formatPrice(card.price)}
+              {formatCardPrice(card)}
             </span>
             <span className="text-xs text-gray-500">
               {t('残り', lang)} {card.stock}{t('枚', lang)}
@@ -153,7 +155,7 @@ export default function CardCard({ card }: CardCardProps) {
             <span className="text-xs text-gray-500 mt-1 block">{categoryName}</span>
           )}
           {card.pack && (
-            <span className="text-xs text-sky-600 mt-0.5 block truncate">{card.pack.name}</span>
+            <span className="text-xs text-sky-600 mt-0.5 block truncate">{packName}</span>
           )}
         </Link>
       </div>

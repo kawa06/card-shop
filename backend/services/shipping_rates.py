@@ -15,7 +15,11 @@ from services.countries import (
     is_domestic_japan,
 )
 
-from services.shipping_display import enrich_shipping_quote, normalize_method_code
+from services.shipping_display import (
+    enrich_shipping_quote,
+    get_packaging_surcharge,
+    normalize_method_code,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -643,6 +647,9 @@ def calculate_shipping_quote(
         quote["estimated_delivery_min_days"] = defaults.get("estimated_delivery_min_days")
     if quote["estimated_delivery_max_days"] is None:
         quote["estimated_delivery_max_days"] = defaults.get("estimated_delivery_max_days")
+    packaging_fee = get_packaging_surcharge(method_code) if is_domestic_japan(country) else 0
+    quote["packaging_fee_jpy"] = packaging_fee
+    quote["base_shipping_fee_jpy"] = fee - packaging_fee
     return enrich_shipping_quote(method_code, quote)
 
 
@@ -651,6 +658,7 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
     Calculate shipping fee based on method, region (prefecture) and country.
     Domestic rates are from Hyogo prefecture (兵庫県).
     International EMS/Yamato rates use Japan Post EMS zones (500g tier).
+    Yamato methods include shop packaging surcharges (compact box / cardboard).
     """
     method_code = normalize_method_code(method_code) or method_code
     if is_domestic_japan(country):
@@ -658,12 +666,12 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
             return 0
 
         if method_code in FLAT_DOMESTIC_METHOD_CODES:
-            return FLAT_DOMESTIC_FEES[method_code]
+            return _apply_domestic_packaging(method_code, country, FLAT_DOMESTIC_FEES[method_code])
 
         # Regional (Yamato / Yu-Pack) — 兵庫県発 zone table
         regional = _domestic_regional_fee(method_code, region)
         if regional is not None:
-            return regional
+            return _apply_domestic_packaging(method_code, country, regional)
 
         if db and region:
             db_rate = db.query(models.ShippingRate).filter(models.ShippingRate.method_code == method_code).first()
@@ -673,20 +681,23 @@ def calculate_shipping_fee(method_code: str, region: str = None, country: str = 
                     clean_region = region.replace("都", "").replace("府", "").replace("県", "").strip()
                     for pref, fee in rates_map.items():
                         if clean_region in pref.replace("都", "").replace("府", "").replace("県", ""):
-                            return fee
+                            return _apply_domestic_packaging(method_code, country, fee)
                 except Exception as e:
                     logger.error(f"Error parsing regional_rates for {method_code}: {e}")
 
         base_rate = FALLBACK_RATES.get(method_code, {}).get("fee_jpy", 0)
-        if method_code in ["letter_pack_light", "letter_pack_plus"]:
-            return base_rate
-
-        return base_rate
+        return _apply_domestic_packaging(method_code, country, base_rate)
 
     if method_code in INTERNATIONAL_METHOD_CODES:
         return _international_fee(method_code, country, db)
 
     return _international_fee("ems", country, db)
+
+
+def _apply_domestic_packaging(method_code: str, country: str, fee: int) -> int:
+    if is_domestic_japan(country):
+        return fee + get_packaging_surcharge(method_code)
+    return fee
 
 async def background_shipping_update_task(db_factory):
     await asyncio.sleep(10) # Reduced wait for testing/first run

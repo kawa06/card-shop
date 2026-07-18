@@ -48,6 +48,7 @@ class Category(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=True)
     slug = Column(String(100), unique=True, index=True, nullable=False)
     parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     sort_order = Column(Integer, default=0)
@@ -62,6 +63,7 @@ class Pack(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=True)
     slug = Column(String(100), unique=True, index=True, nullable=False)
     sort_order = Column(Integer, default=0)
 
@@ -79,6 +81,7 @@ class Card(Base):
     name_en = Column(String(200), nullable=True, index=True)
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)
+    price_usd = Column(Float, nullable=True)
     stock = Column(Integer, default=0)
     image_url = Column(Text, nullable=True)
     image_urls = Column(Text, nullable=True)  # JSON array of up to 10 image URLs

@@ -10,6 +10,7 @@ import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
 import { usePrice } from '@/lib/format'
+import { useLocalizedName } from '@/lib/localized'
 import { toast } from '@/lib/use-toast'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -53,7 +54,7 @@ export default function CardDetailClient({ id }: { id: string }) {
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
   const { addItem } = useCartStore()
   const { lang } = useLangStore()
-  const { formatPrice } = usePrice()
+  const { formatCardPrice } = usePrice()
 
   const [card, setCard] = useState<Card | null>(null)
   const [relatedCards, setRelatedCards] = useState<Card[]>([])
@@ -125,7 +126,8 @@ export default function CardDetailClient({ id }: { id: string }) {
 
   const translatedCardName = useTranslation(card?.name || '')
   const cardName = (lang === 'en' && card?.name_en) ? card.name_en : translatedCardName
-  const categoryName = useTranslation(card?.category?.name || '')
+  const categoryName = useLocalizedName(card?.category)
+  const packName = useLocalizedName(card?.pack)
   const description = useTranslation(card?.description || '')
 
   if (isLoading) {
@@ -228,7 +230,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                 <p className="text-sm text-gray-500 mb-1">{categoryName}</p>
               )}
               {card.pack && (
-                <p className="text-sm text-sky-600 mb-1">{card.pack.name}</p>
+                <p className="text-sm text-sky-600 mb-1">{packName}</p>
               )}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <h1 className="text-3xl font-bold text-gray-900">{cardName}</h1>
@@ -247,7 +249,7 @@ export default function CardDetailClient({ id }: { id: string }) {
                 )}
                 {card.pack && (
                   <span className="text-sm font-medium px-3 py-1 rounded border bg-sky-500/10 text-sky-600 border-sky-500/30">
-                    {card.pack.name}
+                    {packName}
                   </span>
                 )}
               </div>
@@ -255,7 +257,7 @@ export default function CardDetailClient({ id }: { id: string }) {
 
             <div className="flex items-center gap-4">
               <span className="text-4xl font-bold text-yellow-400">
-                {formatPrice(card.price)}
+                {formatCardPrice(card)}
               </span>
               <div className="flex items-center gap-1 text-sm text-gray-400">
                 <Package className="h-4 w-4" />

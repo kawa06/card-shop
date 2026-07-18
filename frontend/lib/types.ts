@@ -4,6 +4,7 @@ export interface Card {
   name_en: string | null
   description: string
   price: number
+  price_usd: number | null
   stock: number
   image_url: string | null
   image_urls: string | null  // JSON array string e.g. '["url1","url2"]'
@@ -21,12 +22,15 @@ export interface Card {
 export interface Category {
   id: number
   name: string
-  description: string | null
+  name_en?: string | null
+  slug?: string
+  description?: string | null
 }
 
 export interface Pack {
   id: number
   name: string
+  name_en?: string | null
   slug: string
   sort_order: number
 }
@@ -146,6 +150,8 @@ export interface ShippingRate {
 export interface ShippingQuote {
   method_code: string
   fee_jpy: number
+  base_shipping_fee_jpy?: number | null
+  packaging_fee_jpy?: number | null
   ems_zone?: number | null
   zone_label_ja?: string | null
   zone_label_en?: string | null

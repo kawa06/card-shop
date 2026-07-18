@@ -86,6 +86,7 @@ class PhoneVerifyRequest(BaseModel):
 
 class CategoryBase(BaseModel):
     name: str
+    name_en: Optional[str] = None
     slug: str
     parent_id: Optional[int] = None
     sort_order: int = 0
@@ -97,6 +98,7 @@ class CategoryCreate(CategoryBase):
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = None
+    name_en: Optional[str] = None
     slug: Optional[str] = None
     parent_id: Optional[int] = None
     sort_order: Optional[int] = None
@@ -114,6 +116,7 @@ class CategoryOut(CategoryBase):
 
 class PackBase(BaseModel):
     name: str
+    name_en: Optional[str] = None
     slug: str
     sort_order: int = 0
 
@@ -124,6 +127,7 @@ class PackCreate(PackBase):
 
 class PackUpdate(BaseModel):
     name: Optional[str] = None
+    name_en: Optional[str] = None
     slug: Optional[str] = None
     sort_order: Optional[int] = None
 
@@ -142,6 +146,7 @@ class CardBase(BaseModel):
     name_en: Optional[str] = None
     description: Optional[str] = None
     price: float
+    price_usd: Optional[float] = None
     stock: int = 0
     image_url: Optional[str] = None
     image_urls: Optional[str] = None  # JSON array string
@@ -170,6 +175,7 @@ class CardUpdate(BaseModel):
     name_en: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
+    price_usd: Optional[float] = None
     stock: Optional[int] = None
     image_url: Optional[str] = None
     image_urls: Optional[str] = None

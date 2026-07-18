@@ -8,7 +8,8 @@ import { cardsApi, categoriesApi, announcementsApi, packsApi } from '@/lib/api'
 import { Card, Category, Announcement, Pack } from '@/lib/types'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { useTranslation, useBatchTranslation } from '@/hooks/useTranslation'
+import { useTranslation } from '@/hooks/useTranslation'
+import { useLocalizedNames } from '@/lib/localized'
 import CardGrid from '@/components/cards/CardGrid'
 import CategorySidebar from '@/components/cards/CategorySidebar'
 import PackSidebar from '@/components/cards/PackSidebar'
@@ -102,7 +103,8 @@ function HomeContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const mobileCategoryNames = useBatchTranslation(categories.map((c) => c.name))
+  const mobileCategoryNames = useLocalizedNames(categories)
+  const mobilePackNames = useLocalizedNames(packs)
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden w-full max-w-full">
@@ -180,7 +182,7 @@ function HomeContent() {
                   >
                     {t('全パック', lang)}
                   </button>
-                  {packs.map((pack) => (
+                  {packs.map((pack, idx) => (
                     <button
                       key={pack.id}
                       onClick={() => handlePackSelect(pack.id)}
@@ -190,7 +192,7 @@ function HomeContent() {
                           : 'border-gray-200 text-gray-500 hover:text-gray-900'
                       }`}
                     >
-                      {pack.name}
+                      {mobilePackNames[idx] || pack.name}
                     </button>
                   ))}
                 </div>
