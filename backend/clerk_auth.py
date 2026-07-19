@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import base64
 import logging
-import secrets
 from functools import lru_cache
 from typing import Any, Optional
 
 import httpx
 from jose import JWTError, jwt
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from admin_emails import ensure_admin, is_admin_email, normalize_email
+from admin_emails import normalize_email
+from services.user_linking import LinkResult, resolve_clerk_user
 import models
 
 logger = logging.getLogger(__name__)
@@ -143,27 +142,29 @@ def verify_clerk_session_token(token: str) -> Optional[dict[str, Any]]:
     return None
 
 
-def _get_or_create_user_for_clerk(email: str, db: Session) -> models.User:
-    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
-    if user:
-        return ensure_admin(user, db)
+def _name_from_clerk_claims(payload: dict[str, Any]) -> Optional[str]:
+    for key in ("name", "full_name", "first_name"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
-    import bcrypt
 
-    local_part = email.split("@")[0]
-    user = models.User(
-        email=email,
-        name=local_part,
-        password_hash=bcrypt.hashpw(
-            secrets.token_urlsafe(32).encode("utf-8"), bcrypt.gensalt()
-        ).decode("utf-8"),
-        is_admin=is_admin_email(email),
-        is_verified=True,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
+def clerk_identity_from_token(token: str) -> Optional[tuple[str, str, Optional[str]]]:
+    """Return (clerk_user_id, email, name) from a Clerk session JWT."""
+    payload = verify_clerk_session_token(token)
+    if not payload:
+        return None
+
+    clerk_user_id = payload.get("sub")
+    if not isinstance(clerk_user_id, str) or not clerk_user_id.strip():
+        return None
+
+    email = _email_from_clerk_claims(payload) or _email_from_clerk_api(clerk_user_id)
+    if not email:
+        return None
+
+    return clerk_user_id.strip(), email, _name_from_clerk_claims(payload)
 
 
 def authenticate_clerk_session(token: str, db: Session) -> Optional[models.User]:
@@ -179,4 +180,18 @@ def authenticate_clerk_session(token: str, db: Session) -> Optional[models.User]
     if not email:
         return None
 
-    return _get_or_create_user_for_clerk(email, db)
+    name = _name_from_clerk_claims(payload)
+    outcome = resolve_clerk_user(
+        db,
+        clerk_user_id=clerk_user_id,
+        email=email,
+        name=name,
+    )
+    if outcome.result in (LinkResult.email_ambiguous, LinkResult.clerk_id_conflict):
+        logger.warning(
+            "Clerk link blocked for %s: %s",
+            clerk_user_id,
+            outcome.result.value,
+        )
+        return None
+    return outcome.user

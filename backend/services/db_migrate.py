@@ -35,6 +35,52 @@ def run_schema_upgrades() -> None:
     _create_table_if_missing("stripe_processed_events", models.StripeProcessedEvent)
     _migrate_shop_settings()
     _migrate_inquiry_tables()
+    _migrate_buyback_schema()
+
+
+def _migrate_buyback_schema() -> None:
+    """Phase 2: clerk_user_id on users + empty buyback_* tables."""
+    import models_buyback  # noqa: F401
+
+    _add_column_if_missing("users", "clerk_user_id", "VARCHAR(255)")
+    _create_unique_index_if_missing("users", "ix_users_clerk_user_id", "clerk_user_id")
+
+    buyback_tables = [
+        ("buyback_products", models_buyback.BuybackProduct),
+        ("buyback_product_prices", models_buyback.BuybackProductPrice),
+        ("buyback_price_history", models_buyback.BuybackPriceHistory),
+        ("buyback_carts", models_buyback.BuybackCart),
+        ("buyback_cart_items", models_buyback.BuybackCartItem),
+        ("buyback_request_number_sequences", models_buyback.BuybackRequestNumberSequence),
+        ("buyback_requests", models_buyback.BuybackRequest),
+        ("buyback_request_items", models_buyback.BuybackRequestItem),
+        ("identity_verifications", models_buyback.IdentityVerification),
+        ("guardian_consents", models_buyback.GuardianConsent),
+        ("payout_accounts", models_buyback.PayoutAccount),
+        ("buyback_status_history", models_buyback.BuybackStatusHistory),
+        ("buyback_audit_logs", models_buyback.BuybackAuditLog),
+        ("notification_deliveries", models_buyback.NotificationDelivery),
+    ]
+    for table_name, model in buyback_tables:
+        _create_table_if_missing(table_name, model)
+
+
+def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:
+    inspector = inspect(engine)
+    if table not in inspector.get_table_names():
+        return
+    existing = {idx["name"] for idx in inspector.get_indexes(table)}
+    if index_name in existing:
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(f"CREATE UNIQUE INDEX IF NOT EXISTS {index_name} ON {table} ({column})")
+            )
+            conn.commit()
+        logger.info("Created unique index %s on %s.%s", index_name, table, column)
+    except Exception as exc:
+        logger.error("Failed to create unique index %s: %s", index_name, exc)
 
 
 def _migrate_order_management_columns() -> None:

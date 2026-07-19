@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from database import Base
 import models  # noqa: F401 — register models on Base.metadata
+import models_buyback  # noqa: F401 — register buyback tables
 
 
 @pytest.fixture

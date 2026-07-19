@@ -9,6 +9,8 @@ const dict: Record<string, string> = {
   '管理': 'Admin',
   '管理画面': 'Admin Panel',
   'ログアウト': 'Log Out',
+  'オンラインショップ': 'Online Shop',
+  'オンライン買取': 'Online Buyback',
   'トレーディングカード専門店': 'Trading Card Shop',
   'のカードから選ぼう': ' cards to choose from',
   'カードが見つかりませんでした': 'No cards found',

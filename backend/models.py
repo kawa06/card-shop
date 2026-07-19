@@ -44,6 +44,7 @@ class User(Base):
     address = Column(Text, nullable=True)
     phone_number = Column(String(20), nullable=True)
     phone_verified = Column(Boolean, default=False)
+    clerk_user_id = Column(String(255), unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
@@ -406,3 +407,6 @@ class ShippingRate(Base):
     is_recommended = Column(Boolean, default=False)
     source_url = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+import models_buyback  # noqa: F401, E402 — register buyback tables with Base.metadata

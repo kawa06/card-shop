@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { SignedIn, SignedOut, UserButton, useAuth, useClerk } from '@clerk/nextjs'
-import { ShoppingCart, Search, User, Shield, Menu, X, Globe, Mail, LogOut } from 'lucide-react'
+import { ShoppingCart, Search, User, Shield, Menu, X, Globe, Mail, LogOut, ArrowUpRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
@@ -14,6 +14,7 @@ import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { BUYLIST_SITE_URL } from '@/lib/site-urls'
 
 export default function Header() {
   const router = useRouter()
@@ -108,8 +109,25 @@ export default function Header() {
                 priority
               />
             </div>
-            <span className="header-brand-text text-sm sm:text-base md:text-xl truncate">KRX TCG</span>
+            <div className="flex flex-col min-w-0">
+              <span className="header-brand-text text-sm sm:text-base md:text-xl truncate">KRX TCG</span>
+              <span className="hidden sm:block text-[10px] md:text-xs text-gray-500 font-medium leading-tight truncate">
+                {t('オンラインショップ', lang)}
+              </span>
+            </div>
           </Link>
+
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="hidden lg:flex text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-2 h-9 flex-shrink-0"
+          >
+            <a href={BUYLIST_SITE_URL} target="_blank" rel="noopener noreferrer">
+              {t('オンライン買取', lang)}
+              <ArrowUpRight className="h-3.5 w-3.5 ml-1 shrink-0" />
+            </a>
+          </Button>
 
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
             <div className="relative w-full">
@@ -218,6 +236,13 @@ export default function Header() {
                 {t('検索', lang)}
               </Button>
             </form>
+
+            <Button asChild variant="outline" className="w-full border-gray-300 text-gray-700">
+              <a href={BUYLIST_SITE_URL} target="_blank" rel="noopener noreferrer">
+                {t('オンライン買取', lang)}
+                <ArrowUpRight className="h-4 w-4 shrink-0 ml-2" />
+              </a>
+            </Button>
 
             {!hasHydrated || !clerkLoaded ? (
               <div className="h-24 animate-pulse bg-gray-100 rounded-md" />

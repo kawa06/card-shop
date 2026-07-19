@@ -82,6 +82,21 @@ class Settings(BaseSettings):
     # Frontend URL for verification links
     FRONTEND_URL: str = "https://frontend-one-topaz-20.vercel.app"
 
+    # Buylist public site (CORS / email links — optional in Phase 3)
+    BUYLIST_URL: str = "https://card-vault-public.vercel.app"
+
+    # Cloudflare R2 (private KYC document storage)
+    R2_ACCOUNT_ID: Optional[str] = None
+    R2_ACCESS_KEY_ID: Optional[str] = None
+    R2_SECRET_ACCESS_KEY: Optional[str] = None
+    R2_BUCKET_NAME: Optional[str] = None
+
+    # Payout account field encryption (32+ chars recommended)
+    BUYBACK_PAYOUT_ENCRYPTION_KEY: str = ""
+
+    # Guardian consent link validity (days)
+    BUYBACK_GUARDIAN_CONSENT_EXPIRE_DAYS: int = 14
+
     # DeepL API
     DEEPL_API_KEY: str = ""
 
