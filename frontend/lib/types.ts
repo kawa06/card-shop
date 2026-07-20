@@ -340,3 +340,74 @@ export interface AdminInquiryReplyPayload {
   assigned_admin_id?: number | null
   reason?: string | null
 }
+
+export interface AdminBuybackStats {
+  pending_kyc_count: number
+  submitted_request_count: number
+  in_progress_request_count: number
+  payout_pending_count: number
+}
+
+export interface AdminIdentityListItem {
+  id: number
+  user_id: number
+  user_email: string
+  user_name: string
+  status: string
+  status_label: string
+  document_type: string | null
+  document_type_label: string | null
+  has_front: boolean
+  has_back: boolean
+  submitted_at: string | null
+  updated_at: string | null
+}
+
+export interface AdminIdentityDetail extends AdminIdentityListItem {
+  rejection_reason: string | null
+  reviewed_at: string | null
+  reviewer_name: string | null
+}
+
+export interface AdminBuybackRequestListItem {
+  id: number
+  request_number: string | null
+  status: string
+  status_label: string
+  user_id: number
+  user_email: string
+  user_name: string
+  item_count: number
+  estimated_total: number | null
+  submitted_at: string | null
+  created_at: string
+}
+
+export interface AdminBuybackStatusHistoryItem {
+  id: number
+  from_status: string | null
+  from_status_label: string | null
+  to_status: string
+  to_status_label: string
+  note: string | null
+  created_at: string
+}
+
+export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
+  shipping_method: string | null
+  tracking_number: string | null
+  customer_note: string | null
+  admin_note: string | null
+  assessed_total: number | null
+  payout_total: number | null
+  items: {
+    id: number
+    product_name_snapshot: string
+    condition_code: string
+    quantity: number
+    listed_unit_price: number
+    line_status: string | null
+  }[]
+  status_history: AdminBuybackStatusHistoryItem[]
+  allowed_next_statuses: string[]
+}

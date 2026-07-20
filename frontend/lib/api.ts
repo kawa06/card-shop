@@ -485,3 +485,35 @@ export const adminInquiriesApi = {
     )
   },
 }
+
+export const adminBuybackApi = {
+  getStats: () => apiClient.get<import('./types').AdminBuybackStats>('/admin/buyback/stats'),
+  listIdentity: (params?: { status?: string; q?: string }) =>
+    apiClient.get<import('./types').AdminIdentityListItem[]>('/admin/buyback/identity', { params }),
+  getIdentity: (id: number) =>
+    apiClient.get<import('./types').AdminIdentityDetail>(`/admin/buyback/identity/${id}`),
+  getIdentityDocument: (id: number, side: 'front' | 'back') =>
+    apiClient.get<Blob>(`/admin/buyback/identity/${id}/documents/${side}`, { responseType: 'blob' }),
+  approveIdentity: (id: number) =>
+    apiClient.post<import('./types').AdminIdentityDetail>(`/admin/buyback/identity/${id}/approve`),
+  rejectIdentity: (id: number, rejection_reason: string) =>
+    apiClient.post<import('./types').AdminIdentityDetail>(`/admin/buyback/identity/${id}/reject`, {
+      rejection_reason,
+    }),
+  listRequests: (params?: { status?: string; q?: string }) =>
+    apiClient.get<import('./types').AdminBuybackRequestListItem[]>('/admin/buyback/requests', {
+      params,
+    }),
+  getRequest: (id: number) =>
+    apiClient.get<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`),
+  updateRequest: (
+    id: number,
+    data: {
+      status: string
+      admin_note?: string
+      tracking_number?: string
+      assessed_total?: number
+      payout_total?: number
+    }
+  ) => apiClient.patch<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`, data),
+}

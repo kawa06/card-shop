@@ -212,3 +212,89 @@ class ComplianceStatusOut(BaseModel):
     payout_account_count: int
     payout_account_ready: bool
     ready_for_payout: bool
+
+
+class AdminBuybackStatsOut(BaseModel):
+    pending_kyc_count: int = 0
+    submitted_request_count: int = 0
+    in_progress_request_count: int = 0
+    payout_pending_count: int = 0
+
+
+class AdminIdentityListOut(BaseModel):
+    id: int
+    user_id: int
+    user_email: str
+    user_name: str
+    status: str
+    status_label: str
+    document_type: Optional[str] = None
+    document_type_label: Optional[str] = None
+    has_front: bool = False
+    has_back: bool = False
+    submitted_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class AdminIdentityDetailOut(AdminIdentityListOut):
+    rejection_reason: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    reviewer_name: Optional[str] = None
+
+
+class AdminIdentityRejectIn(BaseModel):
+    rejection_reason: str
+
+
+class AdminBuybackRequestListOut(BaseModel):
+    id: int
+    request_number: Optional[str] = None
+    status: str
+    status_label: str
+    user_id: int
+    user_email: str
+    user_name: str
+    item_count: int = 0
+    estimated_total: Optional[int] = None
+    submitted_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class AdminBuybackStatusHistoryOut(BaseModel):
+    id: int
+    from_status: Optional[str] = None
+    from_status_label: Optional[str] = None
+    to_status: str
+    to_status_label: str
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class AdminBuybackRequestDetailOut(BaseModel):
+    id: int
+    request_number: Optional[str] = None
+    status: str
+    status_label: str
+    user_id: int
+    user_email: str
+    user_name: str
+    shipping_method: Optional[str] = None
+    tracking_number: Optional[str] = None
+    customer_note: Optional[str] = None
+    admin_note: Optional[str] = None
+    estimated_total: Optional[int] = None
+    assessed_total: Optional[int] = None
+    payout_total: Optional[int] = None
+    submitted_at: Optional[datetime] = None
+    created_at: datetime
+    items: List[BuybackRequestItemOut] = []
+    status_history: List[AdminBuybackStatusHistoryOut] = []
+    allowed_next_statuses: List[str] = []
+
+
+class AdminBuybackRequestUpdateIn(BaseModel):
+    status: str
+    admin_note: Optional[str] = None
+    tracking_number: Optional[str] = None
+    assessed_total: Optional[int] = None
+    payout_total: Optional[int] = None

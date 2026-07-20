@@ -1,0 +1,233 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { ArrowLeft, Package } from 'lucide-react'
+import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { adminBuybackApi } from '@/lib/api'
+import { AdminBuybackRequestDetail } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+const STATUS_LABELS: Record<string, string> = {
+  submitted: '申込受付',
+  received: '商品到着',
+  assessing: '査定中',
+  assessed: '査定完了',
+  awaiting_customer: 'ご確認待ち',
+  accepted: '買取成立',
+  rejected: '買取不可',
+  payout_pending: '振込準備中',
+  paid: '振込完了',
+  returned: '返送',
+  cancelled: 'キャンセル',
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('ja-JP')
+}
+
+function formatYen(value: number | null): string {
+  if (value == null) return '—'
+  return `¥${value.toLocaleString('ja-JP')}`
+}
+
+export default function AdminBuybackRequestDetailPage() {
+  const params = useParams()
+  const { isReady } = useAdminGuard()
+  const id = Number(params.id)
+  const [detail, setDetail] = useState<AdminBuybackRequestDetail | null>(null)
+  const [nextStatus, setNextStatus] = useState('')
+  const [adminNote, setAdminNote] = useState('')
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [assessedTotal, setAssessedTotal] = useState('')
+  const [payoutTotal, setPayoutTotal] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  const fetchDetail = useCallback(async () => {
+    if (!id || Number.isNaN(id)) return
+    setIsLoading(true)
+    setError('')
+    try {
+      const res = await adminBuybackApi.getRequest(id)
+      setDetail(res.data)
+      setAdminNote(res.data.admin_note || '')
+      setTrackingNumber(res.data.tracking_number || '')
+      setAssessedTotal(res.data.assessed_total != null ? String(res.data.assessed_total) : '')
+      setPayoutTotal(res.data.payout_total != null ? String(res.data.payout_total) : '')
+      setNextStatus(res.data.allowed_next_statuses[0] || '')
+    } catch {
+      setError('申込情報の取得に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (!isMounted || !isReady) return
+    void fetchDetail()
+  }, [isMounted, isReady, fetchDetail])
+
+  const handleUpdate = async () => {
+    if (!detail || !nextStatus) return
+    setIsSaving(true)
+    setError('')
+    try {
+      const payload: {
+        status: string
+        admin_note?: string
+        tracking_number?: string
+        assessed_total?: number
+        payout_total?: number
+      } = { status: nextStatus, admin_note: adminNote, tracking_number: trackingNumber }
+      if (assessedTotal.trim()) payload.assessed_total = Number(assessedTotal)
+      if (payoutTotal.trim()) payload.payout_total = Number(payoutTotal)
+      const res = await adminBuybackApi.updateRequest(detail.id, payload)
+      setDetail(res.data)
+      setNextStatus(res.data.allowed_next_statuses[0] || '')
+    } catch {
+      setError('ステータス更新に失敗しました')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (!isMounted || !isReady) return null
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="container py-8 max-w-4xl">
+        <div className="flex items-center gap-3 mb-6">
+          <Link href="/admin/buyback/requests" className="text-gray-500 hover:text-gray-900">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <Package className="h-6 w-6 text-yellow-400" />
+          <h1 className="text-2xl font-bold text-gray-900">買取申込詳細</h1>
+        </div>
+
+        {isLoading ? (
+          <p className="text-gray-500">読み込み中...</p>
+        ) : !detail ? (
+          <p className="text-red-600">{error || 'データが見つかりません'}</p>
+        ) : (
+          <div className="space-y-6">
+            <div className="border rounded-lg p-4 space-y-2 text-sm">
+              <p>
+                <span className="text-gray-500">申込番号：</span>
+                {detail.request_number || `#${detail.id}`}
+              </p>
+              <p>
+                <span className="text-gray-500">会員：</span>
+                {detail.user_name}（{detail.user_email}）
+              </p>
+              <p>
+                <span className="text-gray-500">ステータス：</span>
+                {detail.status_label}
+              </p>
+              <p>
+                <span className="text-gray-500">見積 / 査定 / 振込：</span>
+                {formatYen(detail.estimated_total)} / {formatYen(detail.assessed_total)} /{' '}
+                {formatYen(detail.payout_total)}
+              </p>
+              {detail.customer_note && (
+                <p>
+                  <span className="text-gray-500">お客様メモ：</span>
+                  {detail.customer_note}
+                </p>
+              )}
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left">商品</th>
+                    <th className="px-4 py-2 text-left">状態</th>
+                    <th className="px-4 py-2 text-right">数量</th>
+                    <th className="px-4 py-2 text-right">単価</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.items.map((item) => (
+                    <tr key={item.id} className="border-t">
+                      <td className="px-4 py-2">{item.product_name_snapshot}</td>
+                      <td className="px-4 py-2">{item.condition_code}</td>
+                      <td className="px-4 py-2 text-right">{item.quantity}</td>
+                      <td className="px-4 py-2 text-right">{formatYen(item.listed_unit_price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {detail.allowed_next_statuses.length > 0 && (
+              <div className="border rounded-lg p-4 space-y-3">
+                <h2 className="font-semibold">ステータス更新</h2>
+                <select
+                  className="border rounded-md px-3 py-2 text-sm w-full"
+                  value={nextStatus}
+                  onChange={(e) => setNextStatus(e.target.value)}
+                >
+                  {detail.allowed_next_statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status] || status}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  placeholder="追跡番号"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                />
+                <Input
+                  placeholder="査定金額（円）"
+                  value={assessedTotal}
+                  onChange={(e) => setAssessedTotal(e.target.value)}
+                />
+                <Input
+                  placeholder="振込金額（円）"
+                  value={payoutTotal}
+                  onChange={(e) => setPayoutTotal(e.target.value)}
+                />
+                <Input
+                  placeholder="管理者メモ"
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                />
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <Button onClick={handleUpdate} disabled={isSaving || !nextStatus}>
+                  更新する
+                </Button>
+              </div>
+            )}
+
+            {detail.status_history.length > 0 && (
+              <div className="border rounded-lg p-4">
+                <h2 className="font-semibold mb-3">ステータス履歴</h2>
+                <ul className="space-y-2 text-sm">
+                  {detail.status_history.map((h) => (
+                    <li key={h.id} className="border-b pb-2">
+                      {formatDate(h.created_at)} —{' '}
+                      {h.from_status_label ? `${h.from_status_label} → ` : ''}
+                      {h.to_status_label}
+                      {h.note ? `（${h.note}）` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

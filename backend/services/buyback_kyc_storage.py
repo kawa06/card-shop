@@ -92,3 +92,46 @@ def _upload_r2(*, key: str, data: bytes, content_type: str) -> None:
         Body=data,
         ContentType=content_type,
     )
+
+
+def _content_type_for_key(key: str) -> str:
+    lower = key.lower()
+    if lower.endswith(".jpg") or lower.endswith(".jpeg"):
+        return "image/jpeg"
+    if lower.endswith(".png"):
+        return "image/png"
+    if lower.endswith(".webp"):
+        return "image/webp"
+    return "application/octet-stream"
+
+
+def fetch_kyc_document(*, key: str) -> tuple[bytes, str]:
+    if not key:
+        raise ValueError("storage key is missing")
+
+    if kyc_storage_configured():
+        try:
+            import boto3
+        except ImportError as exc:
+            raise RuntimeError("boto3 is required for R2 downloads") from exc
+
+        endpoint = f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+        client = boto3.client(
+            "s3",
+            endpoint_url=endpoint,
+            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            region_name="auto",
+        )
+        obj = client.get_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
+        data = obj["Body"].read()
+        content_type = obj.get("ContentType") or _content_type_for_key(key)
+        return data, content_type
+
+    if settings.DEBUG:
+        path = _LOCAL_KYC_ROOT / key
+        if not path.is_file():
+            raise FileNotFoundError(f"KYC file not found: {key}")
+        return path.read_bytes(), _content_type_for_key(key)
+
+    raise RuntimeError("KYC storage is not configured (R2 env vars required in production)")

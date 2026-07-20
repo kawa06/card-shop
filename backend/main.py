@@ -24,6 +24,7 @@ from routes.favorites import router as favorites_router
 from routes.payments import router as payments_router
 from routes.inquiries import router as inquiries_router
 from routes.admin_inquiries import router as admin_inquiries_router
+from routes.admin_buyback import router as admin_buyback_router
 from routes.buyback import router as buyback_router
 
 from sqlalchemy import text, inspect
@@ -208,6 +209,7 @@ app.include_router(favorites_router)
 app.include_router(payments_router)
 app.include_router(inquiries_router)
 app.include_router(admin_inquiries_router)
+app.include_router(admin_buyback_router)
 app.include_router(buyback_router)
 
 
