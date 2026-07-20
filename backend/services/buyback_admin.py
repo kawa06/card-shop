@@ -365,7 +365,7 @@ def complete_request_payout(
 def get_request_payout_context(db: Session, request: models_buyback.BuybackRequest) -> dict:
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     default_account = get_default_payout_account(db, request.user_id)
-    compliance = get_compliance_status(db, request.user_id)
+    compliance = get_compliance_status(db, user_id=request.user_id)
     return {
         "payout_account": serialize_payout_account_for_admin(default_account)
         if default_account

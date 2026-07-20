@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 class BuybackHealthOut(BaseModel):
     status: str
-    phase: str = "8"
+    phase: str = "9"
     products_source: str = "postgresql+firestore_stub"
 
 
@@ -43,6 +43,7 @@ class BuybackProductPriceOut(BaseModel):
 
 class BuybackProductOut(BaseModel):
     id: int
+    firestore_item_id: Optional[str] = None
     name: str
     category: str
     image_url: Optional[str] = None
@@ -316,6 +317,23 @@ class AdminCompletePayoutIn(BaseModel):
     admin_note: Optional[str] = None
     send_email: bool = True
     force_email: bool = False
+
+
+class AdminFirestoreImportIn(BaseModel):
+    items: List[dict]
+    images: dict[str, str] = {}
+    dry_run: bool = False
+
+
+class AdminFirestoreImportOut(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    price_rows_upserted: int
+    image_failures: List[str]
+    errors: List[str]
+    dry_run: bool
+    validation: dict[str, int]
 
 
 class AdminBuybackRequestUpdateIn(BaseModel):

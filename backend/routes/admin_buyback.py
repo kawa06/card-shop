@@ -30,6 +30,7 @@ from services.buyback_admin import (
 from services.buyback_compliance import IDENTITY_STATUS_LABELS
 from services.buyback_emails import STATUS_LABELS
 from services.buyback_kyc_storage import fetch_kyc_document
+from services.buyback_firestore_import import import_firestore_buylist_export, validate_import_counts
 from services.db_persist import PersistDep
 
 router = APIRouter(
@@ -284,6 +285,27 @@ def complete_payout_route(
     request = get_admin_request(db, request_id)
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     return _request_detail_out(request, user, db)
+
+
+@router.post("/import-firestore", response_model=schemas_buyback.AdminFirestoreImportOut)
+def import_firestore_route(
+    body: schemas_buyback.AdminFirestoreImportIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    payload = {"items": body.items, "images": body.images}
+    result = import_firestore_buylist_export(db, payload, dry_run=body.dry_run)
+    validation = validate_import_counts(db, payload) if not body.dry_run else {}
+    return schemas_buyback.AdminFirestoreImportOut(
+        created=result.created,
+        updated=result.updated,
+        skipped=result.skipped,
+        price_rows_upserted=result.price_rows_upserted,
+        image_failures=result.image_failures,
+        errors=result.errors,
+        dry_run=body.dry_run,
+        validation=validation,
+    )
 
 
 @router.patch("/requests/{request_id}", response_model=schemas_buyback.AdminBuybackRequestDetailOut)

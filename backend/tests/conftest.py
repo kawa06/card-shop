@@ -5,10 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from database import Base
+from auth import create_access_token
+from config import settings
+from database import Base, get_db
 import models  # noqa: F401 — register models on Base.metadata
 import models_buyback  # noqa: F401 — register buyback tables
 
@@ -18,6 +22,7 @@ def db():
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
@@ -27,6 +32,41 @@ def db():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def buyback_test_settings(monkeypatch):
+    monkeypatch.setattr(settings, "DEBUG", True)
+    monkeypatch.setattr(settings, "BUYBACK_PAYOUT_ENCRYPTION_KEY", "test-key-for-buyback-payout-32b")
+
+
+@pytest.fixture
+def api_client(db):
+    """FastAPI TestClient backed by the in-memory SQLite session."""
+    from main import app
+
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as client:
+        yield client
+    app.dependency_overrides.clear()
+
+
+def auth_headers(user: models.User) -> dict[str, str]:
+    token = create_access_token({"sub": str(user.id)})
+    return {"Authorization": f"Bearer {token}"}
+
+
+def admin_headers(email: str = "rikukai0609@icloud.com") -> dict[str, str]:
+    return {
+        "X-Internal-Admin-Secret": "card-shop-internal-admin-v1",
+        "X-Admin-Email": email,
+    }
 
 
 @pytest.fixture

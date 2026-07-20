@@ -122,8 +122,14 @@ def _serialize_cart_item(item: models_buyback.BuybackCartItem) -> schemas_buybac
 
 
 @router.get("/health", response_model=schemas_buyback.BuybackHealthOut)
-def buyback_health():
-    return schemas_buyback.BuybackHealthOut(status="ok")
+def buyback_health(db: Session = Depends(get_db)):
+    migrated_count = (
+        db.query(models_buyback.BuybackProduct)
+        .filter(models_buyback.BuybackProduct.firestore_item_id.isnot(None))
+        .count()
+    )
+    products_source = "postgresql" if migrated_count else "postgresql+firestore_fallback"
+    return schemas_buyback.BuybackHealthOut(status="ok", products_source=products_source)
 
 
 @router.post("/auth/sync", response_model=schemas_buyback.BuybackSyncResponse)
@@ -185,6 +191,7 @@ def list_buyback_products(db: Session = Depends(get_db)):
         result.append(
             schemas_buyback.BuybackProductOut(
                 id=product.id,
+                firestore_item_id=product.firestore_item_id,
                 name=product.name,
                 category=product.category,
                 image_url=product.image_url,

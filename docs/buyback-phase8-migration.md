@@ -30,10 +30,20 @@ Create `buylist-export.json`:
 ## Import
 
 ```bash
+# 1) Export from Firestore
+python scripts/export_firestore_buylist.py -o data/buylist-export.json
+
+# 2) Import into PostgreSQL (local DATABASE_URL)
 cd backend
-python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json --dry-run
-python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json
-python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json --validate-only
+python ../scripts/migrate_firestore_buylist.py ../data/buylist-export.json --dry-run
+python ../scripts/migrate_firestore_buylist.py ../data/buylist-export.json
+
+# Production (after backend deploy): admin API import
+python scripts/run_phase8_import.py data/buylist-export.json
+python scripts/run_phase8_import.py data/buylist-export.json --dry-run
+
+# Validate counts
+python ../scripts/migrate_firestore_buylist.py ../data/buylist-export.json --validate-only
 ```
 
 Requires `DATABASE_URL` (Railway PostgreSQL or local SQLite).
