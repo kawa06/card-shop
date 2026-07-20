@@ -6,7 +6,10 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, Package } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminBuybackApi } from '@/lib/api'
-import { AdminBuybackRequestDetail } from '@/lib/types'
+import {
+  AdminBuybackRequestDetail,
+  AdminBuybackRequestItem,
+} from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -24,6 +27,33 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'キャンセル',
 }
 
+const LINE_STATUS_OPTIONS = [
+  { value: 'pending', label: '査定待ち' },
+  { value: 'buyable', label: '買取可能' },
+  { value: 'reduced', label: '減額買取' },
+  { value: 'rejected', label: '買取不可' },
+]
+
+const RETURN_STATUS_OPTIONS = [
+  { value: 'none', label: '—' },
+  { value: 'pending', label: '返送準備中' },
+  { value: 'shipped', label: '返送済み' },
+  { value: 'completed', label: '返送完了' },
+]
+
+type ItemDraft = {
+  line_status: string
+  assessed_unit_price: string
+  accepted_unit_price: string
+  rejection_reason_code: string
+  rejection_reason_text: string
+  is_return_target: boolean
+  is_disposal_target: boolean
+  return_status: string
+  return_tracking_number: string
+  return_shipping_cost: string
+}
+
 function formatDate(value: string | null): string {
   if (!value) return '—'
   return new Date(value).toLocaleString('ja-JP')
@@ -34,11 +64,36 @@ function formatYen(value: number | null): string {
   return `¥${value.toLocaleString('ja-JP')}`
 }
 
+function itemToDraft(item: AdminBuybackRequestItem): ItemDraft {
+  return {
+    line_status: item.line_status || 'pending',
+    assessed_unit_price: item.assessed_unit_price != null ? String(item.assessed_unit_price) : '',
+    accepted_unit_price: item.accepted_unit_price != null ? String(item.accepted_unit_price) : '',
+    rejection_reason_code: item.rejection_reason_code || '',
+    rejection_reason_text: item.rejection_reason_text || '',
+    is_return_target: Boolean(item.is_return_target),
+    is_disposal_target: Boolean(item.is_disposal_target),
+    return_status: item.return_status || 'none',
+    return_tracking_number: item.return_tracking_number || '',
+    return_shipping_cost:
+      item.return_shipping_cost != null ? String(item.return_shipping_cost) : '',
+  }
+}
+
+function draftsFromDetail(detail: AdminBuybackRequestDetail): Record<number, ItemDraft> {
+  const out: Record<number, ItemDraft> = {}
+  detail.items.forEach((item) => {
+    out[item.id] = itemToDraft(item)
+  })
+  return out
+}
+
 export default function AdminBuybackRequestDetailPage() {
   const params = useParams()
   const { isReady } = useAdminGuard()
   const id = Number(params.id)
   const [detail, setDetail] = useState<AdminBuybackRequestDetail | null>(null)
+  const [itemDrafts, setItemDrafts] = useState<Record<number, ItemDraft>>({})
   const [nextStatus, setNextStatus] = useState('')
   const [adminNote, setAdminNote] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
@@ -48,6 +103,7 @@ export default function AdminBuybackRequestDetailPage() {
   const [isCompletingPayout, setIsCompletingPayout] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingItems, setIsSavingItems] = useState(false)
   const [error, setError] = useState('')
   const [isMounted, setIsMounted] = useState(false)
 
@@ -62,6 +118,7 @@ export default function AdminBuybackRequestDetailPage() {
     try {
       const res = await adminBuybackApi.getRequest(id)
       setDetail(res.data)
+      setItemDrafts(draftsFromDetail(res.data))
       setAdminNote(res.data.admin_note || '')
       setTrackingNumber(res.data.tracking_number || '')
       setAssessedTotal(res.data.assessed_total != null ? String(res.data.assessed_total) : '')
@@ -78,6 +135,57 @@ export default function AdminBuybackRequestDetailPage() {
     if (!isMounted || !isReady) return
     void fetchDetail()
   }, [isMounted, isReady, fetchDetail])
+
+  const updateItemDraft = (itemId: number, patch: Partial<ItemDraft>) => {
+    setItemDrafts((prev) => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], ...patch },
+    }))
+  }
+
+  const handleSaveItems = async () => {
+    if (!detail) return
+    setIsSavingItems(true)
+    setError('')
+    try {
+      const payload = {
+        items: detail.items.map((item) => {
+          const draft = itemDrafts[item.id]
+          return {
+            id: item.id,
+            line_status: draft.line_status,
+            assessed_unit_price: draft.assessed_unit_price.trim()
+              ? Number(draft.assessed_unit_price)
+              : null,
+            accepted_unit_price: draft.accepted_unit_price.trim()
+              ? Number(draft.accepted_unit_price)
+              : null,
+            rejection_reason_code: draft.rejection_reason_code || null,
+            rejection_reason_text: draft.rejection_reason_text.trim() || null,
+            is_return_target: draft.is_return_target,
+            is_disposal_target: draft.is_disposal_target,
+            return_status: draft.return_status,
+            return_tracking_number: draft.return_tracking_number.trim() || null,
+            return_shipping_cost: draft.return_shipping_cost.trim()
+              ? Number(draft.return_shipping_cost)
+              : null,
+          }
+        }),
+        recalculate_assessed_total: true,
+        apply_handling_policy: true,
+      }
+      const res = await adminBuybackApi.updateRequestItems(detail.id, payload)
+      setDetail(res.data)
+      setItemDrafts(draftsFromDetail(res.data))
+      setAssessedTotal(
+        res.data.assessed_total != null ? String(res.data.assessed_total) : ''
+      )
+    } catch {
+      setError('商品査定の保存に失敗しました（買取不可理由・減額単価を確認してください）')
+    } finally {
+      setIsSavingItems(false)
+    }
+  }
 
   const handleCompletePayout = async () => {
     if (!detail) return
@@ -135,7 +243,7 @@ export default function AdminBuybackRequestDetailPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container py-8 max-w-4xl">
+      <div className="container py-8 max-w-6xl">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/admin/buyback/requests" className="text-gray-500 hover:text-gray-900">
             <ArrowLeft className="h-5 w-5" />
@@ -168,6 +276,21 @@ export default function AdminBuybackRequestDetailPage() {
                 {formatYen(detail.estimated_total)} / {formatYen(detail.assessed_total)} /{' '}
                 {formatYen(detail.payout_total)}
               </p>
+              {detail.rejected_item_handling_label && (
+                <p>
+                  <span className="text-gray-500">買取不可時の対応希望：</span>
+                  {detail.rejected_item_handling_label}
+                </p>
+              )}
+              {(detail.agreed_prepaid_shipping ||
+                detail.agreed_cod_consequence ||
+                detail.agreed_condition_rejection) && (
+                <p className="text-gray-600">
+                  申込同意：元払い {detail.agreed_prepaid_shipping ? '✓' : '—'} / 着払い返送{' '}
+                  {detail.agreed_cod_consequence ? '✓' : '—'} / 状態による買取不可{' '}
+                  {detail.agreed_condition_rejection ? '✓' : '—'}
+                </p>
+              )}
               {detail.customer_note && (
                 <p>
                   <span className="text-gray-500">お客様メモ：</span>
@@ -177,26 +300,165 @@ export default function AdminBuybackRequestDetailPage() {
             </div>
 
             <div className="border rounded-lg overflow-hidden">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left">商品</th>
-                    <th className="px-4 py-2 text-left">状態</th>
-                    <th className="px-4 py-2 text-right">数量</th>
-                    <th className="px-4 py-2 text-right">単価</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detail.items.map((item) => (
-                    <tr key={item.id} className="border-t">
-                      <td className="px-4 py-2">{item.product_name_snapshot}</td>
-                      <td className="px-4 py-2">{item.condition_code}</td>
-                      <td className="px-4 py-2 text-right">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right">{formatYen(item.listed_unit_price)}</td>
+              <div className="bg-gray-50 px-4 py-3 flex items-center justify-between gap-3">
+                <h2 className="font-semibold">商品査定</h2>
+                <Button onClick={handleSaveItems} disabled={isSavingItems} size="sm">
+                  査定内容を保存
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 border-t">
+                    <tr>
+                      <th className="px-3 py-2 text-left">商品</th>
+                      <th className="px-3 py-2 text-left">査定区分</th>
+                      <th className="px-3 py-2 text-left">査定単価</th>
+                      <th className="px-3 py-2 text-left">買取不可理由</th>
+                      <th className="px-3 py-2 text-left">自由入力</th>
+                      <th className="px-3 py-2 text-left">返送/処分</th>
+                      <th className="px-3 py-2 text-left">返送状況</th>
+                      <th className="px-3 py-2 text-left">追跡番号</th>
+                      <th className="px-3 py-2 text-left">返送料</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {detail.items.map((item) => {
+                      const draft = itemDrafts[item.id]
+                      if (!draft) return null
+                      return (
+                        <tr key={item.id} className="border-t align-top">
+                          <td className="px-3 py-3">
+                            <div className="font-medium">{item.product_name_snapshot}</div>
+                            <div className="text-gray-500 text-xs mt-1">
+                              申込状態 {item.condition_code} / 数量 {item.quantity} / 参考{' '}
+                              {formatYen(item.listed_unit_price)}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <select
+                              className="border rounded-md px-2 py-1 text-sm w-full min-w-[120px]"
+                              value={draft.line_status}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, { line_status: e.target.value })
+                              }
+                            >
+                              {LINE_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Input
+                              className="min-w-[100px]"
+                              placeholder="円"
+                              value={draft.assessed_unit_price}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, { assessed_unit_price: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-3">
+                            <select
+                              className="border rounded-md px-2 py-1 text-sm w-full min-w-[160px]"
+                              value={draft.rejection_reason_code}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, {
+                                  rejection_reason_code: e.target.value,
+                                })
+                              }
+                            >
+                              <option value="">選択</option>
+                              {(detail.rejection_reason_options || []).map((opt) => (
+                                <option key={opt.code} value={opt.code}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Input
+                              className="min-w-[160px]"
+                              placeholder="自由入力"
+                              value={draft.rejection_reason_text}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, {
+                                  rejection_reason_text: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-3">
+                            <label className="flex items-center gap-2 mb-2">
+                              <input
+                                type="checkbox"
+                                checked={draft.is_return_target}
+                                onChange={(e) =>
+                                  updateItemDraft(item.id, {
+                                    is_return_target: e.target.checked,
+                                  })
+                                }
+                              />
+                              返送
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={draft.is_disposal_target}
+                                onChange={(e) =>
+                                  updateItemDraft(item.id, {
+                                    is_disposal_target: e.target.checked,
+                                  })
+                                }
+                              />
+                              処分
+                            </label>
+                          </td>
+                          <td className="px-3 py-3">
+                            <select
+                              className="border rounded-md px-2 py-1 text-sm w-full min-w-[120px]"
+                              value={draft.return_status}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, { return_status: e.target.value })
+                              }
+                            >
+                              {RETURN_STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Input
+                              className="min-w-[120px]"
+                              value={draft.return_tracking_number}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, {
+                                  return_tracking_number: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-3">
+                            <Input
+                              className="min-w-[100px]"
+                              placeholder="円"
+                              value={draft.return_shipping_cost}
+                              onChange={(e) =>
+                                updateItemDraft(item.id, {
+                                  return_shipping_cost: e.target.value,
+                                })
+                              }
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {(detail.status === 'payout_pending' || detail.status === 'paid') && (

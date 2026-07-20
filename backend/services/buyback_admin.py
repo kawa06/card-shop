@@ -15,6 +15,11 @@ import models
 import models_buyback
 from services.buyback_compliance import get_compliance_status
 from services.buyback_emails import STATUS_LABELS, notify_buyback_payout_completed, payout_email_already_sent
+from services.buyback_item_labels import (
+    apply_rejected_item_handling,
+    compute_assessed_total,
+    format_rejection_reason,
+)
 from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
 
 logger = logging.getLogger(__name__)
@@ -35,6 +40,20 @@ REQUEST_TRANSITIONS: dict[str, set[str]] = {
     "accepted": {"payout_pending", "cancelled"},
     "payout_pending": {"paid"},
     "rejected": {"returned"},
+}
+
+VALID_LINE_STATUSES = {
+    models_buyback.BuybackItemLineStatus.pending.value,
+    models_buyback.BuybackItemLineStatus.buyable.value,
+    models_buyback.BuybackItemLineStatus.reduced.value,
+    models_buyback.BuybackItemLineStatus.rejected.value,
+}
+
+VALID_RETURN_STATUSES = {
+    models_buyback.BuybackItemReturnStatus.none.value,
+    models_buyback.BuybackItemReturnStatus.pending.value,
+    models_buyback.BuybackItemReturnStatus.shipped.value,
+    models_buyback.BuybackItemReturnStatus.completed.value,
 }
 
 
@@ -273,6 +292,86 @@ def update_request_status(
     )
     db.commit()
     db.refresh(request)
+    return get_admin_request(db, request_id)
+
+
+def update_request_items(
+    db: Session,
+    *,
+    request_id: int,
+    admin_user: models.User,
+    item_updates: list[dict],
+    recalculate_assessed_total: bool = True,
+    apply_handling_policy: bool = True,
+) -> models_buyback.BuybackRequest:
+    request = get_admin_request(db, request_id)
+    items_by_id = {item.id: item for item in (request.items or [])}
+
+    for payload in item_updates:
+        item_id = payload.get("id")
+        item = items_by_id.get(item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail=f"明細 ID {item_id} が見つかりません")
+
+        if "line_status" in payload and payload["line_status"] is not None:
+            line_status = payload["line_status"]
+            if line_status not in VALID_LINE_STATUSES:
+                raise HTTPException(status_code=400, detail=f"無効な査定区分: {line_status}")
+            item.line_status = line_status
+
+        if "assessed_unit_price" in payload:
+            item.assessed_unit_price = payload["assessed_unit_price"]
+        if "accepted_unit_price" in payload:
+            item.accepted_unit_price = payload["accepted_unit_price"]
+        if "rejection_reason_code" in payload:
+            item.rejection_reason_code = payload["rejection_reason_code"] or None
+        if "rejection_reason_text" in payload:
+            item.rejection_reason_text = (payload["rejection_reason_text"] or "").strip() or None
+        if "is_return_target" in payload and payload["is_return_target"] is not None:
+            item.is_return_target = bool(payload["is_return_target"])
+        if "is_disposal_target" in payload and payload["is_disposal_target"] is not None:
+            item.is_disposal_target = bool(payload["is_disposal_target"])
+        if "return_status" in payload and payload["return_status"] is not None:
+            return_status = payload["return_status"]
+            if return_status not in VALID_RETURN_STATUSES:
+                raise HTTPException(status_code=400, detail=f"無効な返送状況: {return_status}")
+            item.return_status = return_status
+        if "return_tracking_number" in payload:
+            item.return_tracking_number = (payload["return_tracking_number"] or "").strip() or None
+        if "return_shipping_cost" in payload:
+            item.return_shipping_cost = payload["return_shipping_cost"]
+
+        if item.line_status == models_buyback.BuybackItemLineStatus.rejected.value:
+            reason = format_rejection_reason(item.rejection_reason_code, item.rejection_reason_text)
+            if not reason:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"「{item.product_name_snapshot}」の買取不可理由を入力してください",
+                )
+        elif item.line_status == models_buyback.BuybackItemLineStatus.reduced.value:
+            if item.assessed_unit_price is None or item.assessed_unit_price < 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"「{item.product_name_snapshot}」の減額査定単価を入力してください",
+                )
+
+    if apply_handling_policy:
+        apply_rejected_item_handling(request)
+
+    if recalculate_assessed_total:
+        request.assessed_total = compute_assessed_total(list(request.items or []))
+        request.assessed_at = datetime.utcnow()
+
+    request.updated_at = datetime.utcnow()
+    _audit(
+        db,
+        actor_user_id=admin_user.id,
+        action="request_items_updated",
+        entity_type="buyback_request",
+        entity_id=str(request.id),
+        details={"item_count": len(item_updates), "assessed_total": request.assessed_total},
+    )
+    db.commit()
     return get_admin_request(db, request_id)
 
 

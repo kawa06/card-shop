@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class BuybackHealthOut(BaseModel):
@@ -92,6 +92,27 @@ class BuybackCartOut(BaseModel):
 class BuybackRequestCreate(BaseModel):
     customer_note: Optional[str] = None
     shipping_method: Optional[str] = None
+    rejected_item_handling: str
+    agreed_prepaid_shipping: bool = False
+    agreed_cod_consequence: bool = False
+    agreed_condition_rejection: bool = False
+
+    @model_validator(mode="after")
+    def validate_submission_agreements(self) -> "BuybackRequestCreate":
+        if not self.agreed_prepaid_shipping:
+            raise ValueError("送料元払いでの発送に同意してください")
+        if not self.agreed_cod_consequence:
+            raise ValueError("着払い発送時の返送・返送料自己負担について確認してください")
+        if not self.agreed_condition_rejection:
+            raise ValueError("状態による買取不可の可能性について確認してください")
+        allowed = {
+            "return_rejected_only",
+            "dispose_rejected",
+            "return_all_if_any_rejected",
+        }
+        if self.rejected_item_handling not in allowed:
+            raise ValueError("買取不可商品の対応方法を選択してください")
+        return self
 
 
 class BuybackRequestItemOut(BaseModel):
@@ -101,7 +122,19 @@ class BuybackRequestItemOut(BaseModel):
     condition_code: str
     quantity: int
     listed_unit_price: int
+    assessed_unit_price: Optional[int] = None
+    accepted_unit_price: Optional[int] = None
     line_status: Optional[str] = None
+    line_status_label: Optional[str] = None
+    rejection_reason_code: Optional[str] = None
+    rejection_reason_text: Optional[str] = None
+    rejection_reason_label: Optional[str] = None
+    is_return_target: bool = False
+    is_disposal_target: bool = False
+    return_status: Optional[str] = None
+    return_status_label: Optional[str] = None
+    return_tracking_number: Optional[str] = None
+    return_shipping_cost: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -132,7 +165,10 @@ class BuybackRequestDetailOut(BaseModel):
     estimated_total: Optional[int] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
+    rejected_item_handling: Optional[str] = None
+    rejected_item_handling_label: Optional[str] = None
     submitted_at: Optional[datetime] = None
+    assessed_at: Optional[datetime] = None
     created_at: datetime
     items: List[BuybackRequestItemOut] = []
 
@@ -302,6 +338,11 @@ class AdminBuybackRequestDetailOut(BaseModel):
     estimated_total: Optional[int] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
+    rejected_item_handling: Optional[str] = None
+    rejected_item_handling_label: Optional[str] = None
+    agreed_prepaid_shipping: bool = False
+    agreed_cod_consequence: bool = False
+    agreed_condition_rejection: bool = False
     submitted_at: Optional[datetime] = None
     created_at: datetime
     items: List[BuybackRequestItemOut] = []
@@ -311,6 +352,27 @@ class AdminBuybackRequestDetailOut(BaseModel):
     ready_for_payout: bool = False
     payout_email_sent: bool = False
     paid_at: Optional[datetime] = None
+    rejection_reason_options: List[dict[str, str]] = []
+
+
+class AdminBuybackRequestItemUpdateIn(BaseModel):
+    id: int
+    line_status: Optional[str] = None
+    assessed_unit_price: Optional[int] = None
+    accepted_unit_price: Optional[int] = None
+    rejection_reason_code: Optional[str] = None
+    rejection_reason_text: Optional[str] = None
+    is_return_target: Optional[bool] = None
+    is_disposal_target: Optional[bool] = None
+    return_status: Optional[str] = None
+    return_tracking_number: Optional[str] = None
+    return_shipping_cost: Optional[int] = None
+
+
+class AdminBuybackRequestItemsUpdateIn(BaseModel):
+    items: List[AdminBuybackRequestItemUpdateIn]
+    recalculate_assessed_total: bool = True
+    apply_handling_policy: bool = True
 
 
 class AdminCompletePayoutIn(BaseModel):

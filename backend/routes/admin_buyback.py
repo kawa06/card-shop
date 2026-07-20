@@ -25,7 +25,13 @@ from services.buyback_admin import (
     list_identity_verifications,
     reject_identity,
     request_stats,
+    update_request_items,
     update_request_status,
+)
+from services.buyback_serializers import (
+    rejection_reason_options,
+    rejected_item_handling_label,
+    serialize_request_item,
 )
 from services.buyback_compliance import IDENTITY_STATUS_LABELS
 from services.buyback_emails import STATUS_LABELS
@@ -211,6 +217,7 @@ def _request_detail_out(
     ]
     payout_ctx = get_request_payout_context(db, request)
     payout_account = payout_ctx["payout_account"]
+    handling = request.rejected_item_handling
     return schemas_buyback.AdminBuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
@@ -226,12 +233,14 @@ def _request_detail_out(
         estimated_total=request.estimated_total,
         assessed_total=request.assessed_total,
         payout_total=request.payout_total,
+        rejected_item_handling=handling,
+        rejected_item_handling_label=rejected_item_handling_label(handling),
+        agreed_prepaid_shipping=bool(request.agreed_prepaid_shipping),
+        agreed_cod_consequence=bool(request.agreed_cod_consequence),
+        agreed_condition_rejection=bool(request.agreed_condition_rejection),
         submitted_at=request.submitted_at,
         created_at=request.created_at,
-        items=[
-            schemas_buyback.BuybackRequestItemOut.model_validate(item)
-            for item in (request.items or [])
-        ],
+        items=[serialize_request_item(item) for item in (request.items or [])],
         status_history=history,
         allowed_next_statuses=sorted(REQUEST_TRANSITIONS.get(request.status, set())),
         payout_account=schemas_buyback.AdminPayoutAccountOut(**payout_account)
@@ -240,6 +249,7 @@ def _request_detail_out(
         ready_for_payout=payout_ctx["ready_for_payout"],
         payout_email_sent=payout_ctx["payout_email_sent"],
         paid_at=payout_ctx["paid_at"],
+        rejection_reason_options=rejection_reason_options(),
     )
 
 
@@ -324,6 +334,29 @@ def patch_request(
         tracking_number=body.tracking_number,
         assessed_total=body.assessed_total,
         payout_total=body.payout_total,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db)
+
+
+@router.patch(
+    "/requests/{request_id}/items",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def patch_request_items(
+    request_id: int,
+    body: schemas_buyback.AdminBuybackRequestItemsUpdateIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    update_request_items(
+        db,
+        request_id=request_id,
+        admin_user=admin,
+        item_updates=[item.model_dump(exclude_unset=True) for item in body.items],
+        recalculate_assessed_total=body.recalculate_assessed_total,
+        apply_handling_policy=body.apply_handling_policy,
     )
     request = get_admin_request(db, request_id)
     user = db.query(models.User).filter(models.User.id == request.user_id).first()

@@ -51,6 +51,36 @@ class GuardianConsentStatus(str, enum.Enum):
     revoked = "revoked"
 
 
+class BuybackItemLineStatus(str, enum.Enum):
+    pending = "pending"
+    buyable = "buyable"
+    reduced = "reduced"
+    rejected = "rejected"
+
+
+class RejectedItemHandling(str, enum.Enum):
+    return_rejected_only = "return_rejected_only"
+    dispose_rejected = "dispose_rejected"
+    return_all_if_any_rejected = "return_all_if_any_rejected"
+
+
+class BuybackItemReturnStatus(str, enum.Enum):
+    none = "none"
+    pending = "pending"
+    shipped = "shipped"
+    completed = "completed"
+
+
+REJECTION_REASON_CODES = {
+    "major_damage": "大きな折れ、破れ、欠損がある",
+    "water_stain": "水濡れや強い汚れがある",
+    "mold_odor": "カビ、異臭、べたつきがある",
+    "dent_scratch": "大きなへこみや深い傷がある",
+    "counterfeit": "偽造品、コピー品、正規品と確認できないもの",
+    "other": "その他、再販売が困難だと判断したもの",
+}
+
+
 class BuybackProduct(Base):
     __tablename__ = "buyback_products"
 
@@ -149,6 +179,10 @@ class BuybackRequest(Base):
     estimated_total = Column(Integer, nullable=True)
     assessed_total = Column(Integer, nullable=True)
     payout_total = Column(Integer, nullable=True)
+    rejected_item_handling = Column(String(64), nullable=True)
+    agreed_prepaid_shipping = Column(Boolean, default=False, nullable=False)
+    agreed_cod_consequence = Column(Boolean, default=False, nullable=False)
+    agreed_condition_rejection = Column(Boolean, default=False, nullable=False)
     submitted_at = Column(DateTime, nullable=True)
     assessed_at = Column(DateTime, nullable=True)
     paid_at = Column(DateTime, nullable=True)
@@ -172,6 +206,13 @@ class BuybackRequestItem(Base):
     assessed_unit_price = Column(Integer, nullable=True)
     accepted_unit_price = Column(Integer, nullable=True)
     line_status = Column(String(32), nullable=True)
+    rejection_reason_code = Column(String(64), nullable=True)
+    rejection_reason_text = Column(Text, nullable=True)
+    is_return_target = Column(Boolean, default=False, nullable=False)
+    is_disposal_target = Column(Boolean, default=False, nullable=False)
+    return_status = Column(String(32), nullable=True)
+    return_tracking_number = Column(String(128), nullable=True)
+    return_shipping_cost = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     request = relationship("BuybackRequest", back_populates="items")

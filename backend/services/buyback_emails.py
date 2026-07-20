@@ -128,7 +128,11 @@ def notify_buyback_request_submitted(
       <p style="font-size:13px;color:#555;margin-top:16px;">
         ※正式な買取金額は商品到着・査定後に確定します。
       </p>
-      <p>商品の発送準備ができましたら、同梱の申込番号を記載のうえ発送してください。</p>
+      <div style="background:#fff7ed;border:1px solid #fdba74;border-radius:8px;padding:12px 16px;margin:16px 0;font-size:13px;color:#9a3412;">
+        <p style="margin:0 0 8px;font-weight:bold;">【発送時の重要なお知らせ】</p>
+        <p style="margin:0;">商品の発送は、必ず送料元払いでお願いいたします。着払いで発送された荷物は受け取らず、そのまま返送します。返送にかかる送料は利用者の負担となります。</p>
+      </div>
+      <p>商品の発送準備ができましたら、同梱の申込番号を記載のうえ、<strong>送料元払い</strong>で発送してください。</p>
       <p><a href="{link}">申込詳細を確認</a></p>
     """
     customer_html = _wrap_email(customer_body)

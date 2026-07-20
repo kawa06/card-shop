@@ -46,12 +46,22 @@ def test_submit_request_from_cart(mock_notify, db):
     user = _create_user(db)
     _seed_cart(db, user)
 
-    request = submit_request_from_cart(db, user=user, customer_note="テスト備考")
+    request = submit_request_from_cart(
+        db,
+        user=user,
+        customer_note="テスト備考",
+        rejected_item_handling="return_rejected_only",
+        agreed_prepaid_shipping=True,
+        agreed_cod_consequence=True,
+        agreed_condition_rejection=True,
+    )
 
     assert request.request_number.startswith("KBB-")
     assert request.status == models_buyback.BuybackRequestStatus.submitted.value
     assert request.estimated_total == 3000
     assert request.customer_note == "テスト備考"
+    assert request.rejected_item_handling == "return_rejected_only"
+    assert request.agreed_prepaid_shipping is True
     assert len(request.items) == 1
     assert request.items[0].product_name_snapshot == "申込テストカード"
     mock_notify.assert_called_once()
@@ -65,16 +75,48 @@ def test_submit_empty_cart_fails(db):
     user = _create_user(db, email="empty@example.com")
 
     with pytest.raises(HTTPException) as exc:
-        submit_request_from_cart(db, user=user)
+        submit_request_from_cart(
+            db,
+            user=user,
+            rejected_item_handling="return_rejected_only",
+            agreed_prepaid_shipping=True,
+            agreed_cod_consequence=True,
+            agreed_condition_rejection=True,
+        )
 
     assert exc.value.status_code == 400
+
+
+def test_submit_requires_agreements(db):
+    user = _create_user(db, email="agree@example.com")
+    _seed_cart(db, user)
+
+    with pytest.raises(HTTPException) as exc:
+        submit_request_from_cart(
+            db,
+            user=user,
+            rejected_item_handling="return_rejected_only",
+            agreed_prepaid_shipping=False,
+            agreed_cod_consequence=True,
+            agreed_condition_rejection=True,
+        )
+
+    assert exc.value.status_code == 400
+    assert "元払い" in exc.value.detail
 
 
 @patch("services.buyback_requests.notify_buyback_request_submitted")
 def test_list_and_get_user_requests(mock_notify, db):
     user = _create_user(db, email="list@example.com")
     _seed_cart(db, user)
-    created = submit_request_from_cart(db, user=user)
+    created = submit_request_from_cart(
+        db,
+        user=user,
+        rejected_item_handling="dispose_rejected",
+        agreed_prepaid_shipping=True,
+        agreed_cod_consequence=True,
+        agreed_condition_rejection=True,
+    )
 
     summaries = list_user_requests(db, user_id=user.id)
     assert len(summaries) == 1

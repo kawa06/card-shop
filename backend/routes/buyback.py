@@ -15,6 +15,10 @@ from services.buyback_cart import (
     update_cart_item_quantity,
 )
 from services.buyback_emails import STATUS_LABELS
+from services.buyback_serializers import (
+    rejected_item_handling_label,
+    serialize_request_item,
+)
 from services.buyback_compliance import (
     GUARDIAN_STATUS_LABELS,
     IDENTITY_STATUS_LABELS,
@@ -291,6 +295,7 @@ def _serialize_request_summary(
 def _serialize_request_detail(
     request: models_buyback.BuybackRequest,
 ) -> schemas_buyback.BuybackRequestDetailOut:
+    handling = request.rejected_item_handling
     return schemas_buyback.BuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
@@ -302,12 +307,12 @@ def _serialize_request_detail(
         estimated_total=request.estimated_total,
         assessed_total=request.assessed_total,
         payout_total=request.payout_total,
+        rejected_item_handling=handling,
+        rejected_item_handling_label=rejected_item_handling_label(handling),
         submitted_at=request.submitted_at,
+        assessed_at=request.assessed_at,
         created_at=request.created_at,
-        items=[
-            schemas_buyback.BuybackRequestItemOut.model_validate(item)
-            for item in request.items
-        ],
+        items=[serialize_request_item(item) for item in request.items],
     )
 
 
@@ -326,6 +331,10 @@ def create_buyback_request(
         user=current_user,
         customer_note=payload.customer_note,
         shipping_method=payload.shipping_method,
+        rejected_item_handling=payload.rejected_item_handling,
+        agreed_prepaid_shipping=payload.agreed_prepaid_shipping,
+        agreed_cod_consequence=payload.agreed_cod_consequence,
+        agreed_condition_rejection=payload.agreed_condition_rejection,
     )
     return _serialize_request_detail(request)
 

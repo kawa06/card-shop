@@ -408,6 +408,33 @@ export interface AdminBuybackStatusHistoryItem {
   created_at: string
 }
 
+export interface AdminBuybackRequestItem {
+  id: number
+  product_id?: number | null
+  product_name_snapshot: string
+  condition_code: string
+  quantity: number
+  listed_unit_price: number
+  assessed_unit_price?: number | null
+  accepted_unit_price?: number | null
+  line_status: string | null
+  line_status_label?: string | null
+  rejection_reason_code?: string | null
+  rejection_reason_text?: string | null
+  rejection_reason_label?: string | null
+  is_return_target?: boolean
+  is_disposal_target?: boolean
+  return_status?: string | null
+  return_status_label?: string | null
+  return_tracking_number?: string | null
+  return_shipping_cost?: number | null
+}
+
+export interface AdminBuybackRejectionReasonOption {
+  code: string
+  label: string
+}
+
 export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   shipping_method: string | null
   tracking_number: string | null
@@ -415,18 +442,17 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   admin_note: string | null
   assessed_total: number | null
   payout_total: number | null
-  items: {
-    id: number
-    product_name_snapshot: string
-    condition_code: string
-    quantity: number
-    listed_unit_price: number
-    line_status: string | null
-  }[]
+  rejected_item_handling?: string | null
+  rejected_item_handling_label?: string | null
+  agreed_prepaid_shipping?: boolean
+  agreed_cod_consequence?: boolean
+  agreed_condition_rejection?: boolean
+  items: AdminBuybackRequestItem[]
   status_history: AdminBuybackStatusHistoryItem[]
   allowed_next_statuses: string[]
   payout_account: AdminPayoutAccount | null
   ready_for_payout: boolean
   payout_email_sent: boolean
   paid_at: string | null
+  rejection_reason_options?: AdminBuybackRejectionReasonOption[]
 }

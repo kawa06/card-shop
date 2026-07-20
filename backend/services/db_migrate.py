@@ -66,6 +66,30 @@ def _migrate_buyback_schema() -> None:
     _create_unique_index_if_missing(
         "buyback_products", "ix_buyback_products_firestore_item_id", "firestore_item_id"
     )
+    _migrate_buyback_request_columns()
+
+
+def _migrate_buyback_request_columns() -> None:
+    request_cols = [
+        ("rejected_item_handling", "VARCHAR(64)"),
+        ("agreed_prepaid_shipping", "BOOLEAN DEFAULT 0"),
+        ("agreed_cod_consequence", "BOOLEAN DEFAULT 0"),
+        ("agreed_condition_rejection", "BOOLEAN DEFAULT 0"),
+    ]
+    for col, col_type in request_cols:
+        _add_column_if_missing("buyback_requests", col, col_type)
+
+    item_cols = [
+        ("rejection_reason_code", "VARCHAR(64)"),
+        ("rejection_reason_text", "TEXT"),
+        ("is_return_target", "BOOLEAN DEFAULT 0"),
+        ("is_disposal_target", "BOOLEAN DEFAULT 0"),
+        ("return_status", "VARCHAR(32)"),
+        ("return_tracking_number", "VARCHAR(128)"),
+        ("return_shipping_cost", "INTEGER"),
+    ]
+    for col, col_type in item_cols:
+        _add_column_if_missing("buyback_request_items", col, col_type)
 
 
 def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:

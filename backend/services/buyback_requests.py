@@ -61,7 +61,37 @@ def submit_request_from_cart(
     user: models.User,
     customer_note: Optional[str] = None,
     shipping_method: Optional[str] = None,
+    rejected_item_handling: Optional[str] = None,
+    agreed_prepaid_shipping: bool = False,
+    agreed_cod_consequence: bool = False,
+    agreed_condition_rejection: bool = False,
 ) -> models_buyback.BuybackRequest:
+    if not agreed_prepaid_shipping:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="送料元払いでの発送に同意してください",
+        )
+    if not agreed_cod_consequence:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="着払い発送時の返送・返送料自己負担について確認してください",
+        )
+    if not agreed_condition_rejection:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="状態による買取不可の可能性について確認してください",
+        )
+    allowed_handling = {
+        models_buyback.RejectedItemHandling.return_rejected_only.value,
+        models_buyback.RejectedItemHandling.dispose_rejected.value,
+        models_buyback.RejectedItemHandling.return_all_if_any_rejected.value,
+    }
+    if not rejected_item_handling or rejected_item_handling not in allowed_handling:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="買取不可商品の対応方法を選択してください",
+        )
+
     cart = _load_user_cart_with_products(db, user.id)
     if not cart or not cart.items:
         raise HTTPException(
@@ -80,6 +110,10 @@ def submit_request_from_cart(
         shipping_method=(shipping_method or "").strip() or None,
         customer_note=(customer_note or "").strip() or None,
         estimated_total=estimated_total,
+        rejected_item_handling=rejected_item_handling,
+        agreed_prepaid_shipping=agreed_prepaid_shipping,
+        agreed_cod_consequence=agreed_cod_consequence,
+        agreed_condition_rejection=agreed_condition_rejection,
         submitted_at=now,
     )
     db.add(request)
@@ -98,7 +132,7 @@ def submit_request_from_cart(
                 condition_code=cart_item.condition_code,
                 quantity=cart_item.quantity,
                 listed_unit_price=cart_item.unit_price_snapshot,
-                line_status="pending",
+                line_status=models_buyback.BuybackItemLineStatus.pending.value,
             )
         )
 

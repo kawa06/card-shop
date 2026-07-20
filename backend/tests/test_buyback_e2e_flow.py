@@ -102,7 +102,13 @@ def test_buyback_full_api_flow(mock_payout_email, mock_request_email, api_client
     request_res = api_client.post(
         "/api/buyback/requests",
         headers=headers,
-        json={"customer_note": "E2E申込テスト"},
+        json={
+            "customer_note": "E2E申込テスト",
+            "rejected_item_handling": "return_rejected_only",
+            "agreed_prepaid_shipping": True,
+            "agreed_cod_consequence": True,
+            "agreed_condition_rejection": True,
+        },
     )
     assert request_res.status_code == 201
     request_id = request_res.json()["id"]

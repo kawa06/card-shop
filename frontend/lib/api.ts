@@ -516,6 +516,30 @@ export const adminBuybackApi = {
       payout_total?: number
     }
   ) => apiClient.patch<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`, data),
+  updateRequestItems: (
+    id: number,
+    data: {
+      items: Array<{
+        id: number
+        line_status?: string
+        assessed_unit_price?: number | null
+        accepted_unit_price?: number | null
+        rejection_reason_code?: string | null
+        rejection_reason_text?: string | null
+        is_return_target?: boolean
+        is_disposal_target?: boolean
+        return_status?: string
+        return_tracking_number?: string | null
+        return_shipping_cost?: number | null
+      }>
+      recalculate_assessed_total?: boolean
+      apply_handling_policy?: boolean
+    }
+  ) =>
+    apiClient.patch<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/items`,
+      data
+    ),
   completePayout: (
     id: number,
     data: {
