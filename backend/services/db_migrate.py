@@ -431,7 +431,7 @@ def _add_column_if_missing(table: str, column: str, col_type: str) -> None:
     columns = {col["name"] for col in inspector.get_columns(table)}
     if column in columns:
         return
-    url = settings.DATABASE_URL
+    url = (settings.DATABASE_URL or "").lower()
     ddl_type = col_type
     if url.startswith("postgresql") or url.startswith("postgres"):
         ddl_type = _pg_column_type(col_type)

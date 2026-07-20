@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from database import Base, engine, SessionLocal
 from services.shipping_rates import background_shipping_update_task, refresh_all_rates
 from services.order_expiry_task import background_order_expiry_task
-from services.db_migrate import run_schema_upgrades
+from services.db_migrate import run_schema_upgrades, _pg_column_type
 from services.db_persist import database_info
 from services.image_upload import get_upload_dir
 
@@ -31,12 +31,14 @@ from routes.buyback import router as buyback_router
 
 from sqlalchemy import text, inspect
 
-# Apply missing column migrations for SQLite (More robust check using SQLAlchemy Inspector)
+# Apply missing column migrations (SQLite + PostgreSQL-safe DDL)
 
 def add_columns_if_missing():
     print("Running database migrations (checking for missing columns)...")
     inspector = inspect(engine)
-    
+    url = (settings.DATABASE_URL or "").lower()
+    is_postgres = url.startswith("postgresql") or url.startswith("postgres")
+
     # Define tables and their expected columns
     tables_to_migrate = {
         "cards": [
@@ -112,30 +114,28 @@ def add_columns_if_missing():
         ]
     }
 
-    with engine.connect() as conn:
-        for table_name, columns in tables_to_migrate.items():
-            print(f"--- Checking table: {table_name} ---")
-            try:
-                # Get existing columns for this table
-                existing_columns = [c["name"] for c in inspector.get_columns(table_name)]
-                print(f"Existing columns in {table_name}: {existing_columns}")
-            except Exception as e:
-                print(f"Could not inspect table {table_name} (it might not exist yet): {e}")
-                continue
+    for table_name, columns in tables_to_migrate.items():
+        print(f"--- Checking table: {table_name} ---")
+        try:
+            existing_columns = [c["name"] for c in inspector.get_columns(table_name)]
+            print(f"Existing columns in {table_name}: {existing_columns}")
+        except Exception as e:
+            print(f"Could not inspect table {table_name} (it might not exist yet): {e}")
+            continue
 
-            for col_name, col_def in columns:
-                if col_name not in existing_columns:
-                    print(f"Adding missing column {table_name}.{col_name} ({col_def})")
-                    try:
-                        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_def}"))
-                        conn.commit()  # Commit each change individually
-                        print(f"Successfully added {table_name}.{col_name}")
-                    except Exception as e:
-                        print(f"ERROR: Failed to add {table_name}.{col_name}: {e}")
-                else:
-                    # Optional: Log that it already exists for confirmation
-                    pass
-        
+        for col_name, col_def in columns:
+            if col_name in existing_columns:
+                continue
+            ddl = _pg_column_type(col_def) if is_postgres else col_def
+            print(f"Adding missing column {table_name}.{col_name} ({ddl})")
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {ddl}"))
+                    conn.commit()
+                print(f"Successfully added {table_name}.{col_name}")
+            except Exception as e:
+                print(f"ERROR: Failed to add {table_name}.{col_name}: {e}")
+
     print("Database migrations completed.")
 
 @asynccontextmanager
