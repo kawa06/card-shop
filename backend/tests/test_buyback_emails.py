@@ -7,7 +7,7 @@ from unittest.mock import patch
 from auth import hash_password
 import models
 import models_buyback
-from services.buyback_emails import notify_buyback_request_submitted
+from services.buyback_emails import notify_buyback_payout_completed, notify_buyback_request_submitted
 
 
 def _create_user(db) -> models.User:
@@ -57,3 +57,24 @@ def test_notify_buyback_request_submitted(mock_send, mock_configured, db):
     deliveries = db.query(models_buyback.NotificationDelivery).all()
     assert len(deliveries) == 2
     assert all(d.status == "sent" for d in deliveries)
+
+
+@patch("services.buyback_emails.email_configured", return_value=True)
+@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+def test_notify_buyback_payout_completed(mock_send, mock_configured, db):
+    user = _create_user(db)
+    request = models_buyback.BuybackRequest(
+        user_id=user.id,
+        request_number="KBB-20260720-0002",
+        status=models_buyback.BuybackRequestStatus.paid.value,
+        payout_total=4800,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+
+    ok, err = notify_buyback_payout_completed(db, request, user)
+    assert ok is True
+    assert err is None
+    mock_send.assert_called_once()
+    assert "振込が完了しました" in mock_send.call_args.kwargs["subject"]

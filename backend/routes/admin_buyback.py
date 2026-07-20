@@ -16,8 +16,10 @@ from services.buyback_admin import (
     DOCUMENT_TYPE_LABELS,
     REQUEST_TRANSITIONS,
     approve_identity,
+    complete_request_payout,
     get_admin_request,
     get_identity_verification,
+    get_request_payout_context,
     identity_stats,
     list_admin_requests,
     list_identity_verifications,
@@ -181,31 +183,17 @@ def _request_list_out(request, user: models.User | None) -> schemas_buyback.Admi
         user_name=user.name if user else "",
         item_count=len(request.items or []),
         estimated_total=request.estimated_total,
+        payout_total=request.payout_total,
         submitted_at=request.submitted_at,
         created_at=request.created_at,
     )
 
 
-@router.get("/requests", response_model=list[schemas_buyback.AdminBuybackRequestListOut])
-def list_requests(
-    status: Optional[str] = Query(None),
-    q: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
-):
-    rows = list_admin_requests(db, status=status, q=q)
-    users = _user_map(db, {row.user_id for row in rows})
-    return [_request_list_out(row, users.get(row.user_id)) for row in rows]
-
-
-@router.get("/requests/{request_id}", response_model=schemas_buyback.AdminBuybackRequestDetailOut)
-def get_request(
-    request_id: int,
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
-):
-    request = get_admin_request(db, request_id)
-    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+def _request_detail_out(
+    request: models_buyback.BuybackRequest,
+    user: models.User | None,
+    db: Session,
+) -> schemas_buyback.AdminBuybackRequestDetailOut:
     history = [
         schemas_buyback.AdminBuybackStatusHistoryOut(
             id=h.id,
@@ -220,6 +208,8 @@ def get_request(
         )
         for h in sorted(request.status_history or [], key=lambda x: x.created_at)
     ]
+    payout_ctx = get_request_payout_context(db, request)
+    payout_account = payout_ctx["payout_account"]
     return schemas_buyback.AdminBuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
@@ -243,7 +233,57 @@ def get_request(
         ],
         status_history=history,
         allowed_next_statuses=sorted(REQUEST_TRANSITIONS.get(request.status, set())),
+        payout_account=schemas_buyback.AdminPayoutAccountOut(**payout_account)
+        if payout_account
+        else None,
+        ready_for_payout=payout_ctx["ready_for_payout"],
+        payout_email_sent=payout_ctx["payout_email_sent"],
+        paid_at=payout_ctx["paid_at"],
     )
+
+
+@router.get("/requests", response_model=list[schemas_buyback.AdminBuybackRequestListOut])
+def list_requests(
+    status: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    rows = list_admin_requests(db, status=status, q=q)
+    users = _user_map(db, {row.user_id for row in rows})
+    return [_request_list_out(row, users.get(row.user_id)) for row in rows]
+
+
+@router.get("/requests/{request_id}", response_model=schemas_buyback.AdminBuybackRequestDetailOut)
+def get_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db)
+
+
+@router.post("/requests/{request_id}/complete-payout", response_model=schemas_buyback.AdminBuybackRequestDetailOut)
+def complete_payout_route(
+    request_id: int,
+    body: schemas_buyback.AdminCompletePayoutIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    complete_request_payout(
+        db,
+        request_id=request_id,
+        admin_user=admin,
+        payout_total=body.payout_total,
+        admin_note=body.admin_note,
+        send_email=body.send_email,
+        force_email=body.force_email,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db)
 
 
 @router.patch("/requests/{request_id}", response_model=schemas_buyback.AdminBuybackRequestDetailOut)
@@ -263,4 +303,6 @@ def patch_request(
         assessed_total=body.assessed_total,
         payout_total=body.payout_total,
     )
-    return get_request(request_id, db, admin)
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db)

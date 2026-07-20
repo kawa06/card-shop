@@ -16,6 +16,7 @@ from services.buyback_payout_crypto import (
 
 MAX_ACCOUNTS_PER_USER = 3
 ALLOWED_ACCOUNT_TYPES = {"ordinary", "checking"}
+ACCOUNT_TYPE_LABELS = {"ordinary": "普通", "checking": "当座"}
 
 
 def list_payout_accounts(db: Session, user_id: int) -> list[models_buyback.PayoutAccount]:
@@ -51,6 +52,36 @@ def _serialize_masked(account: models_buyback.PayoutAccount) -> dict:
 
 def list_payout_accounts_masked(db: Session, user_id: int) -> list[dict]:
     return [_serialize_masked(a) for a in list_payout_accounts(db, user_id)]
+
+
+def get_default_payout_account(db: Session, user_id: int) -> models_buyback.PayoutAccount | None:
+    accounts = list_payout_accounts(db, user_id)
+    if not accounts:
+        return None
+    for account in accounts:
+        if account.is_default:
+            return account
+    return accounts[0]
+
+
+def serialize_payout_account_for_admin(account: models_buyback.PayoutAccount) -> dict:
+    try:
+        plain = decrypt_account_number(account.account_number_encrypted)
+    except Exception:
+        plain = ""
+    return {
+        "id": account.id,
+        "bank_name": account.bank_name,
+        "branch_name": account.branch_name,
+        "account_type": account.account_type,
+        "account_type_label": ACCOUNT_TYPE_LABELS.get(account.account_type, account.account_type),
+        "account_holder": account.account_holder,
+        "account_number": plain,
+        "account_number_masked": mask_account_number(plain) if plain else "****",
+        "is_default": account.is_default,
+        "created_at": account.created_at,
+        "updated_at": account.updated_at,
+    }
 
 
 def create_payout_account(

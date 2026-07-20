@@ -44,6 +44,8 @@ export default function AdminBuybackRequestDetailPage() {
   const [trackingNumber, setTrackingNumber] = useState('')
   const [assessedTotal, setAssessedTotal] = useState('')
   const [payoutTotal, setPayoutTotal] = useState('')
+  const [sendPayoutEmail, setSendPayoutEmail] = useState(true)
+  const [isCompletingPayout, setIsCompletingPayout] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -76,6 +78,34 @@ export default function AdminBuybackRequestDetailPage() {
     if (!isMounted || !isReady) return
     void fetchDetail()
   }, [isMounted, isReady, fetchDetail])
+
+  const handleCompletePayout = async () => {
+    if (!detail) return
+    const amount = Number(payoutTotal.trim() || detail.payout_total || detail.assessed_total || 0)
+    if (!amount || amount <= 0) {
+      setError('振込金額を入力してください')
+      return
+    }
+    if (!window.confirm(`振込完了を記録します（${formatYen(amount)}）。よろしいですか？`)) return
+
+    setIsCompletingPayout(true)
+    setError('')
+    try {
+      const res = await adminBuybackApi.completePayout(detail.id, {
+        payout_total: amount,
+        admin_note: adminNote || undefined,
+        send_email: sendPayoutEmail,
+        force_email: detail.payout_email_sent && sendPayoutEmail,
+      })
+      setDetail(res.data)
+      setPayoutTotal(res.data.payout_total != null ? String(res.data.payout_total) : '')
+      setNextStatus(res.data.allowed_next_statuses[0] || '')
+    } catch {
+      setError('振込完了の記録に失敗しました（口座未登録などを確認してください）')
+    } finally {
+      setIsCompletingPayout(false)
+    }
+  }
 
   const handleUpdate = async () => {
     if (!detail || !nextStatus) return
@@ -168,6 +198,72 @@ export default function AdminBuybackRequestDetailPage() {
                 </tbody>
               </table>
             </div>
+
+            {(detail.status === 'payout_pending' || detail.status === 'paid') && (
+              <div className="border rounded-lg p-4 space-y-3">
+                <h2 className="font-semibold">振込情報</h2>
+                {detail.payout_account ? (
+                  <div className="text-sm bg-gray-50 rounded-md p-3 space-y-1">
+                    <p>
+                      <span className="text-gray-500">金融機関：</span>
+                      {detail.payout_account.bank_name}
+                      {detail.payout_account.branch_name
+                        ? ` ${detail.payout_account.branch_name}`
+                        : ''}
+                    </p>
+                    <p>
+                      <span className="text-gray-500">口座：</span>
+                      {detail.payout_account.account_type_label}{' '}
+                      {detail.payout_account.account_number}
+                    </p>
+                    <p>
+                      <span className="text-gray-500">名義：</span>
+                      {detail.payout_account.account_holder}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-red-600">振込口座が未登録です</p>
+                )}
+                {!detail.ready_for_payout && detail.status === 'payout_pending' && (
+                  <p className="text-sm text-amber-700">
+                    KYC・保護者同意・口座のいずれかが未完了の可能性があります
+                  </p>
+                )}
+                {detail.paid_at && (
+                  <p className="text-sm">
+                    <span className="text-gray-500">振込完了日時：</span>
+                    {formatDate(detail.paid_at)}
+                    {detail.payout_email_sent && (
+                      <span className="text-gray-500 ml-2">（完了メール送信済み）</span>
+                    )}
+                  </p>
+                )}
+                {detail.status === 'payout_pending' && (
+                  <>
+                    <Input
+                      placeholder="振込金額（円）"
+                      value={payoutTotal}
+                      onChange={(e) => setPayoutTotal(e.target.value)}
+                    />
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sendPayoutEmail}
+                        onChange={(e) => setSendPayoutEmail(e.target.checked)}
+                      />
+                      振込完了メールを送信
+                    </label>
+                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <Button
+                      onClick={handleCompletePayout}
+                      disabled={isCompletingPayout || !detail.payout_account}
+                    >
+                      振込完了を記録
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
 
             {detail.allowed_next_statuses.length > 0 && (
               <div className="border rounded-lg p-4 space-y-3">

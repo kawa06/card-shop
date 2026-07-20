@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   Settings,
   MessageSquare,
+  Banknote,
   UserCheck,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -33,12 +34,13 @@ interface Stats {
   inquiryUnreplied: number
   buybackPendingKyc: number
   buybackSubmittedRequests: number
+  buybackPayoutPending: number
 }
 
 export default function AdminPage() {
   const { lang } = useLangStore()
   const { isReady } = useAdminGuard()
-  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0, inquiryUnreplied: 0, buybackPendingKyc: 0, buybackSubmittedRequests: 0 })
+  const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0, inquiryUnreplied: 0, buybackPendingKyc: 0, buybackSubmittedRequests: 0, buybackPayoutPending: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -82,6 +84,8 @@ export default function AdminPage() {
           buybackRes.status === 'fulfilled' ? buybackRes.value.data.pending_kyc_count : 0,
         buybackSubmittedRequests:
           buybackRes.status === 'fulfilled' ? buybackRes.value.data.submitted_request_count : 0,
+        buybackPayoutPending:
+          buybackRes.status === 'fulfilled' ? buybackRes.value.data.payout_pending_count : 0,
       })
     }).finally(() => setIsLoading(false))
   }, [isMounted, isReady])
@@ -96,6 +100,7 @@ export default function AdminPage() {
     { href: '/admin/inquiries', icon: MessageSquare, label: '問い合わせ管理', count: stats.inquiryUnreplied, color: 'text-teal-500', bg: 'bg-teal-500/10 border-teal-500/20' },
     { href: '/admin/buyback/kyc', icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' },
     { href: '/admin/buyback/requests', icon: Package, label: '買取申込管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' },
+    { href: '/admin/buyback/payouts', icon: Banknote, label: '買取振込管理', count: stats.buybackPayoutPending, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' },
     { href: '/admin/click-post', icon: FileSpreadsheet, label: 'クリックポストCSV', count: stats.orders, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
     { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
     { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },

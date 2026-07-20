@@ -205,3 +205,69 @@ def notify_guardian_consent_requested(
         return
 
     _send_html_email(to=consent.guardian_email, subject=subject, html=html)
+
+
+def payout_email_already_sent(db: Session, request_id: int) -> bool:
+    row = (
+        db.query(models_buyback.NotificationDelivery)
+        .filter(
+            models_buyback.NotificationDelivery.template_key == "buyback_payout_completed",
+            models_buyback.NotificationDelivery.reference_id == str(request_id),
+            models_buyback.NotificationDelivery.status == "sent",
+        )
+        .first()
+    )
+    return row is not None
+
+
+def notify_buyback_payout_completed(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Send payout completion email to customer (best-effort)."""
+    if payout_email_already_sent(db, request.id) and not force:
+        return True, None
+
+    request_number = request.request_number or str(request.id)
+    link = _request_link(request.id)
+    payout_amount = request.payout_total or request.assessed_total or request.estimated_total
+
+    customer_body = f"""
+      <p>{user.name or 'お客'} 様</p>
+      <p>買取代金の振込が完了しました。</p>
+      <ul>
+        <li>申込番号：{request_number}</li>
+        <li>振込金額：{_format_jpy(payout_amount)}</li>
+        <li>振込日時：{request.paid_at.strftime('%Y/%m/%d %H:%M') if request.paid_at else '—'}</li>
+      </ul>
+      <p>金融機関の反映までお時間をいただく場合があります。</p>
+      <p><a href="{link}">申込詳細を確認</a></p>
+    """
+    customer_html = _wrap_email(customer_body)
+    customer_subject = f"【KRX TCG】買取代金の振込が完了しました（{request_number}）"
+
+    if not email_configured():
+        if settings.DEBUG:
+            logger.info("[BUYBACK EMAIL MOCK] to=%s subject=%s", user.email, customer_subject)
+            _record_delivery(
+                db,
+                user_id=user.id,
+                template_key="buyback_payout_completed",
+                reference_id=str(request.id),
+                ok=True,
+            )
+        return True, None
+
+    ok, err = _send_html_email(to=user.email, subject=customer_subject, html=customer_html)
+    _record_delivery(
+        db,
+        user_id=user.id,
+        template_key="buyback_payout_completed",
+        reference_id=str(request.id),
+        ok=ok,
+        error=err,
+    )
+    return ok, err

@@ -379,8 +379,23 @@ export interface AdminBuybackRequestListItem {
   user_name: string
   item_count: number
   estimated_total: number | null
+  payout_total: number | null
   submitted_at: string | null
   created_at: string
+}
+
+export interface AdminPayoutAccount {
+  id: number
+  bank_name: string
+  branch_name: string | null
+  account_type: string
+  account_type_label: string
+  account_holder: string
+  account_number: string
+  account_number_masked: string
+  is_default: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface AdminBuybackStatusHistoryItem {
@@ -410,4 +425,8 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   }[]
   status_history: AdminBuybackStatusHistoryItem[]
   allowed_next_statuses: string[]
+  payout_account: AdminPayoutAccount | null
+  ready_for_payout: boolean
+  payout_email_sent: boolean
+  paid_at: string | null
 }

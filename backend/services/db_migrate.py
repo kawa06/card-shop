@@ -63,6 +63,9 @@ def _migrate_buyback_schema() -> None:
     ]
     for table_name, model in buyback_tables:
         _create_table_if_missing(table_name, model)
+    _create_unique_index_if_missing(
+        "buyback_products", "ix_buyback_products_firestore_item_id", "firestore_item_id"
+    )
 
 
 def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:

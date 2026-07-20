@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 class BuybackHealthOut(BaseModel):
     status: str
-    phase: str = "6"
+    phase: str = "8"
     products_source: str = "postgresql+firestore_stub"
 
 
@@ -256,8 +256,23 @@ class AdminBuybackRequestListOut(BaseModel):
     user_name: str
     item_count: int = 0
     estimated_total: Optional[int] = None
+    payout_total: Optional[int] = None
     submitted_at: Optional[datetime] = None
     created_at: datetime
+
+
+class AdminPayoutAccountOut(BaseModel):
+    id: int
+    bank_name: str
+    branch_name: Optional[str] = None
+    account_type: str
+    account_type_label: str
+    account_holder: str
+    account_number: str
+    account_number_masked: str
+    is_default: bool
+    created_at: datetime
+    updated_at: datetime
 
 
 class AdminBuybackStatusHistoryOut(BaseModel):
@@ -290,6 +305,17 @@ class AdminBuybackRequestDetailOut(BaseModel):
     items: List[BuybackRequestItemOut] = []
     status_history: List[AdminBuybackStatusHistoryOut] = []
     allowed_next_statuses: List[str] = []
+    payout_account: Optional[AdminPayoutAccountOut] = None
+    ready_for_payout: bool = False
+    payout_email_sent: bool = False
+    paid_at: Optional[datetime] = None
+
+
+class AdminCompletePayoutIn(BaseModel):
+    payout_total: Optional[int] = None
+    admin_note: Optional[str] = None
+    send_email: bool = True
+    force_email: bool = False
 
 
 class AdminBuybackRequestUpdateIn(BaseModel):

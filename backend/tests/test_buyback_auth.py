@@ -14,7 +14,7 @@ def test_buyback_health():
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "ok"
-    assert body["phase"] == "6"
+    assert body["phase"] == "8"
 
 
 def test_buyback_products_empty(db):

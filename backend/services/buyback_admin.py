@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 import models_buyback
-from services.buyback_emails import STATUS_LABELS
+from services.buyback_compliance import get_compliance_status
+from services.buyback_emails import STATUS_LABELS, notify_buyback_payout_completed, payout_email_already_sent
+from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +291,88 @@ def identity_stats(db: Session) -> dict[str, int]:
             models_buyback.IdentityVerification.status
             == models_buyback.IdentityVerificationStatus.rejected.value
         ).count(),
+    }
+
+
+def complete_request_payout(
+    db: Session,
+    *,
+    request_id: int,
+    admin_user: models.User,
+    payout_total: Optional[int] = None,
+    admin_note: Optional[str] = None,
+    send_email: bool = True,
+    force_email: bool = False,
+) -> models_buyback.BuybackRequest:
+    request = get_admin_request(db, request_id)
+    if request.status != models_buyback.BuybackRequestStatus.payout_pending.value:
+        raise HTTPException(
+            status_code=400,
+            detail="振込準備中の申込のみ振込完了にできます",
+        )
+
+    amount = payout_total if payout_total is not None else request.payout_total
+    if amount is None or amount <= 0:
+        raise HTTPException(status_code=400, detail="振込金額を入力してください")
+
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="会員情報が見つかりません")
+
+    default_account = get_default_payout_account(db, request.user_id)
+    if not default_account:
+        raise HTTPException(status_code=400, detail="振込口座が未登録です。振込前に口座登録を確認してください")
+
+    updated = update_request_status(
+        db,
+        request_id=request_id,
+        admin_user=admin_user,
+        new_status=models_buyback.BuybackRequestStatus.paid.value,
+        admin_note=admin_note,
+        payout_total=amount,
+    )
+
+    email_ok = True
+    email_err: str | None = None
+    if send_email:
+        email_ok, email_err = notify_buyback_payout_completed(
+            db, updated, user, force=force_email
+        )
+        if not email_ok and email_err:
+            logger.warning(
+                "Payout completion email failed for request %s: %s",
+                request_id,
+                email_err,
+            )
+
+    _audit(
+        db,
+        actor_user_id=admin_user.id,
+        action="request_payout_completed",
+        entity_type="buyback_request",
+        entity_id=str(request_id),
+        details={
+            "request_number": updated.request_number,
+            "payout_total": amount,
+            "email_sent": send_email and email_ok,
+            "email_error": email_err,
+        },
+    )
+    db.commit()
+    return get_admin_request(db, request_id)
+
+
+def get_request_payout_context(db: Session, request: models_buyback.BuybackRequest) -> dict:
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    default_account = get_default_payout_account(db, request.user_id)
+    compliance = get_compliance_status(db, request.user_id)
+    return {
+        "payout_account": serialize_payout_account_for_admin(default_account)
+        if default_account
+        else None,
+        "ready_for_payout": compliance.get("ready_for_payout", False),
+        "payout_email_sent": payout_email_already_sent(db, request.id),
+        "paid_at": request.paid_at,
     }
 
 

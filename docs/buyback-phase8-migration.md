@@ -1,0 +1,56 @@
+# Buyback Phase 8 — Firestore product migration
+
+## Scope
+
+- Import buylist product data from Firestore export JSON into `buyback_products` + `buyback_product_prices`
+- Idempotent upsert keyed by `firestore_item_id`
+- Images: import when present in export; **never overwrite with empty** on update
+- Validation: compare export vs DB counts
+- Firestore remains the read fallback for the buylist site until cutover
+
+## Export format
+
+Create `buylist-export.json`:
+
+```json
+{
+  "items": [ ... contents of Firestore buylist/main.items ... ],
+  "images": { "123": "data:image/jpeg;base64,..." }
+}
+```
+
+### How to export
+
+1. Firebase Console → Firestore → `buylist/main` → copy `items` array into JSON file
+2. For each doc in `product-images`, add `"<productId>": dataUrl` to `images`
+3. Or use your existing edit/admin tooling to dump JSON locally
+
+**Do not delete Firestore data** — keep as rollback backup.
+
+## Import
+
+```bash
+cd backend
+python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json --dry-run
+python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json
+python ../scripts/migrate_firestore_buylist.py ../path/to/buylist-export.json --validate-only
+```
+
+Requires `DATABASE_URL` (Railway PostgreSQL or local SQLite).
+
+## API read path
+
+`GET /api/buyback/products` reads PostgreSQL only. After import, verify product count matches export.
+
+Buylist HTML site still reads Firestore directly until a separate cutover switches it to the API.
+
+## Tests
+
+```bash
+cd backend && pytest tests/test_buyback_firestore_import.py -q
+```
+
+## Rollback
+
+- Revert to Firestore as product source of truth (buylist site unchanged)
+- Optional: delete imported rows where `firestore_item_id IS NOT NULL` if no live requests reference them

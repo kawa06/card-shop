@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from auth import hash_password
@@ -10,15 +12,18 @@ import models_buyback
 from config import settings
 from services.buyback_admin import (
     approve_identity,
+    complete_request_payout,
     reject_identity,
     update_request_status,
 )
+from services.buyback_payout_accounts import create_payout_account
 from services.buyback_identity import submit_identity_verification, upload_identity_document
 
 
 @pytest.fixture(autouse=True)
 def buyback_dev_settings(monkeypatch):
     monkeypatch.setattr(settings, "DEBUG", True)
+    monkeypatch.setattr(settings, "BUYBACK_PAYOUT_ENCRYPTION_KEY", "test-key-for-buyback-payout-32b")
 
 
 def _admin(db) -> models.User:
@@ -130,3 +135,67 @@ def test_update_request_status(db):
     assert updated.admin_note == "着荷確認"
     assert len(updated.status_history) == 1
     assert updated.status_history[0].to_status == "received"
+
+
+def _payout_pending_request(db, customer: models.User) -> models_buyback.BuybackRequest:
+    create_payout_account(
+        db,
+        user_id=customer.id,
+        bank_name="テスト銀行",
+        branch_name="本店",
+        account_type="ordinary",
+        account_number="1234567",
+        account_holder="テスト タロウ",
+        set_default=True,
+    )
+    request = models_buyback.BuybackRequest(
+        user_id=customer.id,
+        request_number="KBB-20260720-0099",
+        status=models_buyback.BuybackRequestStatus.payout_pending.value,
+        estimated_total=5000,
+        assessed_total=4800,
+        payout_total=4800,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+    return request
+
+
+@patch("services.buyback_admin.notify_buyback_payout_completed", return_value=(True, None))
+def test_complete_request_payout(mock_notify, db):
+    admin = _admin(db)
+    customer = _customer(db)
+    request = _payout_pending_request(db, customer)
+
+    updated = complete_request_payout(
+        db,
+        request_id=request.id,
+        admin_user=admin,
+        send_email=True,
+    )
+    assert updated.status == models_buyback.BuybackRequestStatus.paid.value
+    assert updated.payout_total == 4800
+    assert updated.paid_at is not None
+    mock_notify.assert_called_once()
+
+
+def test_complete_request_payout_requires_account(db):
+    admin = _admin(db)
+    customer = _customer(db)
+    request = models_buyback.BuybackRequest(
+        user_id=customer.id,
+        request_number="KBB-20260720-0100",
+        status=models_buyback.BuybackRequestStatus.payout_pending.value,
+        payout_total=1000,
+    )
+    db.add(request)
+    db.commit()
+    db.refresh(request)
+
+    with pytest.raises(Exception):
+        complete_request_payout(
+            db,
+            request_id=request.id,
+            admin_user=admin,
+        )

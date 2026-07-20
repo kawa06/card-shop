@@ -516,4 +516,17 @@ export const adminBuybackApi = {
       payout_total?: number
     }
   ) => apiClient.patch<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`, data),
+  completePayout: (
+    id: number,
+    data: {
+      payout_total?: number
+      admin_note?: string
+      send_email?: boolean
+      force_email?: boolean
+    }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/complete-payout`,
+      data
+    ),
 }
