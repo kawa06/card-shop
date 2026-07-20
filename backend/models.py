@@ -410,3 +410,4 @@ class ShippingRate(Base):
 
 
 import models_buyback  # noqa: F401, E402 — register buyback tables with Base.metadata
+import models_admin  # noqa: F401, E402 — register admin security tables with Base.metadata

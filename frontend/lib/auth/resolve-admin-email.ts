@@ -1,6 +1,18 @@
 import type { NextRequest } from 'next/server'
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
-import { isAdminEmail } from '@/lib/auth/admin'
+import type { AdminSession } from '@/lib/types'
+
+function getBackendUrl() {
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.API_URL ||
+    'https://backend-production-054e.up.railway.app'
+  ).replace(/\/$/, '')
+}
+
+function getInternalSecret() {
+  return process.env.ADMIN_PROXY_SECRET || 'card-shop-internal-admin-v1'
+}
 
 function emailFromSessionClaims(
   sessionClaims: Record<string, unknown> | null | undefined
@@ -36,43 +48,14 @@ async function emailFromClerkUserId(userId: string): Promise<string | null> {
   }
 }
 
-async function emailFromBearerToken(request: NextRequest): Promise<string | null> {
-  const header = request.headers.get('authorization')
-  if (!header?.startsWith('Bearer ')) return null
-
-  const token = header.slice('Bearer '.length).trim()
-  if (!token) return null
-
-  const secretKey = process.env.CLERK_SECRET_KEY
-  if (!secretKey) return null
-
-  try {
-    const { verifyToken } = await import('@clerk/backend')
-    const payload = await verifyToken(token, { secretKey })
-
-    const claimEmail = emailFromSessionClaims(payload as Record<string, unknown>)
-    if (claimEmail) return claimEmail
-
-    const userId = typeof payload.sub === 'string' ? payload.sub : null
-    if (!userId) return null
-
-    return emailFromClerkUserId(userId)
-  } catch {
-    return null
-  }
-}
-
-/** Resolve the signed-in Clerk user's email when it matches ADMIN_EMAIL. */
-export async function resolveAdminEmail(request?: NextRequest): Promise<string | null> {
+async function resolveClerkEmail(request?: NextRequest): Promise<string | null> {
   const authState = await auth()
 
   if (authState.userId) {
     const claimEmail = emailFromSessionClaims(
       authState.sessionClaims as Record<string, unknown> | undefined
     )
-    if (claimEmail && isAdminEmail(claimEmail)) {
-      return claimEmail
-    }
+    if (claimEmail) return claimEmail
 
     try {
       const clerkUser = await currentUser()
@@ -83,22 +66,77 @@ export async function resolveAdminEmail(request?: NextRequest): Promise<string |
         ''
       ).trim()
 
-      if (isAdminEmail(email)) return email.toLowerCase()
+      if (email) return email.toLowerCase()
 
       const fallbackEmail = await emailFromClerkUserId(authState.userId)
-      if (fallbackEmail && isAdminEmail(fallbackEmail)) return fallbackEmail
+      if (fallbackEmail) return fallbackEmail
     } catch {
       const fallbackEmail = await emailFromClerkUserId(authState.userId)
-      if (fallbackEmail && isAdminEmail(fallbackEmail)) return fallbackEmail
+      if (fallbackEmail) return fallbackEmail
     }
   }
 
   if (request) {
-    const bearerEmail = await emailFromBearerToken(request)
-    if (bearerEmail && isAdminEmail(bearerEmail)) {
-      return bearerEmail
+    const header = request.headers.get('authorization')
+    if (header?.startsWith('Bearer ')) {
+      const token = header.slice('Bearer '.length).trim()
+      const secretKey = process.env.CLERK_SECRET_KEY
+      if (token && secretKey) {
+        try {
+          const { verifyToken } = await import('@clerk/backend')
+          const payload = await verifyToken(token, { secretKey })
+          const claimEmail = emailFromSessionClaims(payload as Record<string, unknown>)
+          if (claimEmail) return claimEmail
+          const userId = typeof payload.sub === 'string' ? payload.sub : null
+          if (userId) return emailFromClerkUserId(userId)
+        } catch {
+          /* ignore */
+        }
+      }
     }
   }
 
   return null
+}
+
+/** Resolve admin access via backend RBAC (server-side; not email-only). */
+export async function resolveAdminAccess(
+  request?: NextRequest
+): Promise<{ email: string; session: AdminSession } | null> {
+  const email = await resolveClerkEmail(request)
+  if (!email) return null
+
+  const secret = getInternalSecret()
+  if (!secret) return null
+
+  const authState = await auth()
+  const headers: Record<string, string> = {
+    'X-Internal-Admin-Secret': secret,
+    'X-Admin-Email': email,
+  }
+
+  const incomingAuth = request?.headers.get('authorization')
+  const clerkToken =
+    incomingAuth?.startsWith('Bearer ') ? incomingAuth.slice('Bearer '.length).trim() : null
+  const token = clerkToken || (await authState.getToken())
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const res = await fetch(`${getBackendUrl()}/api/admin/security/me`, {
+    headers,
+    cache: 'no-store',
+  })
+
+  if (!res.ok) return null
+  const session = (await res.json()) as AdminSession
+  if (!session.is_admin) return null
+
+  return { email, session }
+}
+
+/** @deprecated Use resolveAdminAccess — kept for imports during transition. */
+export async function resolveAdminEmail(request?: NextRequest): Promise<string | null> {
+  const access = await resolveAdminAccess(request)
+  return access?.email ?? null
 }

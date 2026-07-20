@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { resolveAdminEmail } from '@/lib/auth/resolve-admin-email'
+import { resolveAdminAccess } from '@/lib/auth/resolve-admin-email'
 
 function getBackendUrl() {
   return (
@@ -19,9 +19,9 @@ function getInternalSecret() {
 
 async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   const authState = await auth()
-  const email = await resolveAdminEmail(request)
+  const access = await resolveAdminAccess(request)
 
-  if (!email) {
+  if (!access) {
     if (!authState.userId) {
       return NextResponse.json(
         { detail: 'ログインセッションが見つかりません' },
@@ -30,6 +30,8 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
     }
     return NextResponse.json({ detail: '管理者権限が必要です' }, { status: 403 })
   }
+
+  const email = access.email
 
   const secret = getInternalSecret()
   if (!secret) {

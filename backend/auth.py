@@ -97,11 +97,27 @@ def get_current_user_optional(
 
 
 def get_current_admin(
+    request: Request,
     current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> models.User:
-    if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="管理者権限が必要です",
-        )
+    from services.admin_auth import AdminAccessError, resolve_admin_context
+
+    try:
+        resolve_admin_context(db, current_user, request=request, log_failure=True)
+    except AdminAccessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return current_user
+
+
+def get_current_admin_context(
+    request: Request,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from services.admin_auth import AdminAccessError, resolve_admin_context
+
+    try:
+        return resolve_admin_context(db, current_user, request=request, log_failure=True)
+    except AdminAccessError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc

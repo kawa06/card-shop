@@ -6,13 +6,13 @@ import os
 import secrets
 from typing import Optional
 
-import bcrypt
 from fastapi import Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from admin_emails import ensure_admin, is_admin_email, normalize_email
+from admin_emails import ensure_admin, normalize_email
 import models
+import models_admin
 
 # Must match frontend/app/api/admin/[...path]/route.ts (do not fall back to AUTH_SYNC_SECRET).
 INTERNAL_ADMIN_SECRET = (
@@ -32,24 +32,17 @@ def authenticate_internal_admin(request: Request, db: Session) -> Optional[model
         return None
 
     email = normalize_email(email_raw)
-    if not is_admin_email(email):
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+    if user is None:
         return None
 
-    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
-    if user:
-        return ensure_admin(user, db)
-
-    local_part = email.split("@")[0]
-    user = models.User(
-        email=email,
-        name=local_part,
-        password_hash=bcrypt.hashpw(
-            secrets.token_urlsafe(32).encode("utf-8"), bcrypt.gensalt()
-        ).decode("utf-8"),
-        is_admin=True,
-        is_verified=True,
+    admin_user = (
+        db.query(models_admin.AdminUser)
+        .filter(models_admin.AdminUser.user_id == user.id)
+        .first()
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    if admin_user is None:
+        return None
+
+    user = ensure_admin(user, db)
     return user

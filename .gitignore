@@ -13,3 +13,4 @@ backend/data/
 data/buylist-export.json
 
 .vercel
+backups/

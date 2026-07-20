@@ -456,3 +456,86 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   paid_at: string | null
   rejection_reason_options?: AdminBuybackRejectionReasonOption[]
 }
+
+export interface AdminRole {
+  id: number
+  code: string
+  name: string
+  description?: string | null
+  is_system: boolean
+}
+
+export interface AdminPermission {
+  id: number
+  code: string
+  name: string
+  description?: string | null
+  category?: string | null
+}
+
+export interface AdminUserSummary {
+  id: number
+  user_id: number
+  email: string
+  name: string
+  display_name?: string | null
+  role: AdminRole
+  is_active: boolean
+  failed_login_count: number
+  locked_until?: string | null
+  last_login_at?: string | null
+  created_at: string
+  deactivated_at?: string | null
+}
+
+export interface AdminUserDetail extends AdminUserSummary {
+  permissions: string[]
+  last_login_ip?: string | null
+}
+
+export interface AdminAuditLog {
+  id: number
+  admin_user_id?: number | null
+  actor_email?: string | null
+  action: string
+  resource_type?: string | null
+  resource_id?: string | null
+  before_data?: string | null
+  after_data?: string | null
+  reason?: string | null
+  result: string
+  ip_address?: string | null
+  user_agent?: string | null
+  created_at: string
+}
+
+export interface AdminSession {
+  is_admin: boolean
+  admin_user_id?: number | null
+  role_code?: string | null
+  permissions: string[]
+  email?: string | null
+  reauth_valid: boolean
+}
+
+export interface PaginatedAdminUsers {
+  items: AdminUserSummary[]
+  total: number
+  page: number
+  per_page: number
+  pages: number
+}
+
+export interface PaginatedAuditLogs {
+  items: AdminAuditLog[]
+  total: number
+  page: number
+  per_page: number
+  pages: number
+}
+
+export interface AdminPermissionsMatrix {
+  roles: AdminRole[]
+  permissions: AdminPermission[]
+  role_permissions: Record<string, string[]>
+}

@@ -6,15 +6,19 @@ from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from auth import create_access_token
+from auth import create_access_token, hash_password
 from config import settings
 from database import Base, get_db
 import models  # noqa: F401 — register models on Base.metadata
 import models_buyback  # noqa: F401 — register buyback tables
+import models_admin  # noqa: F401 — register admin security tables
+from admin_emails import ADMIN_EMAILS, normalize_email
+from services.admin_auth import bootstrap_admin_user
+from services.admin_seed import seed_admin_rbac
 
 
 @pytest.fixture
@@ -38,6 +42,25 @@ def db():
 def buyback_test_settings(monkeypatch):
     monkeypatch.setattr(settings, "DEBUG", True)
     monkeypatch.setattr(settings, "BUYBACK_PAYOUT_ENCRYPTION_KEY", "test-key-for-buyback-payout-32b")
+
+
+@pytest.fixture(autouse=True)
+def seed_admin_rbac_data(db):
+    for email in ADMIN_EMAILS:
+        norm = normalize_email(email)
+        user = db.query(models.User).filter(func.lower(models.User.email) == norm).first()
+        if user is None:
+            db.add(
+                models.User(
+                    email=norm,
+                    name="Owner Admin",
+                    password_hash=hash_password("owner-test-password"),
+                    is_admin=True,
+                    is_verified=True,
+                )
+            )
+    db.commit()
+    seed_admin_rbac(db)
 
 
 @pytest.fixture
@@ -67,6 +90,31 @@ def admin_headers(email: str = "rikukai0609@icloud.com") -> dict[str, str]:
         "X-Internal-Admin-Secret": "card-shop-internal-admin-v1",
         "X-Admin-Email": email,
     }
+
+
+def create_admin_user(
+    db,
+    *,
+    email: str = "admin@test.com",
+    name: str = "Admin User",
+    role_code: str = "admin",
+    is_active: bool = True,
+) -> models.User:
+    user = models.User(
+        email=email,
+        name=name,
+        password_hash=hash_password("admin-test-password"),
+        is_admin=True,
+        is_verified=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    admin_user = bootstrap_admin_user(db, user, role_code=role_code)
+    admin_user.is_active = is_active
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @pytest.fixture

@@ -554,3 +554,33 @@ export const adminBuybackApi = {
       data
     ),
 }
+
+export const adminSecurityApi = {
+  getSession: () => apiClient.get<import('./types').AdminSession>('/admin/security/me'),
+  sessionLogin: () => apiClient.post<import('./types').AdminSession>('/admin/security/session/login'),
+  sessionLogout: () => apiClient.post('/admin/security/session/logout'),
+  reportLoginFailed: (reason?: string) =>
+    apiClient.post('/admin/security/session/login-failed', { success: false, reason }),
+  reauth: () => apiClient.post<import('./types').AdminSession>('/admin/security/reauth', { confirmed: true }),
+  listAdmins: (params?: { page?: number; per_page?: number; q?: string }) =>
+    apiClient.get<import('./types').PaginatedAdminUsers>('/admin/security/admins', { params }),
+  getAdmin: (id: number) =>
+    apiClient.get<import('./types').AdminUserDetail>(`/admin/security/admins/${id}`),
+  createAdmin: (data: {
+    email: string
+    name: string
+    role_code: string
+    display_name?: string
+  }) => apiClient.post<import('./types').AdminUserDetail>('/admin/security/admins', data),
+  updateAdmin: (
+    id: number,
+    data: { role_code?: string; display_name?: string; is_active?: boolean; reason?: string }
+  ) => apiClient.patch<import('./types').AdminUserDetail>(`/admin/security/admins/${id}`, data),
+  listRoles: () => apiClient.get<import('./types').AdminRole[]>('/admin/security/roles'),
+  getPermissionsMatrix: () =>
+    apiClient.get<import('./types').AdminPermissionsMatrix>('/admin/security/permissions/matrix'),
+  listAuditLogs: (params?: { page?: number; per_page?: number; action?: string }) =>
+    apiClient.get<import('./types').PaginatedAuditLogs>('/admin/security/audit-logs', { params }),
+  getAuditLog: (id: number) =>
+    apiClient.get<import('./types').AdminAuditLog>(`/admin/security/audit-logs/${id}`),
+}

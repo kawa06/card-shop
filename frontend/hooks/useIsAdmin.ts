@@ -1,8 +1,13 @@
 'use client'
 
 import { useUser } from '@clerk/nextjs'
-import { useAuthStore } from '@/store/auth'
-import { isAdminEmail } from '@/lib/auth/admin'
+import { useAdminSessionStore } from '@/hooks/useAdminPermissions'
+
+/** Server-validated admin session (not client-writable email checks). */
+export function useIsAdmin(): boolean {
+  const session = useAdminSessionStore((s) => s.session)
+  return !!session?.is_admin
+}
 
 export function useClerkEmail(): string | null {
   const { user: clerkUser } = useUser()
@@ -12,11 +17,4 @@ export function useClerkEmail(): string | null {
     clerkUser.emailAddresses[0]?.emailAddress ||
     null
   )
-}
-
-/** Clerk メールまたはバックエンド user.is_admin のどちらかで管理者判定 */
-export function useIsAdmin(): boolean {
-  const clerkEmail = useClerkEmail()
-  const { user } = useAuthStore()
-  return !!(user?.is_admin || isAdminEmail(clerkEmail))
 }

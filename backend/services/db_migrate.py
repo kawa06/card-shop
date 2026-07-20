@@ -36,6 +36,39 @@ def run_schema_upgrades() -> None:
     _migrate_shop_settings()
     _migrate_inquiry_tables()
     _migrate_buyback_schema()
+    _migrate_admin_security_schema()
+
+
+def _migrate_admin_security_schema() -> None:
+    """Admin RBAC tables, seed data, and PostgreSQL RLS policies."""
+    import models_admin  # noqa: F401
+    from services.admin_rls import apply_admin_rls_policies
+    from services.admin_seed import seed_admin_rbac
+
+    admin_tables = [
+        ("admin_roles", models_admin.AdminRole),
+        ("admin_permissions", models_admin.AdminPermission),
+        ("admin_role_permissions", models_admin.AdminRolePermission),
+        ("admin_users", models_admin.AdminUser),
+        ("admin_audit_logs", models_admin.AdminAuditLog),
+    ]
+    for table_name, model in admin_tables:
+        _create_table_if_missing(table_name, model)
+
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_admin_rbac(db)
+        except Exception as exc:
+            db.rollback()
+            logger.error("admin RBAC seed failed: %s", exc)
+
+    try:
+        apply_admin_rls_policies()
+    except Exception as exc:
+        logger.error("admin RLS apply failed: %s", exc)
 
 
 def _migrate_buyback_schema() -> None:

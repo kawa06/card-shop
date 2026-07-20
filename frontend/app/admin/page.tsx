@@ -16,6 +16,8 @@ import {
   Settings,
   MessageSquare,
   Banknote,
+  Shield,
+  Lock,
   UserCheck,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -104,6 +106,7 @@ export default function AdminPage() {
     { href: '/admin/click-post', icon: FileSpreadsheet, label: 'クリックポストCSV', count: stats.orders, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
     { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
     { href: '/admin/users', icon: Users, label: t('ユーザー管理', lang), count: stats.users, color: 'text-pink-400', bg: 'bg-pink-400/10 border-pink-400/20' },
+    { href: '/admin/security/admins', icon: Lock, label: '管理者・セキュリティ', count: 0, color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' },
     { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
     { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },
   ]
