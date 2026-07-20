@@ -413,6 +413,17 @@ def _migrate_cards_image_url_to_text() -> None:
             logger.error("SQLite image_url check failed: %s", exc)
 
 
+def _pg_column_type(col_type: str) -> str:
+    """Map SQLite-oriented DDL fragments to PostgreSQL-safe types."""
+    mapped = col_type
+    # BOOLEAN DEFAULT 0/1 is invalid on Postgres; use TRUE/FALSE.
+    mapped = mapped.replace("BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE")
+    mapped = mapped.replace("BOOLEAN DEFAULT 1", "BOOLEAN DEFAULT TRUE")
+    # DATETIME is SQLite/MySQL; Postgres wants TIMESTAMP.
+    mapped = mapped.replace("DATETIME", "TIMESTAMP")
+    return mapped
+
+
 def _add_column_if_missing(table: str, column: str, col_type: str) -> None:
     inspector = inspect(engine)
     if table not in inspector.get_table_names():
@@ -421,14 +432,12 @@ def _add_column_if_missing(table: str, column: str, col_type: str) -> None:
     if column in columns:
         return
     url = settings.DATABASE_URL
+    ddl_type = col_type
+    if url.startswith("postgresql") or url.startswith("postgres"):
+        ddl_type = _pg_column_type(col_type)
     try:
         with engine.connect() as conn:
-            if url.startswith("postgresql") or url.startswith("postgres"):
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-            elif url.startswith("sqlite"):
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
-            else:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"))
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
             conn.commit()
         logger.info("Added column %s.%s", table, column)
     except Exception as exc:
