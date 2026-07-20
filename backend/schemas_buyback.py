@@ -10,8 +10,9 @@ from pydantic import BaseModel
 
 class BuybackHealthOut(BaseModel):
     status: str
-    phase: str = "9"
-    products_source: str = "postgresql+firestore_stub"
+    phase: str = "10"
+    products_source: str = "postgresql"
+    cutover_complete: bool = False
 
 
 class BuybackUserOut(BaseModel):

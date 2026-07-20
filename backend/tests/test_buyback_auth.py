@@ -8,8 +8,9 @@ def test_buyback_health(api_client):
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "ok"
-    assert body["phase"] == "9"
+    assert body["phase"] == "10"
     assert body["products_source"] == "postgresql+firestore_fallback"
+    assert body["cutover_complete"] is False
 
 
 def test_buyback_products_empty(api_client):

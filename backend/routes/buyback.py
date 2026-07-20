@@ -128,8 +128,13 @@ def buyback_health(db: Session = Depends(get_db)):
         .filter(models_buyback.BuybackProduct.firestore_item_id.isnot(None))
         .count()
     )
-    products_source = "postgresql" if migrated_count else "postgresql+firestore_fallback"
-    return schemas_buyback.BuybackHealthOut(status="ok", products_source=products_source)
+    cutover_complete = migrated_count > 0
+    products_source = "postgresql" if cutover_complete else "postgresql+firestore_fallback"
+    return schemas_buyback.BuybackHealthOut(
+        status="ok",
+        products_source=products_source,
+        cutover_complete=cutover_complete,
+    )
 
 
 @router.post("/auth/sync", response_model=schemas_buyback.BuybackSyncResponse)

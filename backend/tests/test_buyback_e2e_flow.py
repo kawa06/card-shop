@@ -69,7 +69,7 @@ def test_buyback_full_api_flow(mock_payout_email, mock_request_email, api_client
 
     health = api_client.get("/api/buyback/health")
     assert health.status_code == 200
-    assert health.json()["phase"] == "9"
+    assert health.json()["phase"] == "10"
     assert health.json()["products_source"] == "postgresql"
 
     products = api_client.get("/api/buyback/products")

@@ -16,8 +16,9 @@ def test_buyback_health(http_client, backend_url):
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "ok"
-    assert body["phase"] == "9"
+    assert body["phase"] == "10"
     assert body["products_source"] == "postgresql"
+    assert body["cutover_complete"] is True
 
 
 def test_buyback_products_migrated(http_client, backend_url):

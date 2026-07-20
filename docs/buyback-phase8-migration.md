@@ -6,7 +6,7 @@
 - Idempotent upsert keyed by `firestore_item_id`
 - Images: import when present in export; **never overwrite with empty** on update
 - Validation: compare export vs DB counts
-- Firestore remains the read fallback for the buylist site until cutover
+- Firestore remains the read fallback for the buylist site until cutover — **Phase 10 complete** (see `buyback-phase10-cutover.md`)
 
 ## Export format
 
@@ -52,7 +52,7 @@ Requires `DATABASE_URL` (Railway PostgreSQL or local SQLite).
 
 `GET /api/buyback/products` reads PostgreSQL only. After import, verify product count matches export.
 
-Buylist HTML site still reads Firestore directly until a separate cutover switches it to the API.
+Buylist HTML site reads PostgreSQL via API only after Phase 10 cutover (`productsSource: "postgresql"` in buylist config).
 
 ## Tests
 
