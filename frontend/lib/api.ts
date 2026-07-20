@@ -555,6 +555,99 @@ export const adminBuybackApi = {
     ),
 }
 
+export const adminBuybackLogisticsApi = {
+  scan: (data: { code: string; device_info?: string }) =>
+    apiClient.post<import('./types').AdminBuybackScanResult>('/admin/buyback/scan', data),
+  receive: (data: {
+    inbound_shipment_id: number
+    scanned_code?: string
+    box_count?: number
+    actual_item_count?: number
+    condition_note?: string
+    admin_note?: string
+    device_info?: string
+  }) =>
+    apiClient.post<import('./types').AdminBuybackScanResult>('/admin/buyback/inbound/receive', data),
+  listPackages: (requestId: number) =>
+    apiClient.get<import('./types').AdminBuybackPackage[]>(
+      `/admin/buyback/requests/${requestId}/packages`
+    ),
+  issuePackages: (
+    requestId: number,
+    data: {
+      total_boxes?: number
+      package_kind?: string
+      shipping_method?: string
+      preferred_ship_date?: string
+      preferred_time_slot?: string
+      return_reference?: string
+      admin_note?: string
+      request_item_ids?: number[]
+      replace_existing?: boolean
+    }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackPackage[]>(
+      `/admin/buyback/requests/${requestId}/packages`,
+      data
+    ),
+  completePackage: (
+    packageId: number,
+    data?: { tracking_number?: string; admin_note?: string }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackPackage>(
+      `/admin/buyback/packages/${packageId}/complete`,
+      data || {}
+    ),
+  getPackageLabel: (packageId: number) =>
+    apiClient.get<import('./types').AdminBuybackPackageLabel>(
+      `/admin/buyback/packages/${packageId}/label`
+    ),
+  printPackageLabel: (
+    packageId: number,
+    data?: { is_reprint?: boolean; device_info?: string }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackPackageLabel>(
+      `/admin/buyback/packages/${packageId}/label/print`,
+      data || {}
+    ),
+  shipScan: (data: { code: string; device_info?: string }) =>
+    apiClient.post<import('./types').AdminBuybackShipVerifyResult>(
+      '/admin/buyback/ship/scan',
+      data
+    ),
+  shipConfirm: (data: {
+    package_id: number
+    checklist: Record<string, boolean>
+    scanned_code?: string
+    tracking_number?: string
+    shipping_method?: string
+    device_info?: string
+  }) =>
+    apiClient.post<import('./types').AdminBuybackShipVerifyResult>(
+      '/admin/buyback/ship/confirm',
+      data
+    ),
+  getLabelLayout: () =>
+    apiClient.get<import('./types').AdminBuybackLabelLayout>('/admin/buyback/labels/layout'),
+  exportLabelCsv: (data: { package_ids: number[]; include_applicant_name?: boolean }) =>
+    apiClient.post<Blob>('/admin/buyback/labels/csv', data, { responseType: 'blob' }),
+  getLabelSheet: (data: {
+    package_ids: number[]
+    start_position?: number
+    copies?: number
+    include_applicant_name?: boolean
+  }) =>
+    apiClient.post<import('./types').AdminBuybackLabelSheet>('/admin/buyback/labels/sheet', data),
+  listLogisticsLogs: (params?: {
+    log_type?: string
+    request_id?: number
+    package_id?: number
+    page?: number
+    per_page?: number
+  }) =>
+    apiClient.get<import('./types').AdminBuybackLogisticsLogs>('/admin/buyback/logs', { params }),
+}
+
 export const adminSecurityApi = {
   getSession: () => apiClient.get<import('./types').AdminSession>('/admin/security/me'),
   sessionLogin: () => apiClient.post<import('./types').AdminSession>('/admin/security/session/login'),

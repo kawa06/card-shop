@@ -36,6 +36,7 @@ def run_schema_upgrades() -> None:
     _migrate_shop_settings()
     _migrate_inquiry_tables()
     _migrate_buyback_schema()
+    _migrate_buyback_logistics_schema()
     _migrate_admin_security_schema()
 
 
@@ -123,6 +124,72 @@ def _migrate_buyback_request_columns() -> None:
     ]
     for col, col_type in item_cols:
         _add_column_if_missing("buyback_request_items", col, col_type)
+
+
+def _migrate_buyback_logistics_schema() -> None:
+    """Additive buyback logistics tables and columns (barcode / inbound / packages)."""
+    import models_buyback  # noqa: F401
+
+    _add_column_if_missing("users", "public_member_id", "VARCHAR(32)")
+    _create_unique_index_if_missing("users", "ix_users_public_member_id", "public_member_id")
+
+    request_logistics_cols = [
+        ("public_buyback_code", "VARCHAR(32)"),
+        ("inbound_mgmt_id", "VARCHAR(32)"),
+        ("application_form_issued_at", "DATETIME"),
+        ("customer_planned_ship_date", "DATE"),
+        ("customer_shipped_at", "DATETIME"),
+        ("logistics_note", "TEXT"),
+        ("received_by_user_id", "INTEGER"),
+        ("received_at", "DATETIME"),
+    ]
+    for col, col_type in request_logistics_cols:
+        _add_column_if_missing("buyback_requests", col, col_type)
+
+    _create_unique_index_if_missing(
+        "buyback_requests", "ix_buyback_requests_public_buyback_code", "public_buyback_code"
+    )
+    _create_unique_index_if_missing(
+        "buyback_requests", "ix_buyback_requests_inbound_mgmt_id", "inbound_mgmt_id"
+    )
+
+    status_history_cols = [
+        ("related_barcode_id", "INTEGER"),
+        ("device_info", "VARCHAR(255)"),
+        ("change_reason", "TEXT"),
+    ]
+    for col, col_type in status_history_cols:
+        _add_column_if_missing("buyback_status_history", col, col_type)
+
+    logistics_tables = [
+        ("buyback_number_sequences", models_buyback.BuybackNumberSequence),
+        ("buyback_barcodes", models_buyback.BuybackBarcode),
+        ("buyback_inbound_shipments", models_buyback.BuybackInboundShipment),
+        ("buyback_package_receipts", models_buyback.BuybackPackageReceipt),
+        ("buyback_shipment_packages", models_buyback.BuybackShipmentPackage),
+        ("buyback_package_items", models_buyback.BuybackPackageItem),
+        ("buyback_shipment_confirmations", models_buyback.BuybackShipmentConfirmation),
+        ("buyback_shipment_address_snapshots", models_buyback.BuybackShipmentAddressSnapshot),
+        ("buyback_package_scan_logs", models_buyback.BuybackPackageScanLog),
+        ("buyback_package_print_logs", models_buyback.BuybackPackagePrintLog),
+    ]
+    for table_name, model in logistics_tables:
+        _create_table_if_missing(table_name, model)
+
+    _create_unique_index_if_missing(
+        "buyback_barcodes", "ix_buyback_barcodes_scan_token", "scan_token"
+    )
+    _create_unique_index_if_missing(
+        "buyback_inbound_shipments", "ix_buyback_inbound_shipments_request_id", "request_id"
+    )
+    _create_unique_index_if_missing(
+        "buyback_inbound_shipments",
+        "ix_buyback_inbound_shipments_inbound_mgmt_id",
+        "inbound_mgmt_id",
+    )
+    _create_unique_index_if_missing(
+        "buyback_shipment_packages", "ix_buyback_shipment_packages_package_code", "package_code"
+    )
 
 
 def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:

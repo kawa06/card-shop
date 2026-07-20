@@ -41,6 +41,8 @@ from services.buyback_payout_accounts import (
     list_payout_accounts_masked,
     set_default_payout_account,
 )
+from services.buyback_application_form import build_application_form
+from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_requests import get_user_request, list_user_requests, submit_request_from_cart
 from services.user_linking import LinkResult, resolve_clerk_user
 import models
@@ -48,6 +50,36 @@ import models_buyback
 import schemas_buyback
 
 router = APIRouter(prefix="/api/buyback", tags=["buyback"])
+
+INBOUND_STATUS_LABELS = {
+    "awaiting_shipment": "発送待ち",
+    "customer_shipped": "客から発送済み",
+    "arrived": "荷物到着",
+    "received": "受付済み",
+}
+
+
+def _load_inbound_for_request(
+    db: Session, request_id: int
+) -> models_buyback.BuybackInboundShipment | None:
+    return (
+        db.query(models_buyback.BuybackInboundShipment)
+        .filter(models_buyback.BuybackInboundShipment.request_id == request_id)
+        .first()
+    )
+
+
+def _application_scan_token(db: Session, request_id: int) -> str | None:
+    inbound = _load_inbound_for_request(db, request_id)
+    if not inbound:
+        return None
+    barcode = get_active_barcode_for_entity(
+        db,
+        entity_type=models_buyback.BuybackBarcodeEntityType.inbound_shipment.value,
+        entity_id=inbound.id,
+        barcode_type=models_buyback.BuybackBarcodeType.application_inbound.value,
+    )
+    return barcode.scan_token if barcode else None
 
 
 def _require_clerk_bearer(request: Request) -> str:
@@ -283,6 +315,8 @@ def _serialize_request_summary(
     return schemas_buyback.BuybackRequestSummaryOut(
         id=request.id,
         request_number=request.request_number,
+        public_buyback_code=request.public_buyback_code,
+        inbound_mgmt_id=request.inbound_mgmt_id,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
         estimated_total=request.estimated_total,
@@ -293,23 +327,38 @@ def _serialize_request_summary(
 
 
 def _serialize_request_detail(
+    db: Session,
     request: models_buyback.BuybackRequest,
+    *,
+    user: models.User | None = None,
 ) -> schemas_buyback.BuybackRequestDetailOut:
     handling = request.rejected_item_handling
+    inbound = _load_inbound_for_request(db, request.id)
+    inbound_status = inbound.status if inbound else None
     return schemas_buyback.BuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
+        public_buyback_code=request.public_buyback_code,
+        inbound_mgmt_id=request.inbound_mgmt_id,
+        public_member_id=user.public_member_id if user else None,
+        application_scan_token=_application_scan_token(db, request.id),
+        inbound_status=inbound_status,
+        inbound_status_label=INBOUND_STATUS_LABELS.get(inbound_status, inbound_status)
+        if inbound_status
+        else None,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
         shipping_method=request.shipping_method,
         tracking_number=request.tracking_number,
         customer_note=request.customer_note,
+        customer_planned_ship_date=request.customer_planned_ship_date,
         estimated_total=request.estimated_total,
         assessed_total=request.assessed_total,
         payout_total=request.payout_total,
         rejected_item_handling=handling,
         rejected_item_handling_label=rejected_item_handling_label(handling),
         submitted_at=request.submitted_at,
+        application_form_issued_at=request.application_form_issued_at,
         assessed_at=request.assessed_at,
         created_at=request.created_at,
         items=[serialize_request_item(item) for item in request.items],
@@ -331,12 +380,13 @@ def create_buyback_request(
         user=current_user,
         customer_note=payload.customer_note,
         shipping_method=payload.shipping_method,
+        customer_planned_ship_date=payload.customer_planned_ship_date,
         rejected_item_handling=payload.rejected_item_handling,
         agreed_prepaid_shipping=payload.agreed_prepaid_shipping,
         agreed_cod_consequence=payload.agreed_cod_consequence,
         agreed_condition_rejection=payload.agreed_condition_rejection,
     )
-    return _serialize_request_detail(request)
+    return _serialize_request_detail(db, request, user=current_user)
 
 
 @router.get("/requests", response_model=list[schemas_buyback.BuybackRequestSummaryOut])
@@ -355,7 +405,47 @@ def get_buyback_request(
     db: Session = Depends(get_db),
 ):
     request = get_user_request(db, user_id=current_user.id, request_id=request_id)
-    return _serialize_request_detail(request)
+    return _serialize_request_detail(db, request, user=current_user)
+
+
+@router.get(
+    "/requests/{request_id}/application-form",
+    response_model=schemas_buyback.BuybackApplicationFormOut,
+)
+def get_buyback_application_form(
+    request_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    payload = build_application_form(
+        db,
+        user=current_user,
+        request_id=request_id,
+        mark_issued=False,
+    )
+    return schemas_buyback.BuybackApplicationFormOut(**payload)
+
+
+@router.post(
+    "/requests/{request_id}/application-form/issue",
+    response_model=schemas_buyback.BuybackApplicationFormOut,
+)
+def issue_buyback_application_form(
+    request_id: int,
+    payload: schemas_buyback.BuybackApplicationFormIssueIn | None = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    body = payload or schemas_buyback.BuybackApplicationFormIssueIn()
+    data = build_application_form(
+        db,
+        user=current_user,
+        request_id=request_id,
+        mark_issued=True,
+        print_type=body.print_type or "application_a4",
+        device_info=body.device_info,
+    )
+    return schemas_buyback.BuybackApplicationFormOut(**data)
 
 
 def _serialize_identity(row: models_buyback.IdentityVerification) -> schemas_buyback.IdentityVerificationOut:

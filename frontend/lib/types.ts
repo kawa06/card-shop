@@ -539,3 +539,253 @@ export interface AdminPermissionsMatrix {
   permissions: AdminPermission[]
   role_permissions: Record<string, string[]>
 }
+
+export interface AdminBuybackScanItem {
+  id: number
+  product_name: string
+  condition_code: string
+  quantity: number
+}
+
+export interface AdminBuybackScanHistory {
+  id: number
+  from_status: string | null
+  from_status_label: string | null
+  to_status: string
+  to_status_label: string
+  note: string | null
+  created_at: string | null
+}
+
+export interface AdminBuybackReceipt {
+  id: number
+  received_at: string
+  received_by_name: string | null
+  box_count: number | null
+  actual_item_count: number | null
+  condition_note: string | null
+  admin_note: string | null
+  device_info: string | null
+}
+
+export interface AdminBuybackScanResult {
+  found: boolean
+  message?: string | null
+  request_id?: number | null
+  inbound_shipment_id?: number | null
+  barcode_id?: number | null
+  scan_token?: string | null
+  request_number?: string | null
+  public_buyback_code?: string | null
+  inbound_mgmt_id?: string | null
+  applicant_name?: string | null
+  public_member_id?: string | null
+  submitted_at?: string | null
+  request_status?: string | null
+  request_status_label?: string | null
+  inbound_status?: string | null
+  inbound_status_label?: string | null
+  shipping_method?: string | null
+  declared_item_count?: number | null
+  actual_item_count?: number | null
+  expected_box_count?: number | null
+  items?: AdminBuybackScanItem[]
+  identity_status?: string | null
+  identity_status_label?: string | null
+  guardian_status?: string | null
+  guardian_status_label?: string | null
+  admin_note?: string | null
+  logistics_note?: string | null
+  already_received?: boolean
+  is_cancelled?: boolean
+  can_receive?: boolean
+  status_history?: AdminBuybackScanHistory[]
+  receipts?: AdminBuybackReceipt[]
+  notices?: string[]
+  user_email?: string | null
+  phone_number?: string | null
+  address?: {
+    postal_code?: string | null
+    region?: string | null
+    city?: string | null
+    address_line1?: string | null
+    address_line2?: string | null
+  } | null
+}
+
+export interface AdminBuybackPackageItem {
+  request_item_id: number
+  quantity: number
+  product_name?: string | null
+  condition_code?: string | null
+}
+
+export interface AdminBuybackPackage {
+  id: number
+  request_id: number
+  package_code: string
+  package_kind: string
+  package_kind_label?: string | null
+  box_index: number
+  total_boxes: number
+  return_reference?: string | null
+  shipping_method?: string | null
+  preferred_ship_date?: string | null
+  preferred_time_slot?: string | null
+  tracking_number?: string | null
+  status: string
+  status_label?: string | null
+  packed_by_name?: string | null
+  packed_at?: string | null
+  shipped_at?: string | null
+  admin_note?: string | null
+  scan_token?: string | null
+  barcode_human_readable?: string | null
+  items?: AdminBuybackPackageItem[]
+  created_at?: string | null
+}
+
+export interface AdminBuybackPackageLabel extends AdminBuybackPackage {
+  shop_name: string
+  public_buyback_code?: string | null
+  request_number?: string | null
+  inbound_mgmt_id?: string | null
+  applicant_name?: string | null
+  destination_name?: string | null
+  destination_phone?: string | null
+  destination_address?: {
+    postal_code?: string | null
+    region?: string | null
+    city?: string | null
+    address_line1?: string | null
+    address_line2?: string | null
+  } | null
+  request_status?: string | null
+  request_status_label?: string | null
+  item_count: number
+  handling_note: string
+  is_reprint: boolean
+}
+
+export interface AdminBuybackShipCheckItem {
+  code: string
+  label: string
+}
+
+export interface AdminBuybackShipVerifyResult {
+  found: boolean
+  message?: string | null
+  package_id?: number | null
+  barcode_id?: number | null
+  scan_token?: string | null
+  package_code?: string | null
+  package_kind?: string | null
+  package_kind_label?: string | null
+  box_index?: number | null
+  total_boxes?: number | null
+  request_id?: number | null
+  request_number?: string | null
+  public_buyback_code?: string | null
+  return_reference?: string | null
+  request_status?: string | null
+  request_status_label?: string | null
+  package_status?: string | null
+  package_status_label?: string | null
+  shipping_method?: string | null
+  preferred_ship_date?: string | null
+  preferred_time_slot?: string | null
+  tracking_number?: string | null
+  applicant_name?: string | null
+  destination_name?: string | null
+  destination_phone?: string | null
+  destination_address?: {
+    postal_code?: string | null
+    region?: string | null
+    city?: string | null
+    address_line1?: string | null
+    address_line2?: string | null
+  } | null
+  items?: AdminBuybackPackageItem[]
+  checklist_items?: AdminBuybackShipCheckItem[]
+  warnings?: string[]
+  notices?: string[]
+  already_shipped?: boolean
+  is_cancelled?: boolean
+  address_complete?: boolean
+  can_confirm?: boolean
+}
+
+export interface AdminBuybackLabelLayout {
+  product_code: string
+  format_code: string
+  sheet_width_mm: number
+  sheet_height_mm: number
+  label_width_mm: number
+  label_height_mm: number
+  columns: number
+  rows: number
+  faces: number
+  gap_h_mm: number
+  gap_v_mm: number
+  margin_left_mm: number
+  margin_top_mm: number
+  margin_right_mm: number
+  margin_bottom_mm: number
+  margins_confirmed: boolean
+  margins_note: string
+  source_url: string
+  shop_name: string
+}
+
+export interface AdminBuybackLabelSheetCell {
+  package_id: number
+  package_code: string
+  scan_token?: string | null
+  barcode_human_readable?: string | null
+  public_buyback_code?: string | null
+  request_number?: string | null
+  inbound_mgmt_id?: string | null
+  box_index?: number | null
+  total_boxes?: number | null
+  package_kind?: string | null
+  package_kind_label?: string | null
+  applicant_name?: string | null
+  handling_note?: string
+  shop_name?: string
+  title?: string | null
+}
+
+export interface AdminBuybackLabelSheet {
+  layout: AdminBuybackLabelLayout
+  start_position: number
+  copies: number
+  labels: AdminBuybackLabelSheetCell[]
+}
+
+export interface AdminBuybackLogisticsLog {
+  id: string
+  log_type: string
+  action: string
+  result?: string | null
+  actor_user_id?: number | null
+  actor_name?: string | null
+  request_id?: number | null
+  package_id?: number | null
+  entity_type?: string | null
+  entity_id?: string | null
+  includes_pii?: boolean | null
+  is_reprint?: boolean | null
+  scan_token_prefix?: string | null
+  details?: Record<string, unknown> | null
+  device_info?: string | null
+  ip_address?: string | null
+  created_at?: string | null
+}
+
+export interface AdminBuybackLogisticsLogs {
+  items: AdminBuybackLogisticsLog[]
+  total: number
+  page: number
+  per_page: number
+  pages: number
+}

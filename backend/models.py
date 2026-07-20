@@ -45,6 +45,7 @@ class User(Base):
     phone_number = Column(String(20), nullable=True)
     phone_verified = Column(Boolean, default=False)
     clerk_user_id = Column(String(255), unique=True, nullable=True, index=True)
+    public_member_id = Column(String(32), unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

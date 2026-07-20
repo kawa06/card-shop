@@ -14,7 +14,13 @@ from sqlalchemy.orm import Session, joinedload
 import models
 import models_buyback
 from services.buyback_compliance import get_compliance_status
-from services.buyback_emails import STATUS_LABELS, notify_buyback_payout_completed, payout_email_already_sent
+from services.buyback_emails import (
+    STATUS_LABELS,
+    notify_buyback_assessment_ready,
+    notify_buyback_decision,
+    notify_buyback_payout_completed,
+    payout_email_already_sent,
+)
 from services.buyback_item_labels import (
     apply_rejected_item_handling,
     compute_assessed_total,
@@ -292,6 +298,23 @@ def update_request_status(
     )
     db.commit()
     db.refresh(request)
+
+    try:
+        user = db.query(models.User).filter(models.User.id == request.user_id).first()
+        if user:
+            if new_status in {
+                models_buyback.BuybackRequestStatus.assessed.value,
+                models_buyback.BuybackRequestStatus.awaiting_customer.value,
+            }:
+                notify_buyback_assessment_ready(db, request, user)
+            elif new_status in {
+                models_buyback.BuybackRequestStatus.accepted.value,
+                models_buyback.BuybackRequestStatus.rejected.value,
+            }:
+                notify_buyback_decision(db, request, user)
+    except Exception as exc:
+        logger.warning("Failed status-change notification: %s", exc)
+
     return get_admin_request(db, request_id)
 
 

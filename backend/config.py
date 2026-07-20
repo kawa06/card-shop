@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     # Guardian consent link validity (days)
     BUYBACK_GUARDIAN_CONSENT_EXPIRE_DAYS: int = 14
 
+    # Buyback label print / ラベル屋さん (optional overrides; defaults in code)
+    BUYBACK_SHOP_NAME: str = "KRX TCG"
+    BUYBACK_LABEL_PRODUCT_CODE: str = "72265"
+
     # DeepL API
     DEEPL_API_KEY: str = ""
 

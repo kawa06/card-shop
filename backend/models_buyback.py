@@ -8,6 +8,7 @@ import enum
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -69,6 +70,33 @@ class BuybackItemReturnStatus(str, enum.Enum):
     pending = "pending"
     shipped = "shipped"
     completed = "completed"
+
+
+class BuybackInboundShipmentStatus(str, enum.Enum):
+    awaiting_shipment = "awaiting_shipment"
+    customer_shipped = "customer_shipped"
+    arrived = "arrived"
+    received = "received"
+
+
+class BuybackBarcodeType(str, enum.Enum):
+    application_inbound = "application_inbound"
+    package_outbound = "package_outbound"
+    shelf = "shelf"
+
+
+class BuybackBarcodeEntityType(str, enum.Enum):
+    inbound_shipment = "inbound_shipment"
+    shipment_package = "shipment_package"
+
+
+class BuybackShipmentPackageStatus(str, enum.Enum):
+    packing = "packing"
+    packed = "packed"
+    awaiting_verify = "awaiting_verify"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
 
 
 REJECTION_REASON_CODES = {
@@ -165,12 +193,26 @@ class BuybackRequestNumberSequence(Base):
     last_seq = Column(Integer, nullable=False, default=0)
 
 
+class BuybackNumberSequence(Base):
+    """Daily sequences for public-facing KRX-* codes."""
+
+    __tablename__ = "buyback_number_sequences"
+    __table_args__ = (UniqueConstraint("seq_kind", "seq_date", name="uq_buyback_number_seq_kind_date"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    seq_kind = Column(String(32), nullable=False, index=True)
+    seq_date = Column(String(8), nullable=False, index=True)
+    last_seq = Column(Integer, nullable=False, default=0)
+
+
 class BuybackRequest(Base):
     __tablename__ = "buyback_requests"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     request_number = Column(String(32), unique=True, nullable=True, index=True)
+    public_buyback_code = Column(String(32), unique=True, nullable=True, index=True)
+    inbound_mgmt_id = Column(String(32), unique=True, nullable=True, index=True)
     status = Column(String(32), nullable=False, default=BuybackRequestStatus.draft.value, index=True)
     shipping_method = Column(String(64), nullable=True)
     tracking_number = Column(String(128), nullable=True)
@@ -184,6 +226,12 @@ class BuybackRequest(Base):
     agreed_cod_consequence = Column(Boolean, default=False, nullable=False)
     agreed_condition_rejection = Column(Boolean, default=False, nullable=False)
     submitted_at = Column(DateTime, nullable=True)
+    application_form_issued_at = Column(DateTime, nullable=True)
+    customer_planned_ship_date = Column(Date, nullable=True)
+    customer_shipped_at = Column(DateTime, nullable=True)
+    logistics_note = Column(Text, nullable=True)
+    received_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    received_at = Column(DateTime, nullable=True)
     assessed_at = Column(DateTime, nullable=True)
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -191,6 +239,12 @@ class BuybackRequest(Base):
 
     items = relationship("BuybackRequestItem", back_populates="request", cascade="all, delete-orphan")
     status_history = relationship("BuybackStatusHistory", back_populates="request", cascade="all, delete-orphan")
+    inbound_shipment = relationship(
+        "BuybackInboundShipment",
+        back_populates="request",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class BuybackRequestItem(Base):
@@ -274,9 +328,202 @@ class BuybackStatusHistory(Base):
     to_status = Column(String(32), nullable=False)
     changed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     note = Column(Text, nullable=True)
+    related_barcode_id = Column(Integer, ForeignKey("buyback_barcodes.id"), nullable=True, index=True)
+    device_info = Column(String(255), nullable=True)
+    change_reason = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     request = relationship("BuybackRequest", back_populates="status_history")
+
+
+class BuybackBarcode(Base):
+    __tablename__ = "buyback_barcodes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    scan_token = Column(String(64), unique=True, nullable=False, index=True)
+    barcode_type = Column(String(32), nullable=False, index=True)
+    entity_type = Column(String(32), nullable=False, index=True)
+    entity_id = Column(Integer, nullable=False, index=True)
+    human_readable = Column(String(64), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BuybackInboundShipment(Base):
+    __tablename__ = "buyback_inbound_shipments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(
+        Integer,
+        ForeignKey("buyback_requests.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    inbound_mgmt_id = Column(String(32), unique=True, nullable=False, index=True)
+    status = Column(
+        String(32),
+        nullable=False,
+        default=BuybackInboundShipmentStatus.awaiting_shipment.value,
+        index=True,
+    )
+    expected_box_count = Column(Integer, nullable=False, default=1)
+    declared_item_count = Column(Integer, nullable=True)
+    actual_item_count = Column(Integer, nullable=True)
+    condition_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    request = relationship("BuybackRequest", back_populates="inbound_shipment")
+
+
+class BuybackPackageReceipt(Base):
+    __tablename__ = "buyback_package_receipts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    inbound_shipment_id = Column(
+        Integer,
+        ForeignKey("buyback_inbound_shipments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    received_at = Column(DateTime, nullable=False)
+    received_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    scanned_barcode_id = Column(Integer, ForeignKey("buyback_barcodes.id"), nullable=True, index=True)
+    device_info = Column(String(255), nullable=True)
+    box_count = Column(Integer, nullable=True)
+    actual_item_count = Column(Integer, nullable=True)
+    condition_note = Column(Text, nullable=True)
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BuybackShipmentPackage(Base):
+    __tablename__ = "buyback_shipment_packages"
+    __table_args__ = (
+        UniqueConstraint("request_id", "package_kind", "box_index", name="uq_buyback_pkg_request_kind_box"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(Integer, ForeignKey("buyback_requests.id", ondelete="CASCADE"), nullable=False, index=True)
+    package_code = Column(String(32), unique=True, nullable=False, index=True)
+    package_kind = Column(String(32), nullable=False, index=True)
+    box_index = Column(Integer, nullable=False)
+    total_boxes = Column(Integer, nullable=False)
+    return_reference = Column(String(64), nullable=True, index=True)
+    destination_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    shipping_method = Column(String(64), nullable=True)
+    preferred_ship_date = Column(Date, nullable=True)
+    preferred_time_slot = Column(String(64), nullable=True)
+    tracking_number = Column(String(128), nullable=True, unique=True, index=True)
+    status = Column(String(32), nullable=False, default=BuybackShipmentPackageStatus.packing.value, index=True)
+    packed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    packed_at = Column(DateTime, nullable=True)
+    shipped_at = Column(DateTime, nullable=True)
+    admin_note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BuybackPackageItem(Base):
+    __tablename__ = "buyback_package_items"
+    __table_args__ = (
+        UniqueConstraint("package_id", "request_item_id", name="uq_buyback_package_item"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(
+        Integer,
+        ForeignKey("buyback_shipment_packages.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    request_item_id = Column(
+        Integer,
+        ForeignKey("buyback_request_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    quantity = Column(Integer, nullable=False, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BuybackShipmentConfirmation(Base):
+    __tablename__ = "buyback_shipment_confirmations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    package_id = Column(
+        Integer,
+        ForeignKey("buyback_shipment_packages.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    confirmed_at = Column(DateTime, nullable=False)
+    confirmed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    scanned_barcode_id = Column(Integer, ForeignKey("buyback_barcodes.id"), nullable=True, index=True)
+    tracking_number = Column(String(128), nullable=True)
+    shipping_method = Column(String(64), nullable=True)
+    checklist_json = Column(Text, nullable=False)
+    device_info = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BuybackShipmentAddressSnapshot(Base):
+    __tablename__ = "buyback_shipment_address_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    confirmation_id = Column(
+        Integer,
+        ForeignKey("buyback_shipment_confirmations.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    recipient_name = Column(String(100), nullable=False)
+    postal_code = Column(String(20), nullable=True)
+    region = Column(String(100), nullable=True)
+    city = Column(String(100), nullable=True)
+    address_line1 = Column(String(255), nullable=True)
+    address_line2 = Column(String(255), nullable=True)
+    phone_number = Column(String(20), nullable=True)
+    shipping_method = Column(String(64), nullable=True)
+    preferred_time_slot = Column(String(64), nullable=True)
+    snapshot_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BuybackPackageScanLog(Base):
+    __tablename__ = "buyback_package_scan_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    scan_token = Column(String(64), nullable=False, index=True)
+    barcode_id = Column(Integer, ForeignKey("buyback_barcodes.id"), nullable=True, index=True)
+    action = Column(String(64), nullable=False, index=True)
+    result = Column(String(32), nullable=False, index=True)
+    request_id = Column(Integer, ForeignKey("buyback_requests.id"), nullable=True, index=True)
+    package_id = Column(Integer, ForeignKey("buyback_shipment_packages.id"), nullable=True, index=True)
+    ip_address = Column(String(64), nullable=True)
+    device_info = Column(String(255), nullable=True)
+    details_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class BuybackPackagePrintLog(Base):
+    __tablename__ = "buyback_package_print_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    print_type = Column(String(64), nullable=False, index=True)
+    entity_type = Column(String(64), nullable=False, index=True)
+    entity_id = Column(Integer, nullable=False, index=True)
+    includes_pii = Column(Boolean, default=False, nullable=False)
+    is_reprint = Column(Boolean, default=False, nullable=False)
+    device_info = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class BuybackAuditLog(Base):

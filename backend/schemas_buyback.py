@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 
 from pydantic import BaseModel, model_validator
@@ -92,6 +92,7 @@ class BuybackCartOut(BaseModel):
 class BuybackRequestCreate(BaseModel):
     customer_note: Optional[str] = None
     shipping_method: Optional[str] = None
+    customer_planned_ship_date: Optional[date] = None
     rejected_item_handling: str
     agreed_prepaid_shipping: bool = False
     agreed_cod_consequence: bool = False
@@ -143,6 +144,8 @@ class BuybackRequestItemOut(BaseModel):
 class BuybackRequestSummaryOut(BaseModel):
     id: int
     request_number: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
     status: str
     status_label: str
     estimated_total: Optional[int] = None
@@ -157,23 +160,68 @@ class BuybackRequestSummaryOut(BaseModel):
 class BuybackRequestDetailOut(BaseModel):
     id: int
     request_number: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
+    public_member_id: Optional[str] = None
+    application_scan_token: Optional[str] = None
+    inbound_status: Optional[str] = None
+    inbound_status_label: Optional[str] = None
     status: str
     status_label: str
     shipping_method: Optional[str] = None
     tracking_number: Optional[str] = None
     customer_note: Optional[str] = None
+    customer_planned_ship_date: Optional[date] = None
     estimated_total: Optional[int] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
     rejected_item_handling: Optional[str] = None
     rejected_item_handling_label: Optional[str] = None
     submitted_at: Optional[datetime] = None
+    application_form_issued_at: Optional[datetime] = None
     assessed_at: Optional[datetime] = None
     created_at: datetime
     items: List[BuybackRequestItemOut] = []
 
     class Config:
         from_attributes = True
+
+
+class BuybackApplicationFormItemOut(BaseModel):
+    product_name: str
+    condition_code: str
+    quantity: int
+
+
+class BuybackApplicationFormOut(BaseModel):
+    """PII-minimized payload for customer application form printing."""
+
+    shop_name: str
+    request_id: int
+    request_number: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
+    public_member_id: Optional[str] = None
+    applicant_name: str
+    submitted_at: Optional[datetime] = None
+    customer_planned_ship_date: Optional[str] = None
+    declared_item_count: int = 0
+    items: List[BuybackApplicationFormItemOut] = []
+    identity_status: Optional[str] = None
+    identity_status_label: Optional[str] = None
+    guardian_status: Optional[str] = None
+    guardian_status_label: Optional[str] = None
+    requires_guardian_consent: bool = False
+    scan_token: str
+    barcode_human_readable: Optional[str] = None
+    application_form_issued_at: Optional[datetime] = None
+    is_reprint: bool = False
+    notices: List[str] = []
+
+
+class BuybackApplicationFormIssueIn(BaseModel):
+    print_type: str = "application_a4"
+    device_info: Optional[str] = None
 
 
 class IdentityVerificationOut(BaseModel):
@@ -405,3 +453,301 @@ class AdminBuybackRequestUpdateIn(BaseModel):
     tracking_number: Optional[str] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
+
+
+class AdminBuybackScanIn(BaseModel):
+    code: str
+    device_info: Optional[str] = None
+
+
+class AdminBuybackScanItemOut(BaseModel):
+    id: int
+    product_name: str
+    condition_code: str
+    quantity: int
+
+
+class AdminBuybackScanHistoryOut(BaseModel):
+    id: int
+    from_status: Optional[str] = None
+    from_status_label: Optional[str] = None
+    to_status: str
+    to_status_label: str
+    note: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class AdminBuybackReceiptOut(BaseModel):
+    id: int
+    received_at: datetime
+    received_by_name: Optional[str] = None
+    box_count: Optional[int] = None
+    actual_item_count: Optional[int] = None
+    condition_note: Optional[str] = None
+    admin_note: Optional[str] = None
+    device_info: Optional[str] = None
+
+
+class AdminBuybackAddressOut(BaseModel):
+    postal_code: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+
+
+class AdminBuybackScanOut(BaseModel):
+    found: bool
+    message: Optional[str] = None
+    request_id: Optional[int] = None
+    inbound_shipment_id: Optional[int] = None
+    barcode_id: Optional[int] = None
+    scan_token: Optional[str] = None
+    request_number: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
+    applicant_name: Optional[str] = None
+    public_member_id: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    request_status: Optional[str] = None
+    request_status_label: Optional[str] = None
+    inbound_status: Optional[str] = None
+    inbound_status_label: Optional[str] = None
+    shipping_method: Optional[str] = None
+    declared_item_count: Optional[int] = None
+    actual_item_count: Optional[int] = None
+    expected_box_count: Optional[int] = None
+    items: List[AdminBuybackScanItemOut] = []
+    identity_status: Optional[str] = None
+    identity_status_label: Optional[str] = None
+    guardian_status: Optional[str] = None
+    guardian_status_label: Optional[str] = None
+    admin_note: Optional[str] = None
+    logistics_note: Optional[str] = None
+    already_received: bool = False
+    is_cancelled: bool = False
+    can_receive: bool = False
+    status_history: List[AdminBuybackScanHistoryOut] = []
+    receipts: List[AdminBuybackReceiptOut] = []
+    notices: List[str] = []
+    user_email: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[AdminBuybackAddressOut] = None
+
+
+class AdminBuybackReceiveIn(BaseModel):
+    inbound_shipment_id: int
+    scanned_code: Optional[str] = None
+    box_count: Optional[int] = 1
+    actual_item_count: Optional[int] = None
+    condition_note: Optional[str] = None
+    admin_note: Optional[str] = None
+    device_info: Optional[str] = None
+
+
+class AdminBuybackPackageItemOut(BaseModel):
+    request_item_id: int
+    quantity: int
+    product_name: Optional[str] = None
+    condition_code: Optional[str] = None
+
+
+class AdminBuybackPackageOut(BaseModel):
+    id: int
+    request_id: int
+    package_code: str
+    package_kind: str
+    package_kind_label: Optional[str] = None
+    box_index: int
+    total_boxes: int
+    return_reference: Optional[str] = None
+    shipping_method: Optional[str] = None
+    preferred_ship_date: Optional[str] = None
+    preferred_time_slot: Optional[str] = None
+    tracking_number: Optional[str] = None
+    status: str
+    status_label: Optional[str] = None
+    packed_by_name: Optional[str] = None
+    packed_at: Optional[datetime] = None
+    shipped_at: Optional[datetime] = None
+    admin_note: Optional[str] = None
+    scan_token: Optional[str] = None
+    barcode_human_readable: Optional[str] = None
+    items: List[AdminBuybackPackageItemOut] = []
+    created_at: Optional[datetime] = None
+
+
+class AdminBuybackPackageIssueIn(BaseModel):
+    total_boxes: int = 1
+    package_kind: str = "return"
+    shipping_method: Optional[str] = None
+    preferred_ship_date: Optional[date] = None
+    preferred_time_slot: Optional[str] = None
+    return_reference: Optional[str] = None
+    admin_note: Optional[str] = None
+    request_item_ids: Optional[List[int]] = None
+    replace_existing: bool = False
+
+
+class AdminBuybackPackageCompleteIn(BaseModel):
+    tracking_number: Optional[str] = None
+    admin_note: Optional[str] = None
+
+
+class AdminBuybackPackageLabelOut(AdminBuybackPackageOut):
+    shop_name: str = "KRX TCG"
+    public_buyback_code: Optional[str] = None
+    request_number: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
+    applicant_name: Optional[str] = None
+    destination_name: Optional[str] = None
+    destination_phone: Optional[str] = None
+    destination_address: Optional[AdminBuybackAddressOut] = None
+    request_status: Optional[str] = None
+    request_status_label: Optional[str] = None
+    item_count: int = 0
+    handling_note: str = "取扱注意"
+    is_reprint: bool = False
+
+
+class AdminBuybackPackagePrintIn(BaseModel):
+    is_reprint: bool = False
+    device_info: Optional[str] = None
+
+
+class AdminBuybackShipCheckItemOut(BaseModel):
+    code: str
+    label: str
+
+
+class AdminBuybackShipVerifyOut(BaseModel):
+    found: bool
+    message: Optional[str] = None
+    package_id: Optional[int] = None
+    barcode_id: Optional[int] = None
+    scan_token: Optional[str] = None
+    package_code: Optional[str] = None
+    package_kind: Optional[str] = None
+    package_kind_label: Optional[str] = None
+    box_index: Optional[int] = None
+    total_boxes: Optional[int] = None
+    request_id: Optional[int] = None
+    request_number: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    return_reference: Optional[str] = None
+    request_status: Optional[str] = None
+    request_status_label: Optional[str] = None
+    package_status: Optional[str] = None
+    package_status_label: Optional[str] = None
+    shipping_method: Optional[str] = None
+    preferred_ship_date: Optional[str] = None
+    preferred_time_slot: Optional[str] = None
+    tracking_number: Optional[str] = None
+    applicant_name: Optional[str] = None
+    destination_name: Optional[str] = None
+    destination_phone: Optional[str] = None
+    destination_address: Optional[AdminBuybackAddressOut] = None
+    items: List[AdminBuybackPackageItemOut] = []
+    checklist_items: List[AdminBuybackShipCheckItemOut] = []
+    warnings: List[str] = []
+    notices: List[str] = []
+    already_shipped: bool = False
+    is_cancelled: bool = False
+    address_complete: bool = False
+    can_confirm: bool = False
+
+
+class AdminBuybackShipConfirmIn(BaseModel):
+    package_id: int
+    checklist: dict[str, bool]
+    scanned_code: Optional[str] = None
+    tracking_number: Optional[str] = None
+    shipping_method: Optional[str] = None
+    device_info: Optional[str] = None
+
+
+class AdminBuybackLabelLayoutOut(BaseModel):
+    product_code: str
+    format_code: str
+    sheet_width_mm: float
+    sheet_height_mm: float
+    label_width_mm: float
+    label_height_mm: float
+    columns: int
+    rows: int
+    faces: int
+    gap_h_mm: float
+    gap_v_mm: float
+    margin_left_mm: float
+    margin_top_mm: float
+    margin_right_mm: float
+    margin_bottom_mm: float
+    margins_confirmed: bool
+    margins_note: str
+    source_url: str
+    shop_name: str
+
+
+class AdminBuybackLabelCsvExportIn(BaseModel):
+    package_ids: List[int]
+    include_applicant_name: bool = False
+
+
+class AdminBuybackLabelSheetIn(BaseModel):
+    package_ids: List[int]
+    start_position: int = 1  # 1-based face index on 72265 sheet
+    copies: int = 1
+    include_applicant_name: bool = False
+
+
+class AdminBuybackLabelSheetCellOut(BaseModel):
+    package_id: int
+    package_code: str
+    scan_token: Optional[str] = None
+    barcode_human_readable: Optional[str] = None
+    public_buyback_code: Optional[str] = None
+    request_number: Optional[str] = None
+    inbound_mgmt_id: Optional[str] = None
+    box_index: Optional[int] = None
+    total_boxes: Optional[int] = None
+    package_kind: Optional[str] = None
+    package_kind_label: Optional[str] = None
+    applicant_name: Optional[str] = None
+    handling_note: str = "取扱注意"
+    shop_name: str = "KRX TCG"
+    title: Optional[str] = None
+
+
+class AdminBuybackLabelSheetOut(BaseModel):
+    layout: AdminBuybackLabelLayoutOut
+    start_position: int
+    copies: int
+    labels: List[AdminBuybackLabelSheetCellOut]
+
+
+class AdminBuybackLogisticsLogOut(BaseModel):
+    id: str
+    log_type: str
+    action: str
+    result: Optional[str] = None
+    actor_user_id: Optional[int] = None
+    actor_name: Optional[str] = None
+    request_id: Optional[int] = None
+    package_id: Optional[int] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[str] = None
+    includes_pii: Optional[bool] = None
+    is_reprint: Optional[bool] = None
+    scan_token_prefix: Optional[str] = None
+    details: Optional[dict] = None
+    device_info: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class AdminBuybackLogisticsLogsOut(BaseModel):
+    items: List[AdminBuybackLogisticsLogOut]
+    total: int
+    page: int
+    per_page: int
+    pages: int

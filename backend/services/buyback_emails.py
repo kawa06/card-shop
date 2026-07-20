@@ -85,6 +85,7 @@ def _record_delivery(
     reference_id: str,
     ok: bool,
     error: str | None = None,
+    reference_type: str = "buyback_request",
 ) -> None:
     try:
         db.add(
@@ -92,7 +93,7 @@ def _record_delivery(
                 user_id=user_id,
                 channel="email",
                 template_key=template_key,
-                reference_type="buyback_request",
+                reference_type=reference_type,
                 reference_id=reference_id,
                 status="sent" if ok else "failed",
                 error_message=error,
@@ -212,16 +213,228 @@ def notify_guardian_consent_requested(
 
 
 def payout_email_already_sent(db: Session, request_id: int) -> bool:
+    return notification_already_sent(db, "buyback_payout_completed", str(request_id))
+
+
+def notification_already_sent(
+    db: Session,
+    template_key: str,
+    reference_id: str,
+    *,
+    reference_type: str = "buyback_request",
+) -> bool:
     row = (
         db.query(models_buyback.NotificationDelivery)
         .filter(
-            models_buyback.NotificationDelivery.template_key == "buyback_payout_completed",
-            models_buyback.NotificationDelivery.reference_id == str(request_id),
+            models_buyback.NotificationDelivery.template_key == template_key,
+            models_buyback.NotificationDelivery.reference_type == reference_type,
+            models_buyback.NotificationDelivery.reference_id == str(reference_id),
             models_buyback.NotificationDelivery.status == "sent",
         )
         .first()
     )
     return row is not None
+
+
+def _public_codes(request: models_buyback.BuybackRequest) -> str:
+    parts = []
+    if request.public_buyback_code:
+        parts.append(f"買取番号：{request.public_buyback_code}")
+    parts.append(f"申込番号：{request.request_number or request.id}")
+    if request.inbound_mgmt_id:
+        parts.append(f"荷物管理ID：{request.inbound_mgmt_id}")
+    return "".join(f"<li>{p}</li>" for p in parts)
+
+
+def _send_customer_template(
+    db: Session,
+    *,
+    user: models.User,
+    request: models_buyback.BuybackRequest,
+    template_key: str,
+    subject: str,
+    body_html: str,
+    force: bool = False,
+    reference_type: str = "buyback_request",
+    reference_id: str | None = None,
+) -> tuple[bool, str | None]:
+    ref_id = reference_id or str(request.id)
+    if notification_already_sent(db, template_key, ref_id, reference_type=reference_type) and not force:
+        return True, None
+
+    html = _wrap_email(body_html)
+    if not email_configured():
+        if settings.DEBUG:
+            logger.info("[BUYBACK EMAIL MOCK] to=%s subject=%s key=%s", user.email, subject, template_key)
+            _record_delivery(
+                db,
+                user_id=user.id,
+                template_key=template_key,
+                reference_id=ref_id,
+                ok=True,
+                reference_type=reference_type,
+            )
+        return True, None
+
+    ok, err = _send_html_email(to=user.email, subject=subject, html=html)
+    _record_delivery(
+        db,
+        user_id=user.id,
+        template_key=template_key,
+        reference_id=ref_id,
+        ok=ok,
+        error=err,
+        reference_type=reference_type,
+    )
+    return ok, err
+
+
+def notify_buyback_inbound_received(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Notify customer that inbound package was received at the shop."""
+    request_number = request.request_number or str(request.id)
+    link = _request_link(request.id)
+    body = f"""
+      <p>{user.name or 'お客'} 様</p>
+      <p>買取商品のお荷物を受け取りました。</p>
+      <ul>
+        {_public_codes(request)}
+        <li>ステータス：{STATUS_LABELS.get(request.status, request.status)}</li>
+      </ul>
+      <p>これから状態確認・査定を進めます。査定結果はメールでもお知らせします。</p>
+      <p><a href="{link}">申込詳細を確認</a></p>
+    """
+    subject = f"【KRX TCG】買取商品を受け取りました（{request_number}）"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=request,
+        template_key="buyback_inbound_received",
+        subject=subject,
+        body_html=body,
+        force=force,
+    )
+
+
+def notify_buyback_assessment_ready(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Notify customer that assessment is ready / awaiting confirmation."""
+    request_number = request.request_number or str(request.id)
+    link = _request_link(request.id)
+    status_label = STATUS_LABELS.get(request.status, request.status)
+    body = f"""
+      <p>{user.name or 'お客'} 様</p>
+      <p>買取商品の査定が完了しました。</p>
+      <ul>
+        {_public_codes(request)}
+        <li>ステータス：{status_label}</li>
+        <li>査定合計：{_format_jpy(request.assessed_total)}</li>
+      </ul>
+      <p>内容をご確認のうえ、マイページからご対応ください。</p>
+      <p><a href="{link}">査定結果を確認</a></p>
+    """
+    subject = f"【KRX TCG】査定結果のご案内（{request_number}）"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=request,
+        template_key="buyback_assessment_ready",
+        subject=subject,
+        body_html=body,
+        force=force,
+    )
+
+
+def notify_buyback_decision(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Notify customer of accept / reject decision."""
+    request_number = request.request_number or str(request.id)
+    link = _request_link(request.id)
+    status = request.status
+    status_label = STATUS_LABELS.get(status, status)
+    if status == models_buyback.BuybackRequestStatus.accepted.value:
+        template_key = "buyback_accepted"
+        lead = "買取が成立しました。"
+        subject = f"【KRX TCG】買取が成立しました（{request_number}）"
+    elif status == models_buyback.BuybackRequestStatus.rejected.value:
+        template_key = "buyback_rejected"
+        lead = "今回は買取不可となりました。"
+        subject = f"【KRX TCG】買取結果のご連絡（{request_number}）"
+    else:
+        return False, f"unsupported status: {status}"
+
+    body = f"""
+      <p>{user.name or 'お客'} 様</p>
+      <p>{lead}</p>
+      <ul>
+        {_public_codes(request)}
+        <li>ステータス：{status_label}</li>
+        <li>査定合計：{_format_jpy(request.assessed_total)}</li>
+      </ul>
+      <p><a href="{link}">申込詳細を確認</a></p>
+    """
+    return _send_customer_template(
+        db,
+        user=user,
+        request=request,
+        template_key=template_key,
+        subject=subject,
+        body_html=body,
+        force=force,
+    )
+
+
+def notify_buyback_package_shipped(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    package: models_buyback.BuybackShipmentPackage,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    """Notify customer that an outbound package was shipped."""
+    request_number = request.request_number or str(request.id)
+    link = _request_link(request.id)
+    tracking = package.tracking_number or "—"
+    body = f"""
+      <p>{user.name or 'お客'} 様</p>
+      <p>お荷物を発送しました。</p>
+      <ul>
+        {_public_codes(request)}
+        <li>梱包ID：{package.package_code}</li>
+        <li>箱：{package.box_index}/{package.total_boxes}</li>
+        <li>配送方法：{package.shipping_method or '—'}</li>
+        <li>追跡番号：{tracking}</li>
+      </ul>
+      <p><a href="{link}">申込詳細を確認</a></p>
+    """
+    subject = f"【KRX TCG】お荷物を発送しました（{request_number}）"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=request,
+        template_key="buyback_package_shipped",
+        subject=subject,
+        body_html=body,
+        force=force,
+        reference_type="buyback_request",
+        reference_id=f"{request.id}:pkg:{package.id}",
+    )
 
 
 def notify_buyback_payout_completed(

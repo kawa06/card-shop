@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Package } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { adminBuybackApi } from '@/lib/api'
+import { useAdminPermissions } from '@/hooks/useAdminPermissions'
+import { adminBuybackApi, adminBuybackLogisticsApi } from '@/lib/api'
 import {
+  AdminBuybackPackage,
   AdminBuybackRequestDetail,
   AdminBuybackRequestItem,
 } from '@/lib/types'
@@ -91,6 +93,7 @@ function draftsFromDetail(detail: AdminBuybackRequestDetail): Record<number, Ite
 export default function AdminBuybackRequestDetailPage() {
   const params = useParams()
   const { isReady } = useAdminGuard()
+  const { hasPermission } = useAdminPermissions()
   const id = Number(params.id)
   const [detail, setDetail] = useState<AdminBuybackRequestDetail | null>(null)
   const [itemDrafts, setItemDrafts] = useState<Record<number, ItemDraft>>({})
@@ -106,6 +109,17 @@ export default function AdminBuybackRequestDetailPage() {
   const [isSavingItems, setIsSavingItems] = useState(false)
   const [error, setError] = useState('')
   const [isMounted, setIsMounted] = useState(false)
+  const [packages, setPackages] = useState<AdminBuybackPackage[]>([])
+  const [packageBoxes, setPackageBoxes] = useState('1')
+  const [packageKind, setPackageKind] = useState('return')
+  const [packageTimeSlot, setPackageTimeSlot] = useState('')
+  const [isIssuingPackages, setIsIssuingPackages] = useState(false)
+  const [packageError, setPackageError] = useState('')
+
+  const canIssuePackages =
+    hasPermission('buyback.package.write') &&
+    detail &&
+    ['assessed', 'awaiting_customer', 'accepted', 'rejected', 'returned'].includes(detail.status)
 
   useEffect(() => {
     setIsMounted(true)
@@ -131,10 +145,59 @@ export default function AdminBuybackRequestDetailPage() {
     }
   }, [id])
 
+  const fetchPackages = useCallback(async () => {
+    if (!id || Number.isNaN(id) || !hasPermission('buyback.package.read')) {
+      setPackages([])
+      return
+    }
+    try {
+      const res = await adminBuybackLogisticsApi.listPackages(id)
+      setPackages(res.data || [])
+    } catch {
+      setPackages([])
+    }
+  }, [id, hasPermission])
+
   useEffect(() => {
     if (!isMounted || !isReady) return
     void fetchDetail()
-  }, [isMounted, isReady, fetchDetail])
+    void fetchPackages()
+  }, [isMounted, isReady, fetchDetail, fetchPackages])
+
+  const handleIssuePackages = async (replace = false) => {
+    if (!detail) return
+    setIsIssuingPackages(true)
+    setPackageError('')
+    try {
+      const res = await adminBuybackLogisticsApi.issuePackages(detail.id, {
+        total_boxes: Math.max(1, Number(packageBoxes) || 1),
+        package_kind: packageKind,
+        preferred_time_slot: packageTimeSlot || undefined,
+        replace_existing: replace,
+      })
+      setPackages(res.data || [])
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        '梱包バーコードの発行に失敗しました'
+      setPackageError(String(msg))
+    } finally {
+      setIsIssuingPackages(false)
+    }
+  }
+
+  const handleCompletePackage = async (packageId: number) => {
+    setPackageError('')
+    try {
+      await adminBuybackLogisticsApi.completePackage(packageId)
+      await fetchPackages()
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        '梱包完了に失敗しました'
+      setPackageError(String(msg))
+    }
+  }
 
   const updateItemDraft = (itemId: number, patch: Partial<ItemDraft>) => {
     setItemDrafts((prev) => ({
@@ -460,6 +523,127 @@ export default function AdminBuybackRequestDetailPage() {
                 </table>
               </div>
             </div>
+
+            {(canIssuePackages || packages.length > 0) && (
+              <div className="border rounded-lg p-4 space-y-3">
+                <h2 className="font-semibold">梱包バーコード</h2>
+                <p className="text-sm text-gray-600">
+                  査定完了・返送準備時に発送単位ごとのバーコードを発行します（複数箱対応）。
+                </p>
+                {canIssuePackages && (
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <label className="text-sm">
+                      箱数
+                      <Input
+                        className="mt-1 w-24"
+                        type="number"
+                        min={1}
+                        max={50}
+                        value={packageBoxes}
+                        onChange={(e) => setPackageBoxes(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-sm">
+                      種別
+                      <select
+                        className="mt-1 border rounded-md px-3 py-2 text-sm block"
+                        value={packageKind}
+                        onChange={(e) => setPackageKind(e.target.value)}
+                      >
+                        <option value="return">返送</option>
+                        <option value="outbound">発送</option>
+                      </select>
+                    </label>
+                    <label className="text-sm flex-1 min-w-[160px]">
+                      発送希望時間帯
+                      <Input
+                        className="mt-1"
+                        placeholder="例: 14-16時"
+                        value={packageTimeSlot}
+                        onChange={(e) => setPackageTimeSlot(e.target.value)}
+                      />
+                    </label>
+                    <Button
+                      onClick={() => void handleIssuePackages(false)}
+                      disabled={isIssuingPackages}
+                    >
+                      梱包用バーコードを発行
+                    </Button>
+                    {packages.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={() => void handleIssuePackages(true)}
+                        disabled={isIssuingPackages}
+                      >
+                        再発行
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {packageError && <p className="text-sm text-red-600">{packageError}</p>}
+                {packages.length > 0 && (
+                  <div className="space-y-2">
+                    <Link
+                      href={`/admin/buyback/labels?request_id=${detail.id}`}
+                      className="inline-block text-sm text-sky-700 hover:underline"
+                    >
+                      ラベルCSV / 72265（選択出力）
+                    </Link>
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 text-left">
+                        <tr>
+                          <th className="px-3 py-2">梱包ID</th>
+                          <th className="px-3 py-2">箱</th>
+                          <th className="px-3 py-2">種別</th>
+                          <th className="px-3 py-2">ステータス</th>
+                          <th className="px-3 py-2">希望時間帯</th>
+                          <th className="px-3 py-2" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {packages.map((pkg) => (
+                          <tr key={pkg.id} className="border-t">
+                            <td className="px-3 py-2 font-mono text-xs">{pkg.package_code}</td>
+                            <td className="px-3 py-2">
+                              {pkg.box_index}/{pkg.total_boxes}
+                            </td>
+                            <td className="px-3 py-2">{pkg.package_kind_label || pkg.package_kind}</td>
+                            <td className="px-3 py-2">{pkg.status_label || pkg.status}</td>
+                            <td className="px-3 py-2">{pkg.preferred_time_slot || '—'}</td>
+                            <td className="px-3 py-2 space-x-2 whitespace-nowrap">
+                              {hasPermission('buyback.package.write') &&
+                                pkg.status === 'packing' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleCompletePackage(pkg.id)}
+                                  >
+                                    梱包完了
+                                  </Button>
+                                )}
+                              <Link
+                                href={`/admin/buyback/packages/${pkg.id}/print`}
+                                className="text-amber-700 hover:underline text-sm"
+                              >
+                                A4印刷
+                              </Link>
+                              <Link
+                                href={`/admin/buyback/labels?request_id=${detail.id}&package_ids=${pkg.id}`}
+                                className="text-sky-700 hover:underline text-sm"
+                              >
+                                72265
+                              </Link>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {(detail.status === 'payout_pending' || detail.status === 'paid') && (
               <div className="border rounded-lg p-4 space-y-3">

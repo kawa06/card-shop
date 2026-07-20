@@ -68,6 +68,12 @@ export default function AdminBuybackRequestsPage() {
             <h1 className="text-2xl font-bold text-gray-900">買取申込管理</h1>
           </div>
           <div className="flex gap-4 text-sm">
+            <Link href="/admin/buyback/receiving" className="text-amber-700 hover:underline">
+              荷物受付へ
+            </Link>
+            <Link href="/admin/buyback/shipping-verify" className="text-sky-700 hover:underline">
+              発送前確認へ
+            </Link>
             <Link href="/admin/buyback/payouts" className="text-emerald-600 hover:underline">
               振込管理へ
             </Link>

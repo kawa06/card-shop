@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 import models
 import models_buyback
 from services.buyback_emails import notify_buyback_request_submitted
+from services.buyback_inbound import provision_request_logistics
 from services.buyback_request_number import assign_buyback_request_number
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ def submit_request_from_cart(
     user: models.User,
     customer_note: Optional[str] = None,
     shipping_method: Optional[str] = None,
+    customer_planned_ship_date: Optional[date] = None,
     rejected_item_handling: Optional[str] = None,
     agreed_prepaid_shipping: bool = False,
     agreed_cod_consequence: bool = False,
@@ -103,12 +105,16 @@ def submit_request_from_cart(
     estimated_total = sum(
         item.unit_price_snapshot * item.quantity for item in cart.items
     )
+    declared_item_count = sum(item.quantity for item in cart.items)
+
+    planned_ship_date = customer_planned_ship_date
 
     request = models_buyback.BuybackRequest(
         user_id=user.id,
         status=models_buyback.BuybackRequestStatus.submitted.value,
         shipping_method=(shipping_method or "").strip() or None,
         customer_note=(customer_note or "").strip() or None,
+        customer_planned_ship_date=planned_ship_date,
         estimated_total=estimated_total,
         rejected_item_handling=rejected_item_handling,
         agreed_prepaid_shipping=agreed_prepaid_shipping,
@@ -120,6 +126,12 @@ def submit_request_from_cart(
     db.flush()
 
     assign_buyback_request_number(db, request)
+    inbound, barcode = provision_request_logistics(
+        db,
+        request=request,
+        user=user,
+        declared_item_count=declared_item_count,
+    )
 
     for cart_item in cart.items:
         product = cart_item.product
@@ -153,6 +165,10 @@ def submit_request_from_cart(
         request_id=request.id,
         details={
             "request_number": request.request_number,
+            "public_buyback_code": request.public_buyback_code,
+            "inbound_mgmt_id": request.inbound_mgmt_id,
+            "inbound_shipment_id": inbound.id,
+            "application_barcode_id": barcode.id,
             "item_count": len(cart.items),
             "estimated_total": estimated_total,
         },
