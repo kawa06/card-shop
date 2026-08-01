@@ -236,6 +236,7 @@ def _migrate_buyback_channel_schema() -> None:
 
     _add_column_if_missing("buyback_requests", "buyback_method", "VARCHAR(16)")
     _add_column_if_missing("buyback_requests", "store_visit_at", "DATETIME")
+    _add_column_if_missing("buyback_promo_banners", "linked_product_ids_json", "TEXT")
 
     from sqlalchemy.orm import sessionmaker
 

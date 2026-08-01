@@ -24,6 +24,7 @@ from services.buyback_channel import (
     get_or_create_channel_settings,
     list_all_banners_admin,
     list_reservations_admin,
+    load_banner_linked_product_ids,
     now_utc_naive,
     resolve_allowed_methods,
     resolve_channel_mode,
@@ -95,6 +96,7 @@ def _serialize_banner(banner) -> schemas_buyback.BuybackPromoBannerOut:
         sort_order=banner.sort_order,
         is_visible=banner.is_visible,
         is_active=_banner_is_active(banner, now),
+        linked_product_ids=load_banner_linked_product_ids(banner),
         created_at=banner.created_at,
         updated_at=banner.updated_at,
     )
@@ -168,6 +170,7 @@ def create_banner_admin(
         text_color=payload.text_color,
         sort_order=payload.sort_order,
         is_visible=payload.is_visible,
+        linked_product_ids=payload.linked_product_ids,
     )
     write_buyback_audit(
         db,

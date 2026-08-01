@@ -902,6 +902,7 @@ class BuybackPromoBannerOut(BaseModel):
     sort_order: int
     is_visible: bool
     is_active: bool = False
+    linked_product_ids: List[int] = []
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -919,6 +920,7 @@ class BuybackPromoBannerCreateIn(BaseModel):
     text_color: str = "#ffffff"
     sort_order: int = 0
     is_visible: bool = True
+    linked_product_ids: List[int] = []
 
 
 class BuybackPromoBannerUpdateIn(BaseModel):
@@ -931,6 +933,7 @@ class BuybackPromoBannerUpdateIn(BaseModel):
     text_color: Optional[str] = None
     sort_order: Optional[int] = None
     is_visible: Optional[bool] = None
+    linked_product_ids: Optional[List[int]] = None
 
 
 class BuybackBusinessDayHoursIn(BaseModel):

@@ -128,30 +128,25 @@ export default function AdminPage() {
       ? [{ href: buybackAdminUrl('reservations'), external: true, icon: Package, label: '店舗買取予約', count: 0, color: 'text-indigo-600', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
       : []),
     ...(hasPermission('buyback.identity.read')
-      ? [{ href: '/admin/buyback/kyc', icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-kyc'), external: true, icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' }]
       : []),
     ...(hasPermission('buyback.receive')
-      ? [{ href: '/admin/buyback/receiving', icon: Package, label: '買取荷物受付', count: stats.buybackSubmittedRequests, color: 'text-yellow-600', bg: 'bg-yellow-500/10 border-yellow-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-receiving'), external: true, icon: Package, label: '買取荷物受付', count: stats.buybackSubmittedRequests, color: 'text-yellow-600', bg: 'bg-yellow-500/10 border-yellow-500/20' }]
       : []),
     ...(hasPermission('buyback.ship.read')
-      ? [{ href: '/admin/buyback/shipping-verify', icon: Truck, label: '発送前確認', count: 0, color: 'text-sky-600', bg: 'bg-sky-500/10 border-sky-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-shipping'), external: true, icon: Truck, label: '発送前確認', count: 0, color: 'text-sky-600', bg: 'bg-sky-500/10 border-sky-500/20' }]
       : []),
     ...(hasPermission('buyback.print.internal')
-      ? [{ href: '/admin/buyback/labels', icon: FileSpreadsheet, label: '買取ラベルCSV', count: 0, color: 'text-teal-600', bg: 'bg-teal-500/10 border-teal-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-labels'), external: true, icon: FileSpreadsheet, label: '買取ラベル印刷', count: 0, color: 'text-teal-600', bg: 'bg-teal-500/10 border-teal-500/20' }]
       : []),
     ...(hasPermission('buyback.logs.read')
-      ? [{ href: '/admin/buyback/logs', icon: Shield, label: '買取物流ログ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-logs'), external: true, icon: Shield, label: '買取物流ログ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
       : []),
     ...(hasPermission('buyback.request.read')
       ? [{ href: buybackAdminUrl('requests'), external: true, icon: Package, label: '買取申込管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
       : []),
-    ...(hasPermission('buyback.catalog.read') ||
-    hasPermission('buyback.request.read') ||
-    hasPermission('buyback.settings.read')
-      ? [{ href: buybackAdminUrl('ops'), external: true, icon: Shield, label: '買取詳細操作ハブ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
-      : []),
     ...(hasPermission('buyback.payout.complete')
-      ? [{ href: '/admin/buyback/payouts', icon: Banknote, label: '買取振込管理', count: stats.buybackPayoutPending, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
+      ? [{ href: buybackAdminUrl('ops-payouts'), external: true, icon: Banknote, label: '買取振込管理', count: stats.buybackPayoutPending, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
       : []),
     ...(hasPermission('admin.users.read')
       ? [{ href: '/admin/security/admins', icon: Lock, label: '管理者・セキュリティ', count: 0, color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' }]

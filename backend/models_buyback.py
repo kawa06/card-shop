@@ -575,6 +575,7 @@ class BuybackPromoBanner(Base):
     text_color = Column(String(32), nullable=False, default="#ffffff")
     sort_order = Column(Integer, nullable=False, default=0, index=True)
     is_visible = Column(Boolean, default=True, nullable=False, index=True)
+    linked_product_ids_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

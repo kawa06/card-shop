@@ -280,6 +280,69 @@ def _validate_banner_times(starts_at: datetime, ends_at: datetime) -> None:
         )
 
 
+def _parse_linked_product_ids(raw: Optional[str]) -> list[int]:
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            return sorted({int(item) for item in data if int(item) > 0})
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return []
+
+
+def load_banner_linked_product_ids(banner: models_buyback.BuybackPromoBanner) -> list[int]:
+    return _parse_linked_product_ids(getattr(banner, "linked_product_ids_json", None))
+
+
+def _dump_linked_product_ids(product_ids: Optional[list[int]]) -> Optional[str]:
+    if not product_ids:
+        return None
+    clean = sorted({int(item) for item in product_ids if int(item) > 0})
+    return json.dumps(clean, ensure_ascii=False) if clean else None
+
+
+def sync_banner_product_badges(
+    db: Session,
+    banner: models_buyback.BuybackPromoBanner,
+    product_ids: list[int],
+    *,
+    previous_ids: Optional[list[int]] = None,
+) -> None:
+    previous = set(previous_ids or [])
+    new_ids = {int(item) for item in product_ids if int(item) > 0}
+    badge_text = (banner.title or "")[:32]
+
+    for product_id in previous - new_ids:
+        product = (
+            db.query(models_buyback.BuybackProduct)
+            .filter(models_buyback.BuybackProduct.id == product_id)
+            .first()
+        )
+        if not product:
+            continue
+        product.promo_badge_text = None
+        product.promo_badge_bg = None
+        product.promo_badge_fg = None
+        product.promo_badge_starts_at = None
+        product.promo_badge_ends_at = None
+
+    for product_id in new_ids:
+        product = (
+            db.query(models_buyback.BuybackProduct)
+            .filter(models_buyback.BuybackProduct.id == product_id)
+            .first()
+        )
+        if not product:
+            continue
+        product.promo_badge_text = badge_text
+        product.promo_badge_bg = banner.background_color
+        product.promo_badge_fg = banner.text_color
+        product.promo_badge_starts_at = banner.starts_at
+        product.promo_badge_ends_at = banner.ends_at
+
+
 def create_banner(
     db: Session,
     *,
@@ -292,6 +355,7 @@ def create_banner(
     text_color: str,
     sort_order: int,
     is_visible: bool,
+    linked_product_ids: Optional[list[int]] = None,
 ) -> models_buyback.BuybackPromoBanner:
     t = (title or "").strip()
     if not t or len(t) > 200:
@@ -312,9 +376,11 @@ def create_banner(
         text_color=_validate_color(text_color, "文字色"),
         sort_order=max(0, int(sort_order)),
         is_visible=bool(is_visible),
+        linked_product_ids_json=_dump_linked_product_ids(linked_product_ids),
     )
     db.add(banner)
     db.flush()
+    sync_banner_product_badges(db, banner, linked_product_ids or [])
     return banner
 
 
@@ -323,6 +389,7 @@ def update_banner(
     banner: models_buyback.BuybackPromoBanner,
     **fields: Any,
 ) -> models_buyback.BuybackPromoBanner:
+    previous_linked = load_banner_linked_product_ids(banner)
     if "title" in fields:
         t = (fields["title"] or "").strip()
         if not t or len(t) > 200:
@@ -349,7 +416,11 @@ def update_banner(
         banner.sort_order = max(0, int(fields["sort_order"]))
     if "is_visible" in fields:
         banner.is_visible = bool(fields["is_visible"])
+    if "linked_product_ids" in fields:
+        banner.linked_product_ids_json = _dump_linked_product_ids(fields.get("linked_product_ids"))
     banner.updated_at = now_utc_naive()
+    linked = load_banner_linked_product_ids(banner)
+    sync_banner_product_badges(db, banner, linked, previous_ids=previous_linked)
     return banner
 
 
@@ -365,6 +436,8 @@ def get_banner(db: Session, banner_id: int) -> models_buyback.BuybackPromoBanner
 
 
 def delete_banner(db: Session, banner: models_buyback.BuybackPromoBanner) -> None:
+    previous_linked = load_banner_linked_product_ids(banner)
+    sync_banner_product_badges(db, banner, [], previous_ids=previous_linked)
     db.delete(banner)
 
 
