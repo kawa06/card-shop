@@ -508,6 +508,46 @@ def list_reservations_admin(
     )
 
 
+def seed_starter_content_if_empty(db: Session) -> None:
+    """Idempotent production starter: business hours + demo banners when none exist."""
+    settings = update_channel_settings(
+        db,
+        store_enabled=True,
+        mail_enabled=True,
+        slot_interval_minutes=30,
+        business_hours=dict(DEFAULT_BUSINESS_HOURS),
+        closed_dates=[],
+    )
+    _ = settings
+    if db.query(models_buyback.BuybackPromoBanner).count() > 0:
+        return
+    now = now_utc_naive()
+    samples = [
+        {
+            "title": "店舗買取限定価格",
+            "description": "買取価格10%UP",
+            "target_channel": "store",
+            "starts_at": now,
+            "ends_at": now + timedelta(days=14),
+            "background_color": "#1a1a2e",
+            "text_color": "#ffffff",
+            "sort_order": 1,
+        },
+        {
+            "title": "郵送買取限定価格",
+            "description": "人気カード買取強化中",
+            "target_channel": "mail",
+            "starts_at": now,
+            "ends_at": now + timedelta(days=10),
+            "background_color": "#0f3460",
+            "text_color": "#ffffff",
+            "sort_order": 2,
+        },
+    ]
+    for sample in samples:
+        create_banner(db, is_visible=True, **sample)
+
+
 def get_reservation_for_request(
     db: Session, request_id: int
 ) -> Optional[models_buyback.BuybackStoreReservation]:

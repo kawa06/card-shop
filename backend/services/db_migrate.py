@@ -210,7 +210,11 @@ def _migrate_buyback_channel_schema() -> None:
     import json
 
     import models_buyback  # noqa: F401
-    from services.buyback_channel import DEFAULT_BUSINESS_HOURS, get_or_create_channel_settings
+    from services.buyback_channel import (
+        DEFAULT_BUSINESS_HOURS,
+        get_or_create_channel_settings,
+        seed_starter_content_if_empty,
+    )
 
     channel_tables = [
         ("buyback_channel_settings", models_buyback.BuybackChannelSettings),
@@ -233,6 +237,7 @@ def _migrate_buyback_channel_schema() -> None:
                 row.business_hours_json = json.dumps(DEFAULT_BUSINESS_HOURS, ensure_ascii=False)
             if not row.closed_dates_json:
                 row.closed_dates_json = json.dumps([], ensure_ascii=False)
+            seed_starter_content_if_empty(db)
             db.commit()
         except Exception:
             db.rollback()
