@@ -48,7 +48,7 @@ export default function AdminBuybackShippingVerifyPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<'ok' | 'err' | null>(null)
   const [result, setResult] = useState<AdminBuybackShipVerifyResult | null>(null)
-  const [lastCode, setLastCode] = useState('')
+  const [awaitingConfirmScan, setAwaitingConfirmScan] = useState(false)
   const [checklist, setChecklist] = useState<Record<string, boolean>>({})
   const [trackingNumber, setTrackingNumber] = useState('')
 
@@ -72,11 +72,43 @@ export default function AdminBuybackShippingVerifyPage() {
     [soundOn]
   )
 
+  const performConfirm = useCallback(
+    async (code: string) => {
+      if (!result?.package_id || !result.can_confirm || !allChecked) return
+      setConfirming(true)
+      setError(null)
+      try {
+        const res = await adminBuybackLogisticsApi.shipConfirm({
+          package_id: result.package_id,
+          checklist,
+          scanned_code: code,
+          tracking_number: trackingNumber || undefined,
+          device_info: deviceInfo(),
+        })
+        setResult(res.data)
+        signal(true)
+      } catch (err: unknown) {
+        signal(false)
+        const msg =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          '発送確定に失敗しました'
+        setError(String(msg))
+      } finally {
+        setConfirming(false)
+        setAwaitingConfirmScan(false)
+      }
+    },
+    [allChecked, checklist, result, signal, trackingNumber]
+  )
+
   const handleScan = useCallback(
     async (code: string) => {
+      if (awaitingConfirmScan) {
+        await performConfirm(code)
+        return
+      }
       setScanning(true)
       setError(null)
-      setLastCode(code)
       try {
         const res = await adminBuybackLogisticsApi.shipScan({
           code,
@@ -118,32 +150,13 @@ export default function AdminBuybackShippingVerifyPage() {
         setScanning(false)
       }
     },
-    [signal]
+    [awaitingConfirmScan, performConfirm, signal]
   )
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!result?.package_id || !result.can_confirm || !allChecked) return
-    setConfirming(true)
-    setError(null)
-    try {
-      const res = await adminBuybackLogisticsApi.shipConfirm({
-        package_id: result.package_id,
-        checklist,
-        scanned_code: lastCode || undefined,
-        tracking_number: trackingNumber || undefined,
-        device_info: deviceInfo(),
-      })
-      setResult(res.data)
-      signal(true)
-    } catch (err: unknown) {
-      signal(false)
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        '発送確定に失敗しました'
-      setError(String(msg))
-    } finally {
-      setConfirming(false)
-    }
+    setError('発送確定のため、同じバーコードをもう一度スキャンしてください')
+    setAwaitingConfirmScan(true)
   }
 
   if (!isMounted || !isReady) return null
@@ -354,13 +367,18 @@ export default function AdminBuybackShippingVerifyPage() {
                   className="w-full h-14 text-lg"
                   disabled={
                     confirming ||
+                    awaitingConfirmScan ||
                     !result.can_confirm ||
                     !allChecked ||
                     !result.address_complete
                   }
                   onClick={() => void handleConfirm()}
                 >
-                  {confirming ? '処理中…' : '発送確定'}
+                  {confirming
+                    ? '処理中…'
+                    : awaitingConfirmScan
+                      ? '確定用バーコードを待機中…'
+                      : '発送確定'}
                 </Button>
                 {!allChecked && (
                   <p className="text-sm text-gray-500 text-center">

@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from config import settings
 from database import get_db
-from admin_emails import ensure_admin
 from clerk_auth import authenticate_clerk_session
 from internal_admin_auth import authenticate_internal_admin
 import models
@@ -75,7 +74,7 @@ def get_current_user(
     if user_id is not None:
         user = db.query(models.User).filter(models.User.id == int(user_id)).first()
         if user is not None:
-            return ensure_admin(user, db)
+            return user
 
     clerk_user = authenticate_clerk_session(token, db)
     if clerk_user is not None:

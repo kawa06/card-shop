@@ -10,12 +10,6 @@ import { adminBuybackLogisticsApi } from '@/lib/api'
 import type { AdminBuybackPackageLabel } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 
-declare global {
-  interface Window {
-    JsBarcode?: (el: string | HTMLElement, data: string, options?: Record<string, unknown>) => void
-  }
-}
-
 export default function AdminPackageLabelPrintPage() {
   return (
     <Suspense
@@ -69,35 +63,9 @@ function AdminPackageLabelPrintContent() {
     void load()
   }, [isMounted, isReady, load])
 
-  useEffect(() => {
-    if (!label?.scan_token) return
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'
-    script.onload = () => {
-      const el = document.getElementById('pkgBarcode')
-      if (el && window.JsBarcode) {
-        try {
-          window.JsBarcode(el, label.scan_token!, {
-            format: 'CODE128',
-            displayValue: false,
-            margin: 8,
-            height: 52,
-            width: 1.5,
-          })
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-    document.body.appendChild(script)
-    return () => {
-      script.remove()
-    }
-  }, [label])
-
   if (!isMounted || !isReady) return null
 
-  if (!hasPermission('buyback.package.read') && !hasPermission('buyback.print.internal')) {
+  if (!hasPermission('buyback.print.internal')) {
     return (
       <div className="p-8">
         <p className="text-red-600">印刷権限がありません。</p>
@@ -139,7 +107,13 @@ function AdminPackageLabelPrintContent() {
               )}
             </div>
             <div className="text-center min-w-[140px]">
-              <svg id="pkgBarcode" />
+              {/* The server renders the bearer credential directly into bars. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`/api/admin/buyback/packages/${label.id}/barcode.svg`}
+                alt="物流バーコード"
+                className="mx-auto h-[64px] max-w-full"
+              />
               <p className="text-[10px] font-mono mt-1 break-all">
                 {label.barcode_human_readable || label.package_code}
               </p>

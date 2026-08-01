@@ -1,5 +1,6 @@
 import { useLangStore } from '@/store/lang'
 import { useBatchTranslation, useTranslation } from '@/hooks/useTranslation'
+import { enDictLabel } from '@/lib/i18n'
 
 export interface LocalizedNameFields {
   name: string
@@ -12,6 +13,10 @@ export function localizedName(
 ): string {
   if (!item) return ''
   if (lang === 'en' && item.name_en?.trim()) return item.name_en.trim()
+  if (lang === 'en') {
+    const fromDict = enDictLabel(item.name)
+    if (fromDict) return fromDict
+  }
   return item.name
 }
 
@@ -21,7 +26,13 @@ export function displayLocalizedName(
   translatedFallback?: string
 ): string {
   if (lang === 'en' && item.name_en?.trim()) return item.name_en.trim()
-  if (lang === 'en' && translatedFallback) return translatedFallback
+  if (lang === 'en') {
+    const fromDict = enDictLabel(item.name)
+    if (fromDict) return fromDict
+  }
+  if (lang === 'en' && translatedFallback && translatedFallback !== item.name) {
+    return translatedFallback
+  }
   return item.name
 }
 

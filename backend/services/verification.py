@@ -25,7 +25,6 @@ def normalize_phone(phone: str) -> str:
 def send_phone_otp(phone: str) -> dict:
     if not twilio_configured():
         if settings.DEBUG:
-            print(f"--- [TWILIO MOCK] OTP SENT TO {phone} ---")
             return {"message": "認証コードを送信しました (DEBUG MODE)", "debug": True}
         raise HTTPException(
             status_code=503,

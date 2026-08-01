@@ -62,14 +62,14 @@ def _migrate_admin_security_schema() -> None:
     with Session() as db:
         try:
             seed_admin_rbac(db)
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("admin RBAC seed failed: %s", exc)
+            logger.error("admin RBAC seed failed")
 
     try:
         apply_admin_rls_policies()
-    except Exception as exc:
-        logger.error("admin RLS apply failed: %s", exc)
+    except Exception:
+        logger.error("admin RLS apply failed")
 
 
 def _migrate_buyback_schema() -> None:
@@ -100,7 +100,19 @@ def _migrate_buyback_schema() -> None:
     _create_unique_index_if_missing(
         "buyback_products", "ix_buyback_products_firestore_item_id", "firestore_item_id"
     )
+    _migrate_buyback_catalog_columns()
     _migrate_buyback_request_columns()
+
+
+def _migrate_buyback_catalog_columns() -> None:
+    """Additive catalog identity columns for admin buyback product CRUD."""
+    catalog_cols = [
+        ("card_number", "VARCHAR(128)"),
+        ("rarity", "VARCHAR(128)"),
+        ("pack_name", "VARCHAR(255)"),
+    ]
+    for col, col_type in catalog_cols:
+        _add_column_if_missing("buyback_products", col, col_type)
 
 
 def _migrate_buyback_request_columns() -> None:
@@ -206,8 +218,8 @@ def _create_unique_index_if_missing(table: str, index_name: str, column: str) ->
             )
             conn.commit()
         logger.info("Created unique index %s on %s.%s", index_name, table, column)
-    except Exception as exc:
-        logger.error("Failed to create unique index %s: %s", index_name, exc)
+    except Exception:
+        logger.error("Failed to create unique index %s", index_name)
 
 
 def _migrate_order_management_columns() -> None:
@@ -273,9 +285,9 @@ def _backfill_order_document_fields() -> None:
             if updated:
                 db.commit()
                 logger.info("Backfilled order document fields on %s orders", updated)
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("order document backfill failed: %s", exc)
+            logger.error("order document backfill failed")
 
 
 def _migrate_shop_settings() -> None:
@@ -291,9 +303,9 @@ def _migrate_shop_settings() -> None:
     with Session() as db:
         try:
             seed_shop_settings_from_env(db)
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("shop_settings seed failed: %s", exc)
+            logger.error("shop_settings seed failed")
 
 
 def _migrate_inquiry_tables() -> None:
@@ -319,9 +331,9 @@ def _migrate_inquiry_tables() -> None:
     with Session() as db:
         try:
             seed_inquiry_data(db)
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("inquiry seed failed: %s", exc)
+            logger.error("inquiry seed failed")
 
 
 def _backfill_shipping_status() -> None:
@@ -354,9 +366,9 @@ def _backfill_shipping_status() -> None:
             if updated:
                 db.commit()
                 logger.info("Backfilled shipping_status on %s orders", updated)
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("shipping_status backfill failed: %s", exc)
+            logger.error("shipping_status backfill failed")
 
 
 def _ensure_table_exists(inspector, table_name: str) -> None:
@@ -372,8 +384,8 @@ def _create_table_if_missing(table_name: str, model) -> None:
     try:
         model.__table__.create(bind=engine, checkfirst=True)
         logger.info("Created missing table: %s", table_name)
-    except Exception as exc:
-        logger.error("Failed to create table %s: %s", table_name, exc)
+    except Exception:
+        logger.error("Failed to create table %s", table_name)
 
 
 def _migrate_cards_image_url_to_text() -> None:
@@ -396,8 +408,8 @@ def _migrate_cards_image_url_to_text() -> None:
                 conn.execute(text("ALTER TABLE cards ALTER COLUMN image_url TYPE TEXT"))
                 conn.commit()
             logger.info("Migrated cards.image_url to TEXT (PostgreSQL)")
-        except Exception as exc:
-            logger.error("Failed to migrate cards.image_url to TEXT: %s", exc)
+        except Exception:
+            logger.error("Failed to migrate cards.image_url to TEXT")
         return
 
     if url.startswith("sqlite"):
@@ -409,8 +421,8 @@ def _migrate_cards_image_url_to_text() -> None:
                 conn.execute(text("UPDATE cards SET image_url = image_url WHERE 0"))
                 conn.commit()
             logger.info("SQLite cards.image_url left as-is (SQLite does not enforce VARCHAR length strictly)")
-        except Exception as exc:
-            logger.error("SQLite image_url check failed: %s", exc)
+        except Exception:
+            logger.error("SQLite image_url check failed")
 
 
 def _pg_column_type(col_type: str) -> str:
@@ -440,8 +452,8 @@ def _add_column_if_missing(table: str, column: str, col_type: str) -> None:
             conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
             conn.commit()
         logger.info("Added column %s.%s", table, column)
-    except Exception as exc:
-        logger.error("Failed to add column %s.%s: %s", table, column, exc)
+    except Exception:
+        logger.error("Failed to add column %s.%s", table, column)
 
 
 def _migrate_international_shipping_to_ems() -> None:
@@ -493,6 +505,6 @@ def _migrate_international_shipping_to_ems() -> None:
                     cards_updated,
                     deleted,
                 )
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.error("Failed international→ems migration: %s", exc)
+            logger.error("Failed international→ems migration")

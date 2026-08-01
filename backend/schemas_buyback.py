@@ -5,7 +5,16 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional, List
 
-from pydantic import BaseModel, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    StrictStr,
+    field_validator,
+    model_validator,
+)
 
 
 class BuybackHealthOut(BaseModel):
@@ -53,6 +62,91 @@ class BuybackProductOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminBuybackCatalogPriceIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    condition_code: StrictStr = Field(default="default", min_length=1, max_length=32)
+    price_normal: StrictInt = Field(ge=0)
+    price_high: Optional[StrictInt] = Field(default=None, ge=0)
+    purchase_limit: Optional[StrictInt] = Field(default=None, ge=0)
+    tier_overflow_price: Optional[StrictInt] = Field(default=None, ge=0)
+
+    @field_validator("condition_code")
+    @classmethod
+    def trim_condition_code(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("condition_code is required")
+        return value
+
+
+class AdminBuybackCatalogProductIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: StrictStr = Field(min_length=1, max_length=255)
+    category: StrictStr = Field(min_length=1, max_length=64)
+    card_number: Optional[StrictStr] = Field(default=None, max_length=128)
+    rarity: Optional[StrictStr] = Field(default=None, max_length=128)
+    pack_name: Optional[StrictStr] = Field(default=None, max_length=255)
+    image_url: Optional[StrictStr] = None
+    notes: Optional[StrictStr] = None
+    is_active: StrictBool = True
+    sort_order: StrictInt = 0
+    prices: List[AdminBuybackCatalogPriceIn] = Field(min_length=1)
+
+    @field_validator("name", "category")
+    @classmethod
+    def trim_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("value is required")
+        return value
+
+    @field_validator("card_number", "rarity", "pack_name", "image_url", "notes")
+    @classmethod
+    def trim_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @model_validator(mode="after")
+    def unique_conditions(self) -> "AdminBuybackCatalogProductIn":
+        codes = [price.condition_code.casefold() for price in self.prices]
+        if len(codes) != len(set(codes)):
+            raise ValueError("condition_code must be unique")
+        return self
+
+
+class AdminBuybackCatalogPriceOut(BaseModel):
+    id: int
+    condition_code: str
+    price_normal: int
+    price_high: Optional[int] = None
+    purchase_limit: Optional[int] = None
+    tier_overflow_price: Optional[int] = None
+    effective_from: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminBuybackCatalogProductOut(BaseModel):
+    id: int
+    name: str
+    category: str
+    card_number: Optional[str] = None
+    rarity: Optional[str] = None
+    pack_name: Optional[str] = None
+    image_url: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: bool
+    sort_order: int
+    prices: List[AdminBuybackCatalogPriceOut]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BuybackCartItemCreate(BaseModel):
@@ -163,7 +257,6 @@ class BuybackRequestDetailOut(BaseModel):
     public_buyback_code: Optional[str] = None
     inbound_mgmt_id: Optional[str] = None
     public_member_id: Optional[str] = None
-    application_scan_token: Optional[str] = None
     inbound_status: Optional[str] = None
     inbound_status_label: Optional[str] = None
     status: str
@@ -212,7 +305,6 @@ class BuybackApplicationFormOut(BaseModel):
     guardian_status: Optional[str] = None
     guardian_status_label: Optional[str] = None
     requires_guardian_consent: bool = False
-    scan_token: str
     barcode_human_readable: Optional[str] = None
     application_form_issued_at: Optional[datetime] = None
     is_reprint: bool = False
@@ -456,8 +548,15 @@ class AdminBuybackRequestUpdateIn(BaseModel):
 
 
 class AdminBuybackScanIn(BaseModel):
-    code: str
+    # Kept nullable at the request boundary so missing/null attempts reach the
+    # service and are rejected with a generic response plus a safe audit row.
+    code: Optional[str] = None
     device_info: Optional[str] = None
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def hide_invalid_scanner_value(cls, value):
+        return value if value is None or isinstance(value, str) else None
 
 
 class AdminBuybackScanItemOut(BaseModel):
@@ -502,7 +601,6 @@ class AdminBuybackScanOut(BaseModel):
     request_id: Optional[int] = None
     inbound_shipment_id: Optional[int] = None
     barcode_id: Optional[int] = None
-    scan_token: Optional[str] = None
     request_number: Optional[str] = None
     public_buyback_code: Optional[str] = None
     inbound_mgmt_id: Optional[str] = None
@@ -544,6 +642,11 @@ class AdminBuybackReceiveIn(BaseModel):
     admin_note: Optional[str] = None
     device_info: Optional[str] = None
 
+    @field_validator("scanned_code", mode="before")
+    @classmethod
+    def hide_invalid_scanner_value(cls, value):
+        return value if value is None or isinstance(value, str) else None
+
 
 class AdminBuybackPackageItemOut(BaseModel):
     request_item_id: int
@@ -571,7 +674,6 @@ class AdminBuybackPackageOut(BaseModel):
     packed_at: Optional[datetime] = None
     shipped_at: Optional[datetime] = None
     admin_note: Optional[str] = None
-    scan_token: Optional[str] = None
     barcode_human_readable: Optional[str] = None
     items: List[AdminBuybackPackageItemOut] = []
     created_at: Optional[datetime] = None
@@ -625,7 +727,6 @@ class AdminBuybackShipVerifyOut(BaseModel):
     message: Optional[str] = None
     package_id: Optional[int] = None
     barcode_id: Optional[int] = None
-    scan_token: Optional[str] = None
     package_code: Optional[str] = None
     package_kind: Optional[str] = None
     package_kind_label: Optional[str] = None
@@ -665,6 +766,11 @@ class AdminBuybackShipConfirmIn(BaseModel):
     shipping_method: Optional[str] = None
     device_info: Optional[str] = None
 
+    @field_validator("scanned_code", mode="before")
+    @classmethod
+    def hide_invalid_scanner_value(cls, value):
+        return value if value is None or isinstance(value, str) else None
+
 
 class AdminBuybackLabelLayoutOut(BaseModel):
     product_code: str
@@ -703,7 +809,6 @@ class AdminBuybackLabelSheetIn(BaseModel):
 class AdminBuybackLabelSheetCellOut(BaseModel):
     package_id: int
     package_code: str
-    scan_token: Optional[str] = None
     barcode_human_readable: Optional[str] = None
     public_buyback_code: Optional[str] = None
     request_number: Optional[str] = None
@@ -738,7 +843,6 @@ class AdminBuybackLogisticsLogOut(BaseModel):
     entity_id: Optional[str] = None
     includes_pii: Optional[bool] = None
     is_reprint: Optional[bool] = None
-    scan_token_prefix: Optional[str] = None
     details: Optional[dict] = None
     device_info: Optional[str] = None
     ip_address: Optional[str] = None

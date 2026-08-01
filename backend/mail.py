@@ -10,10 +10,7 @@ async def send_verification_email(email: str, token: str) -> tuple[bool, str | N
 
     if not settings.RESEND_API_KEY:
         if settings.DEBUG:
-            print(f"--- [RESEND MOCK] EMAIL SENT TO {email} ---")
-            print(f"Verification link: {verification_url}")
-            print(f"Token: {token}")
-            print("------------------------------------------")
+            logger.info("Verification email mock completed")
             return True, None
         logger.error("RESEND_API_KEY is not configured")
         return False, "RESEND_API_KEY is not configured"

@@ -553,6 +553,26 @@ export const adminBuybackApi = {
       `/admin/buyback/requests/${id}/complete-payout`,
       data
     ),
+  listCatalogProducts: (params?: { include_inactive?: boolean }) =>
+    apiClient.get<import('./types').AdminBuybackCatalogProduct[]>(
+      '/admin/buyback/catalog/products',
+      { params }
+    ),
+  createCatalogProduct: (data: import('./types').AdminBuybackCatalogProductInput) =>
+    apiClient.post<import('./types').AdminBuybackCatalogProduct>(
+      '/admin/buyback/catalog/products',
+      data
+    ),
+  updateCatalogProduct: (
+    id: number,
+    data: import('./types').AdminBuybackCatalogProductInput
+  ) =>
+    apiClient.put<import('./types').AdminBuybackCatalogProduct>(
+      `/admin/buyback/catalog/products/${id}`,
+      data
+    ),
+  deleteCatalogProduct: (id: number) =>
+    apiClient.delete(`/admin/buyback/catalog/products/${id}`),
 }
 
 export const adminBuybackLogisticsApi = {
@@ -629,8 +649,6 @@ export const adminBuybackLogisticsApi = {
     ),
   getLabelLayout: () =>
     apiClient.get<import('./types').AdminBuybackLabelLayout>('/admin/buyback/labels/layout'),
-  exportLabelCsv: (data: { package_ids: number[]; include_applicant_name?: boolean }) =>
-    apiClient.post<Blob>('/admin/buyback/labels/csv', data, { responseType: 'blob' }),
   getLabelSheet: (data: {
     package_ids: number[]
     start_position?: number

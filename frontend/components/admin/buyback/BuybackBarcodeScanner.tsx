@@ -11,12 +11,65 @@ interface BuybackBarcodeScannerProps {
   soundEnabled?: boolean
 }
 
+interface BarcodeDetectorInstance {
+  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>
+}
+
+interface BarcodeDetectorConstructor {
+  new (options?: { formats?: string[] }): BarcodeDetectorInstance
+  getSupportedFormats?: () => Promise<string[]>
+}
+
 declare global {
   interface Window {
-    BarcodeDetector?: new (options?: { formats?: string[] }) => {
-      detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>
-    }
+    BarcodeDetector?: BarcodeDetectorConstructor
   }
+}
+
+const CAMERA_ERRORS = {
+  insecure:
+    '安全な接続（HTTPS）でないためカメラを利用できません。USBリーダーまたは手入力を利用してください。',
+  permission:
+    'カメラの使用が許可されていません。ブラウザの設定でカメラを許可してください。',
+  notFound: '利用可能なカメラが見つかりません。USBリーダーまたは手入力を利用してください。',
+  busy: 'カメラを起動できません。ほかのアプリで使用中でないか確認してください。',
+  decoder:
+    'このブラウザはバーコード解析に対応していません。USBリーダーまたは手入力を利用してください。',
+  unsupported:
+    'このブラウザはカメラの起動に対応していません。USBリーダーまたは手入力を利用してください。',
+  start: 'カメラを起動できませんでした。ブラウザのカメラ設定を確認してください。',
+  invalidBarcode: 'バーコードの読取結果が不正です。もう一度読み取ってください。',
+} as const
+
+const AUTO_SUBMIT_TOKEN = /^[A-Za-z0-9_-]{43}$/
+const DETECTION_INTERVAL_MS = 250
+
+function cameraStartError(error: unknown): string {
+  if (!(error instanceof DOMException)) return CAMERA_ERRORS.start
+
+  switch (error.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return CAMERA_ERRORS.permission
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return CAMERA_ERRORS.notFound
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return CAMERA_ERRORS.busy
+    default:
+      return CAMERA_ERRORS.start
+  }
+}
+
+function isFacingModeConstraintFailure(error: unknown): boolean {
+  if (!(error instanceof DOMException)) return false
+  if (error.name !== 'OverconstrainedError' && error.name !== 'ConstraintNotSatisfiedError') {
+    return false
+  }
+
+  const constraint = (error as DOMException & { constraint?: string }).constraint
+  return !constraint || constraint === 'facingMode'
 }
 
 function CameraPanel({
@@ -27,86 +80,196 @@ function CameraPanel({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(true)
-  const activeRef = useRef(true)
+  const generationRef = useRef(0)
+  const onScanRef = useRef(onScan)
+  const onCloseRef = useRef(onClose)
 
   useEffect(() => {
-    activeRef.current = true
-    let raf = 0
-    let detector: InstanceType<NonNullable<typeof window.BarcodeDetector>> | null = null
+    onScanRef.current = onScan
+    onCloseRef.current = onClose
+  }, [onClose, onScan])
 
-    const stop = () => {
-      activeRef.current = false
-      if (raf) cancelAnimationFrame(raf)
-      streamRef.current?.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
+  useEffect(() => {
+    const generation = ++generationRef.current
+    let cancelled = false
+    let finished = false
+    let raf: number | null = null
+    let stream: MediaStream | null = null
+    let detector: BarcodeDetectorInstance | null = null
+    let detectionInFlight = false
+    let lastDetectionAt = 0
+
+    const isCurrent = () => !cancelled && generationRef.current === generation
+
+    const releaseMedia = (extraStream?: MediaStream) => {
+      if (raf !== null) {
+        cancelAnimationFrame(raf)
+        raf = null
+      }
+      const currentStream = stream
+      stream = null
+      currentStream?.getTracks().forEach((track) => track.stop())
+      if (extraStream && extraStream !== currentStream) {
+        extraStream.getTracks().forEach((track) => track.stop())
+      }
+      const video = videoRef.current
+      if (video) {
+        video.pause()
+        video.srcObject = null
+      }
     }
 
-    const loop = async () => {
-      if (!activeRef.current || !videoRef.current || !detector) return
+    const fail = (message: string, extraStream?: MediaStream) => {
+      finished = true
+      releaseMedia(extraStream)
+      if (!isCurrent()) return
+      setError(message)
+      setStarting(false)
+    }
+
+    const scheduleDetection = () => {
+      if (!isCurrent() || finished) return
+      raf = requestAnimationFrame(detect)
+    }
+
+    const detect = async (timestamp: number) => {
+      raf = null
+      const video = videoRef.current
+      if (!isCurrent() || finished || !video || !detector) return
+      if (
+        detectionInFlight ||
+        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        timestamp - lastDetectionAt < DETECTION_INTERVAL_MS
+      ) {
+        scheduleDetection()
+        return
+      }
+
+      detectionInFlight = true
+      lastDetectionAt = timestamp
       try {
-        if (videoRef.current.readyState >= 2) {
-          const codes = await detector.detect(videoRef.current)
-          if (codes.length > 0 && codes[0].rawValue) {
-            const value = codes[0].rawValue.trim()
-            if (value) {
-              stop()
-              onScan(value)
-              onClose()
-              return
-            }
+        const codes = await detector.detect(video)
+        if (!isCurrent() || finished) return
+        if (!Array.isArray(codes)) {
+          fail(CAMERA_ERRORS.invalidBarcode)
+          return
+        }
+        if (codes.length > 0) {
+          const rawValue = codes[0]?.rawValue
+          if (typeof rawValue !== 'string') {
+            fail(CAMERA_ERRORS.invalidBarcode)
+            return
+          }
+          const value = rawValue.trim()
+          if (value) {
+            finished = true
+            releaseMedia()
+            onScanRef.current(value)
+            onCloseRef.current()
+            return
           }
         }
       } catch {
         /* keep scanning */
+      } finally {
+        detectionInFlight = false
       }
-      raf = requestAnimationFrame(() => {
-        void loop()
-      })
+      scheduleDetection()
     }
 
     const start = async () => {
-      if (!window.BarcodeDetector) {
-        setError(
-          'このブラウザはカメラ読取に対応していません。USBリーダーまたは手入力を利用してください。'
-        )
-        setStarting(false)
+      if (!window.isSecureContext) {
+        fail(CAMERA_ERRORS.insecure)
         return
       }
+      if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+        fail(CAMERA_ERRORS.unsupported)
+        return
+      }
+
+      let acquiredStream: MediaStream
       try {
-        detector = new window.BarcodeDetector({
-          formats: ['code_128', 'qr_code', 'ean_13', 'code_39'],
-        })
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
+        acquiredStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: 'environment' } },
           audio: false,
         })
-        if (!activeRef.current) {
-          stream.getTracks().forEach((t) => t.stop())
+      } catch (firstError) {
+        if (!isFacingModeConstraintFailure(firstError)) {
+          fail(cameraStartError(firstError))
           return
         }
-        streamRef.current = stream
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
+
+        try {
+          acquiredStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          })
+        } catch (retryError) {
+          fail(cameraStartError(retryError))
+          return
+        }
+      }
+
+      if (!isCurrent()) {
+        releaseMedia(acquiredStream)
+        return
+      }
+      stream = acquiredStream
+
+      const Detector = window.BarcodeDetector
+      if (!Detector) {
+        fail(CAMERA_ERRORS.decoder)
+        return
+      }
+
+      try {
+        if (Detector.getSupportedFormats) {
+          const formats = await Detector.getSupportedFormats()
+          if (!isCurrent()) {
+            releaseMedia()
+            return
+          }
+          if (!formats.includes('code_128')) {
+            fail(CAMERA_ERRORS.decoder)
+            return
+          }
+        }
+        detector = new Detector({ formats: ['code_128'] })
+      } catch {
+        fail(CAMERA_ERRORS.decoder)
+        return
+      }
+
+      const video = videoRef.current
+      if (!video) {
+        fail(CAMERA_ERRORS.start)
+        return
+      }
+
+      try {
+        video.srcObject = stream
+        await video.play()
+        if (!isCurrent()) {
+          releaseMedia()
+          return
         }
         setStarting(false)
-        void loop()
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'カメラを起動できませんでした。ブラウザのカメラ許可を確認してください。'
-        )
-        setStarting(false)
+        scheduleDetection()
+      } catch (playError) {
+        fail(cameraStartError(playError))
       }
     }
 
     void start()
-    return stop
-  }, [onClose, onScan])
+    return () => {
+      cancelled = true
+      finished = true
+      generationRef.current += 1
+      releaseMedia()
+    }
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
@@ -145,15 +308,38 @@ export function BuybackBarcodeScanner({
   const inputRef = useRef<HTMLInputElement>(null)
   const firstKeyTimeRef = useRef(0)
   const debounceRef = useRef<number | null>(null)
+  const inputRevisionRef = useRef(0)
+  const submittingRef = useRef(false)
+  const focusTimerRef = useRef<number | null>(null)
+  const submitUnlockTimerRef = useRef<number | null>(null)
 
   const submit = useCallback(
     (code: string) => {
       const trimmed = code.trim()
-      if (!trimmed || disabled) return
-      onScan(trimmed)
-      setValue('')
-      firstKeyTimeRef.current = 0
-      window.setTimeout(() => inputRef.current?.focus(), 0)
+      if (!trimmed || disabled || submittingRef.current) return false
+
+      submittingRef.current = true
+      inputRevisionRef.current += 1
+      if (debounceRef.current !== null) {
+        window.clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+      try {
+        onScan(trimmed)
+        setValue('')
+        firstKeyTimeRef.current = 0
+        if (focusTimerRef.current !== null) window.clearTimeout(focusTimerRef.current)
+        focusTimerRef.current = window.setTimeout(() => inputRef.current?.focus(), 0)
+        return true
+      } finally {
+        if (submitUnlockTimerRef.current !== null) {
+          window.clearTimeout(submitUnlockTimerRef.current)
+        }
+        submitUnlockTimerRef.current = window.setTimeout(() => {
+          submittingRef.current = false
+          submitUnlockTimerRef.current = null
+        }, 0)
+      }
     },
     [disabled, onScan]
   )
@@ -164,7 +350,11 @@ export function BuybackBarcodeScanner({
 
   useEffect(() => {
     return () => {
-      if (debounceRef.current) window.clearTimeout(debounceRef.current)
+      if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
+      if (focusTimerRef.current !== null) window.clearTimeout(focusTimerRef.current)
+      if (submitUnlockTimerRef.current !== null) {
+        window.clearTimeout(submitUnlockTimerRef.current)
+      }
     }
   }, [])
 
@@ -189,21 +379,31 @@ export function BuybackBarcodeScanner({
             onChange={(e) => {
               const next = e.target.value
               const now = Date.now()
+              const revision = ++inputRevisionRef.current
               if (!firstKeyTimeRef.current || now - firstKeyTimeRef.current > 400) {
                 firstKeyTimeRef.current = now
               }
               setValue(next)
-              if (debounceRef.current) window.clearTimeout(debounceRef.current)
+              if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
+              if (!AUTO_SUBMIT_TOKEN.test(next)) {
+                debounceRef.current = null
+                return
+              }
               debounceRef.current = window.setTimeout(() => {
+                debounceRef.current = null
+                if (revision !== inputRevisionRef.current) return
                 const elapsed = Date.now() - firstKeyTimeRef.current
-                if (next.trim() && elapsed < 350) submit(next)
+                if (elapsed < 350) submit(next)
               }, 120)
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
-                if (debounceRef.current) window.clearTimeout(debounceRef.current)
-                submit(value)
+                if (debounceRef.current !== null) {
+                  window.clearTimeout(debounceRef.current)
+                  debounceRef.current = null
+                }
+                submit(e.currentTarget.value)
               }
             }}
           />

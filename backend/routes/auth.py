@@ -8,7 +8,7 @@ import os
 from database import get_db
 from config import settings
 from database import get_db
-from admin_emails import normalize_email, is_admin_email, ensure_admin
+from admin_emails import normalize_email
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
 from services.verification import (
@@ -94,7 +94,7 @@ async def register(
         email=email,
         name=payload.name,
         password_hash=hash_password(payload.password),
-        is_admin=is_admin_email(email),
+        is_admin=False,
         verification_token=verification_token,
         phone_number=phone_number,
         phone_verified=phone_verified,
@@ -137,7 +137,6 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="メールアドレスまたはパスワードが正しくありません",
         )
 
-    user = ensure_admin(user, db)
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer", "user": user}
 
@@ -149,12 +148,7 @@ def clerk_provision(
     db: Session = Depends(get_db),
 ):
     """Clerk連携用: メール認証なしでユーザーを作成/更新する（サーバー間のみ）"""
-    sync_secret = (
-        os.getenv("AUTH_SYNC_SECRET")
-        or os.getenv("CLERK_SECRET_KEY")
-        or os.getenv("ADMIN_PROXY_SECRET")
-        or ""
-    ).strip()
+    sync_secret = (os.getenv("AUTH_SYNC_SECRET") or "").strip()
     header_secret = (request.headers.get("X-Auth-Sync-Secret") or "").strip()
     if not sync_secret or not secrets.compare_digest(header_secret, sync_secret):
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -167,7 +161,6 @@ def clerk_provision(
         if payload.name.strip():
             user.name = payload.name.strip()
         user.is_verified = True
-        ensure_admin(user, db)
         db.commit()
         db.refresh(user)
     else:
@@ -175,7 +168,7 @@ def clerk_provision(
             email=email,
             name=payload.name.strip() or email.split("@")[0],
             password_hash=hash_password(payload.password),
-            is_admin=is_admin_email(email),
+            is_admin=False,
             is_verified=True,
         )
         db.add(user)
@@ -191,7 +184,7 @@ def get_me(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return ensure_admin(current_user, db)
+    return current_user
 
 
 @router.put("/me", response_model=schemas.UserOut)

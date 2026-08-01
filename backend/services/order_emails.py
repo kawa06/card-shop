@@ -90,7 +90,7 @@ def _send_html_email(*, to: str, subject: str, html: str) -> tuple[bool, str | N
             return True, None
         return False, f"Resend error ({response.status_code}): {response.text}"
     except Exception as exc:
-        logger.exception("Failed to send order email")
+        logger.error("Failed to send order email")
         return False, str(exc)
 
 

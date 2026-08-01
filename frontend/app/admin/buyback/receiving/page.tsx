@@ -53,7 +53,7 @@ export default function AdminBuybackReceivingPage() {
   const [error, setError] = useState<string | null>(null)
   const [flash, setFlash] = useState<'ok' | 'err' | null>(null)
   const [result, setResult] = useState<AdminBuybackScanResult | null>(null)
-  const [lastCode, setLastCode] = useState('')
+  const [awaitingConfirmScan, setAwaitingConfirmScan] = useState(false)
   const [boxCount, setBoxCount] = useState('1')
   const [actualCount, setActualCount] = useState('')
   const [conditionNote, setConditionNote] = useState('')
@@ -82,11 +82,45 @@ export default function AdminBuybackReceivingPage() {
     [soundOn]
   )
 
+  const performReceive = useCallback(
+    async (code: string) => {
+      if (!result?.inbound_shipment_id || !result.can_receive) return
+      setReceiving(true)
+      setError(null)
+      try {
+        const res = await adminBuybackLogisticsApi.receive({
+          inbound_shipment_id: result.inbound_shipment_id,
+          scanned_code: code,
+          box_count: Number(boxCount) || 1,
+          actual_item_count: actualCount ? Number(actualCount) : undefined,
+          condition_note: conditionNote || undefined,
+          admin_note: adminNote || undefined,
+          device_info: deviceInfo(),
+        })
+        setResult(res.data)
+        signal(true)
+      } catch (err: unknown) {
+        signal(false)
+        const msg =
+          (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+          '受付に失敗しました'
+        setError(String(msg))
+      } finally {
+        setReceiving(false)
+        setAwaitingConfirmScan(false)
+      }
+    },
+    [actualCount, adminNote, boxCount, conditionNote, result, signal]
+  )
+
   const handleScan = useCallback(
     async (code: string) => {
+      if (awaitingConfirmScan) {
+        await performReceive(code)
+        return
+      }
       setScanning(true)
       setError(null)
-      setLastCode(code)
       try {
         const res = await adminBuybackLogisticsApi.scan({
           code,
@@ -120,34 +154,13 @@ export default function AdminBuybackReceivingPage() {
         setScanning(false)
       }
     },
-    [signal]
+    [awaitingConfirmScan, performReceive, signal]
   )
 
-  const handleReceive = async () => {
+  const handleReceive = () => {
     if (!result?.inbound_shipment_id || !result.can_receive) return
-    setReceiving(true)
-    setError(null)
-    try {
-      const res = await adminBuybackLogisticsApi.receive({
-        inbound_shipment_id: result.inbound_shipment_id,
-        scanned_code: lastCode || undefined,
-        box_count: Number(boxCount) || 1,
-        actual_item_count: actualCount ? Number(actualCount) : undefined,
-        condition_note: conditionNote || undefined,
-        admin_note: adminNote || undefined,
-        device_info: deviceInfo(),
-      })
-      setResult(res.data)
-      signal(true)
-    } catch (err: unknown) {
-      signal(false)
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        '受付に失敗しました'
-      setError(String(msg))
-    } finally {
-      setReceiving(false)
-    }
+    setError('到着確定のため、同じバーコードをもう一度スキャンしてください')
+    setAwaitingConfirmScan(true)
   }
 
   if (!isMounted || !isReady) return null
@@ -342,9 +355,13 @@ export default function AdminBuybackReceivingPage() {
                 <Button
                   className="w-full h-12 text-base"
                   onClick={() => void handleReceive()}
-                  disabled={receiving}
+                  disabled={receiving || awaitingConfirmScan}
                 >
-                  {receiving ? '処理中…' : '荷物を受け付ける'}
+                  {receiving
+                    ? '処理中…'
+                    : awaitingConfirmScan
+                      ? '確定用バーコードを待機中…'
+                      : '荷物を受け付ける'}
                 </Button>
               </div>
             )}

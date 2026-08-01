@@ -68,6 +68,13 @@ def list_cards(
     total = query.count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
 
+    from services.localize_name import backfill_name_en_fields
+
+    backfill_name_en_fields(
+        db,
+        [c.category for c in items if c.category] + [c.pack for c in items if c.pack],
+    )
+
     return {
         "items": items,
         "total": total,
@@ -79,27 +86,44 @@ def list_cards(
 
 @router.get("/cards/{card_id}", response_model=schemas.CardOut)
 def get_card(card_id: int, db: Session = Depends(get_db)):
+    from services.localize_name import backfill_name_en_fields
+
     card = db.query(models.Card).filter(
         models.Card.id == card_id,
         models.Card.is_active == True,
     ).first()
     if not card:
         raise HTTPException(status_code=404, detail="カードが見つかりません")
+    backfill_name_en_fields(
+        db,
+        [x for x in (card.category, card.pack) if x is not None],
+    )
     return card
 
 
 @router.get("/categories", response_model=list[schemas.CategoryOut])
 def list_categories(db: Session = Depends(get_db)):
+    from services.localize_name import backfill_name_en_fields
+
     # Return only root categories; children are loaded via relationship
     roots = db.query(models.Category).filter(models.Category.parent_id == None).order_by(
         models.Category.sort_order
     ).all()
+    backfill_name_en_fields(db, roots)
+    for root in roots:
+        children = list(getattr(root, "children", None) or [])
+        if children:
+            backfill_name_en_fields(db, children)
     return roots
 
 
 @router.get("/packs", response_model=list[schemas.PackOut])
 def list_packs(db: Session = Depends(get_db)):
-    return db.query(models.Pack).order_by(models.Pack.sort_order, models.Pack.name).all()
+    from services.localize_name import backfill_name_en_fields
+
+    packs = db.query(models.Pack).order_by(models.Pack.sort_order, models.Pack.name).all()
+    backfill_name_en_fields(db, packs)
+    return packs
 
 
 @router.get("/announcements", response_model=list[schemas.AnnouncementOut])

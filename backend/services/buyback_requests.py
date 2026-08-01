@@ -37,8 +37,8 @@ def _audit_request(
                 details_json=json.dumps(details, ensure_ascii=False),
             )
         )
-    except Exception as exc:
-        logger.warning("Failed to write buyback request audit log: %s", exc)
+    except Exception:
+        logger.warning("Failed to write buyback request audit log")
 
 
 def _load_user_cart_with_products(

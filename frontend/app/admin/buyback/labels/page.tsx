@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft, Download, Loader2, Printer } from 'lucide-react'
+import { ArrowLeft, Loader2, Printer } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
 import { adminBuybackLogisticsApi } from '@/lib/api'
@@ -15,12 +15,6 @@ import type {
 import { layoutCssVars, placeLabelsOnSheet } from '@/lib/buyback-label-yasan'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-declare global {
-  interface Window {
-    JsBarcode?: (el: string | HTMLElement, data: string, options?: Record<string, unknown>) => void
-  }
-}
 
 export default function AdminBuybackLabelsPage() {
   return (
@@ -65,7 +59,6 @@ function AdminBuybackLabelsContent() {
     setIsMounted(true)
   }, [])
 
-  const canCsv = hasPermission('admin.csv.export')
   const canPrint = hasPermission('buyback.print.internal')
   const canName = hasPermission('admin.pii.read') && hasPermission('buyback.print.pii')
   const faces = layout?.faces || 65
@@ -107,36 +100,6 @@ function AdminBuybackLabelsContent() {
     void load()
   }, [isMounted, isReady, load])
 
-  useEffect(() => {
-    if (!sheetLabels.length) return
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'
-    script.onload = () => {
-      cells.forEach((cell, i) => {
-        if (!cell) return
-        const token = cell.scan_token || cell.barcode_human_readable || cell.package_code
-        const el = document.getElementById(`sheetBarcode-${i}`)
-        if (el && token && window.JsBarcode) {
-          try {
-            window.JsBarcode(el, token, {
-              format: 'CODE128',
-              displayValue: false,
-              margin: 0,
-              height: 28,
-              width: 1.1,
-            })
-          } catch {
-            /* ignore */
-          }
-        }
-      })
-    }
-    document.body.appendChild(script)
-    return () => {
-      script.remove()
-    }
-  }, [cells, sheetLabels.length])
-
   const selectedIds = useMemo(() => Array.from(selected), [selected])
 
   const toggle = (id: number) => {
@@ -146,36 +109,6 @@ function AdminBuybackLabelsContent() {
       else next.add(id)
       return next
     })
-  }
-
-  const handleCsv = async () => {
-    if (!selectedIds.length) {
-      setError('出力する梱包を選択してください')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    try {
-      const res = await adminBuybackLogisticsApi.exportLabelCsv({
-        package_ids: selectedIds,
-        include_applicant_name: includeName && canName,
-      })
-      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `label_yasan_buyback_${layout?.product_code || '72265'}_${new Date()
-        .toISOString()
-        .slice(0, 10)}.csv`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-    } catch {
-      setError('CSV出力に失敗しました')
-    } finally {
-      setBusy(false)
-    }
   }
 
   const handleSheet = async () => {
@@ -204,7 +137,7 @@ function AdminBuybackLabelsContent() {
 
   if (!isMounted || !isReady) return null
 
-  if (!canCsv && !canPrint) {
+  if (!canPrint) {
     return (
       <div className="p-8">
         <p className="text-red-600">ラベル出力権限がありません。</p>
@@ -225,12 +158,6 @@ function AdminBuybackLabelsContent() {
           </Link>
           <h1 className="text-lg font-semibold">ラベル屋さん / 72265</h1>
           <div className="flex gap-2">
-            {canCsv && (
-              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void handleCsv()}>
-                <Download className="h-4 w-4 mr-1" />
-                CSV
-              </Button>
-            )}
             {canPrint && (
               <>
                 <Button size="sm" variant="secondary" disabled={busy} onClick={() => void handleSheet()}>
@@ -360,7 +287,12 @@ function AdminBuybackLabelsContent() {
               {cell ? (
                 <div className="label-inner">
                   <p className="shop">{cell.shop_name || layout.shop_name}</p>
-                  <svg id={`sheetBarcode-${i}`} className="bc" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/admin/buyback/packages/${cell.package_id}/barcode.svg`}
+                    alt="物流バーコード"
+                    className="bc"
+                  />
                   <p className="code">{cell.package_code}</p>
                   <p className="buy">{cell.public_buyback_code || cell.request_number || ''}</p>
                   {cell.applicant_name && <p className="name">{cell.applicant_name}</p>}

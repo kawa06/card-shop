@@ -11,7 +11,8 @@ interface CacheEntry {
   ts: number
 }
 
-const CACHE_KEY = 'oripa_translation_cache'
+// v2 ignores old entries that cached untranslated Japanese after provider failures.
+const CACHE_KEY = 'oripa_translation_cache_v2'
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
 
 function getCache(): Record<string, CacheEntry> {
@@ -78,7 +79,9 @@ async function flushBatch() {
         const translated = translations[i] ?? original
         results[missed[i].idx] = translated
         const key = cacheKey(original, target)
-        cache[key] = { text: original, target, translated, ts: Date.now() }
+        if (translated !== original) {
+          cache[key] = { text: original, target, translated, ts: Date.now() }
+        }
       }
       setCache(cache)
     } catch {
@@ -171,7 +174,9 @@ export function useBatchTranslation(texts: string[]): string[] {
           const translated = translations[i] ?? original
           out[missed[i].idx] = translated
           const key = cacheKey(original, target)
-          cache[key] = { text: original, target, translated, ts: Date.now() }
+          if (translated !== original) {
+            cache[key] = { text: original, target, translated, ts: Date.now() }
+          }
         }
         setCache(cache)
       } catch {

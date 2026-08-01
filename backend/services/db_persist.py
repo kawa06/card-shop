@@ -73,11 +73,11 @@ def safe_commit(db: Session, *, action: str = "保存") -> None:
                 status_code=503,
                 detail="データベースのスキーマが古いです。APIを再デプロイしてください。",
             ) from exc
-        logger.exception("Database operational error during %s", action)
+        logger.error("Database operational error", extra={"operation": action})
         raise HTTPException(status_code=500, detail=f"{action}中にデータベースエラーが発生しました") from exc
     except SQLAlchemyError as exc:
         db.rollback()
-        logger.exception("Database error during %s", action)
+        logger.error("Database error", extra={"operation": action})
         raise HTTPException(status_code=500, detail=f"{action}に失敗しました") from exc
 
 

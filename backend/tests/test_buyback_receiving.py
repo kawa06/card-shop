@@ -95,6 +95,7 @@ def test_scan_and_receive_flow(api_client, db, seed_admin_rbac_data):
     assert scan.status_code == 200
     body = scan.json()
     assert body["found"] is True
+    assert "scan_token" not in body
     assert body["can_receive"] is True
     assert body["applicant_name"] == "受付テスト客"
     assert body["public_buyback_code"].startswith("KRX-BUY-")
@@ -127,8 +128,10 @@ def test_scan_and_receive_flow(api_client, db, seed_admin_rbac_data):
     assert request.received_by_user_id == admin.id
 
 
-def test_scan_by_inbound_mgmt_id(api_client, db, seed_admin_rbac_data):
-    admin = create_admin_user(db, email="recv-mgmt@test.com", role_code="appraiser")
+def test_inbound_mgmt_id_is_not_a_scan_token(api_client, db, seed_admin_rbac_data):
+    admin = create_admin_user(
+        db, email="recv-mgmt@test.com", role_code="inventory_manager"
+    )
     customer = _create_customer(db, email="recv2@example.com")
     request = _submit_request(db, customer)
 
@@ -139,12 +142,8 @@ def test_scan_by_inbound_mgmt_id(api_client, db, seed_admin_rbac_data):
     )
     assert scan.status_code == 200
     body = scan.json()
-    assert body["found"] is True
-    # appraiser lacks admin.pii.read
-    assert body["user_email"] is None
-    assert body["phone_number"] is None
-    assert body["address"] is None
-    assert body["applicant_name"] == "受付テスト客"
+    assert body["found"] is False
+    assert body["message"] == "無効なバーコードです"
 
 
 def test_viewer_cannot_scan(api_client, db, seed_admin_rbac_data):

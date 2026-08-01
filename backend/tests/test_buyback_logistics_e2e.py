@@ -92,6 +92,17 @@ def _app_token(db, request: models_buyback.BuybackRequest) -> str:
     return barcode.scan_token
 
 
+def _package_token(db, package_id: int) -> str:
+    barcode = get_active_barcode_for_entity(
+        db,
+        entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
+        entity_id=package_id,
+        barcode_type=models_buyback.BuybackBarcodeType.package_outbound.value,
+    )
+    assert barcode and barcode.scan_token
+    return barcode.scan_token
+
+
 @patch("services.buyback_receiving.notify_buyback_inbound_received", return_value=(True, None))
 @patch("services.buyback_shipping.notify_buyback_package_shipped", return_value=(True, None))
 @patch("services.buyback_admin.notify_buyback_assessment_ready", return_value=(True, None))
@@ -105,10 +116,14 @@ def test_logistics_e2e_flow(
     db,
 ):
     manager = create_admin_user(db, email="e2e-mgr@test.com", role_code="buyback_manager")
+    receiver = create_admin_user(
+        db, email="e2e-receive@test.com", role_code="inventory_manager"
+    )
     appraiser = create_admin_user(db, email="e2e-app@test.com", role_code="appraiser")
     customer = _customer(db, "e2e-logistics@example.com")
     other = _customer(db, "e2e-other@example.com", name="別人", postal_code="1000001")
     mgr = auth_headers(manager)
+    receive_headers = auth_headers(receiver)
     apr = auth_headers(appraiser)
     cust = auth_headers(customer)
 
@@ -126,7 +141,8 @@ def test_logistics_e2e_flow(
     )
     assert form.status_code == 200
     form_body = form.json()
-    assert form_body.get("scan_token") or form_body.get("barcode_scan_token")
+    assert "scan_token" not in form_body
+    assert "barcode_scan_token" not in form_body
     assert "password" not in str(form_body).lower()
     assert customer.email not in str(form_body).lower() or True  # email may be masked
 
@@ -141,7 +157,7 @@ def test_logistics_e2e_flow(
     token = _app_token(db, request)
     scan_masked = api_client.post(
         "/api/admin/buyback/scan",
-        headers=apr,
+        headers=receive_headers,
         json={"code": token},
     )
     assert scan_masked.status_code == 200
@@ -224,7 +240,7 @@ def test_logistics_e2e_flow(
     ship_scan = api_client.post(
         "/api/admin/buyback/ship/scan",
         headers=mgr,
-        json={"code": pkgs[0]["scan_token"]},
+        json={"code": _package_token(db, pkgs[0]["id"])},
     )
     assert ship_scan.status_code == 200
     ship_body = ship_scan.json()
@@ -242,7 +258,7 @@ def test_logistics_e2e_flow(
     )
     assert deny.status_code == 403
 
-    # --- 72265 layout + CSV + sheet (logs) ---
+    # --- 72265 layout + secure server-rendered sheet ---
     layout = get_72265_layout()
     assert layout["faces"] == 65
     assert layout["label_width_mm"] == 38.1
@@ -255,11 +271,7 @@ def test_logistics_e2e_flow(
         headers=mgr,
         json={"package_ids": [pkgs[0]["id"], pkgs[1]["id"]]},
     )
-    assert csv_res.status_code == 200
-    csv_text = csv_res.content.decode("utf-8-sig")
-    assert "管理ID" in csv_text
-    assert pkgs[0]["package_code"] in csv_text
-    assert "6500001" not in csv_text  # no address in CSV
+    assert csv_res.status_code == 410
 
     sheet = api_client.post(
         "/api/admin/buyback/labels/sheet",
@@ -280,7 +292,7 @@ def test_logistics_e2e_flow(
         json={
             "package_id": pkgs[0]["id"],
             "checklist": ALL_CHECKS,
-            "scanned_code": pkgs[0]["scan_token"],
+            "scanned_code": _package_token(db, pkgs[0]["id"]),
         },
     )
     assert confirm.status_code == 200
@@ -290,9 +302,13 @@ def test_logistics_e2e_flow(
     again = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=mgr,
-        json={"package_id": pkgs[0]["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": pkgs[0]["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": _package_token(db, pkgs[0]["id"]),
+        },
     )
-    assert again.status_code == 400
+    assert again.status_code == 409
 
     # print log / confirmation exists
     conf = (
@@ -344,7 +360,11 @@ def test_incomplete_address_and_cancelled_block_ship(api_client, db):
     bad_addr = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=mgr,
-        json={"package_id": pkgs[0]["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": pkgs[0]["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": _package_token(db, pkgs[0]["id"]),
+        },
     )
     assert bad_addr.status_code == 400
     assert "住所" in bad_addr.json()["detail"]
@@ -374,6 +394,10 @@ def test_incomplete_address_and_cancelled_block_ship(api_client, db):
     bad_cancel = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=mgr,
-        json={"package_id": pkgs2[0]["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": pkgs2[0]["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": _package_token(db, pkgs2[0]["id"]),
+        },
     )
     assert bad_cancel.status_code == 400

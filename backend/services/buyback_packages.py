@@ -8,6 +8,8 @@ from datetime import date, datetime
 from typing import Optional
 
 from fastapi import HTTPException, status
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 import models
@@ -16,6 +18,7 @@ from services.buyback_barcodes import create_barcode, get_active_barcode_for_ent
 from services.buyback_emails import STATUS_LABELS
 from services.buyback_inbound import provision_request_logistics
 from services.buyback_public_ids import assign_inbound_mgmt_id, build_package_box_code
+from services.sensitive_redaction import redact_text
 
 logger = logging.getLogger(__name__)
 
@@ -39,15 +42,12 @@ PACKABLE_REQUEST_STATUSES = {
     models_buyback.BuybackRequestStatus.awaiting_customer.value,
     models_buyback.BuybackRequestStatus.accepted.value,
     models_buyback.BuybackRequestStatus.rejected.value,
-    models_buyback.BuybackRequestStatus.returned.value,
 }
 
 
 def _serialize_package(
     db: Session,
     package: models_buyback.BuybackShipmentPackage,
-    *,
-    include_scan_token: bool = True,
 ) -> dict:
     barcode = get_active_barcode_for_entity(
         db,
@@ -102,7 +102,6 @@ def _serialize_package(
         "packed_at": package.packed_at,
         "shipped_at": package.shipped_at,
         "admin_note": package.admin_note,
-        "scan_token": barcode.scan_token if barcode and include_scan_token else None,
         "barcode_human_readable": barcode.human_readable if barcode else package.package_code,
         "items": item_rows,
         "created_at": package.created_at,
@@ -317,8 +316,8 @@ def issue_packages_for_request(
                 change_reason="packages_issued",
             )
         )
-    except Exception as exc:
-        logger.warning("Failed to write package issue audit: %s", exc)
+    except Exception:
+        raise
 
     # Touch updated_at
     request.updated_at = now
@@ -348,12 +347,16 @@ def complete_package(
         raise HTTPException(status_code=400, detail="キャンセル済みの梱包です")
 
     now = datetime.utcnow()
-    package.status = models_buyback.BuybackShipmentPackageStatus.packed.value
-    package.packed_by_user_id = admin_user.id
-    package.packed_at = now
-    package.updated_at = now
+    values = {
+        "status": models_buyback.BuybackShipmentPackageStatus.packed.value,
+        "packed_by_user_id": admin_user.id,
+        "packed_at": now,
+        "updated_at": now,
+    }
     if tracking_number is not None:
         tn = tracking_number.strip() or None
+        if tn and redact_text(tn) != tn:
+            raise HTTPException(status_code=400, detail="追跡番号が不正です")
         if tn:
             dup = (
                 db.query(models_buyback.BuybackShipmentPackage.id)
@@ -365,11 +368,32 @@ def complete_package(
             )
             if dup:
                 raise HTTPException(status_code=400, detail="この追跡番号は別の梱包で使用されています")
-        package.tracking_number = tn
+        values["tracking_number"] = tn
     if admin_note is not None:
-        package.admin_note = admin_note.strip() or None
+        values["admin_note"] = redact_text(admin_note.strip()) or None
 
     try:
+        claimed = db.execute(
+            update(models_buyback.BuybackShipmentPackage)
+            .where(
+                models_buyback.BuybackShipmentPackage.id == package.id,
+                models_buyback.BuybackShipmentPackage.status.in_(
+                    {
+                        models_buyback.BuybackShipmentPackageStatus.packing.value,
+                        models_buyback.BuybackShipmentPackageStatus.packed.value,
+                        models_buyback.BuybackShipmentPackageStatus.awaiting_verify.value,
+                    }
+                ),
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        if claimed.rowcount != 1:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="発送処理済みの梱包は完了処理できません",
+            )
         db.add(
             models_buyback.BuybackAuditLog(
                 actor_user_id=admin_user.id,
@@ -377,15 +401,18 @@ def complete_package(
                 entity_type="buyback_shipment_package",
                 entity_id=str(package.id),
                 details_json=json.dumps(
-                    {"package_code": package.package_code, "tracking_number": package.tracking_number},
+                    {"package_code": package.package_code},
                     ensure_ascii=False,
                 ),
             )
         )
-    except Exception as exc:
-        logger.warning("Failed to write package complete audit: %s", exc)
-
-    db.commit()
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="梱包の更新が競合しました",
+        ) from exc
     db.refresh(package)
     return _serialize_package(db, package)
 
@@ -425,8 +452,8 @@ def get_package_label_payload(
         "public_buyback_code": request.public_buyback_code,
         "request_number": request.request_number,
         "inbound_mgmt_id": request.inbound_mgmt_id,
-        "applicant_name": dest.name if dest else "—",
-        "destination_name": dest.name if dest else "—",
+        "applicant_name": dest.name if include_pii and dest else "—",
+        "destination_name": dest.name if include_pii and dest else "—",
         "request_status": request.status,
         "request_status_label": STATUS_LABELS.get(request.status, request.status),
         "item_count": sum(i["quantity"] for i in serialized.get("items") or [])
@@ -465,12 +492,15 @@ def get_package_label_payload(
                     entity_id=package.id,
                     includes_pii=include_pii,
                     is_reprint=is_reprint,
-                    device_info=(device_info or "")[:255] or None,
+                    device_info=(redact_text(device_info) or "")[:255] or None,
                 )
             )
             db.commit()
-        except Exception as exc:
+        except Exception:
             db.rollback()
-            logger.warning("Failed to write package print log: %s", exc)
+            logger.warning(
+                "Package print log failed",
+                extra={"package_id": package.id},
+            )
 
     return payload

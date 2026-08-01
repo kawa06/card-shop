@@ -10,17 +10,22 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 import models_admin
+from services.sensitive_redaction import redact_audit_value, redact_text
 
 
 def _serialize(data: Any) -> Optional[str]:
     if data is None:
         return None
     if isinstance(data, str):
-        return data
+        return redact_text(data)
     try:
-        return json.dumps(data, ensure_ascii=False, default=str)
+        return json.dumps(
+            redact_audit_value(data),
+            ensure_ascii=False,
+            default=str,
+        )
     except (TypeError, ValueError):
-        return str(data)
+        return redact_text(str(data))
 
 
 def extract_client_meta(request: Optional[Request]) -> tuple[Optional[str], Optional[str]]:
@@ -32,7 +37,7 @@ def extract_client_meta(request: Optional[Request]) -> tuple[Optional[str], Opti
     else:
         ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
-    return ip, user_agent
+    return redact_text(ip), redact_text(user_agent)
 
 
 def write_audit_log(

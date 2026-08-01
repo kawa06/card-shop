@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import logging
 from datetime import datetime
 from typing import Any
 
@@ -14,10 +11,7 @@ from sqlalchemy.orm import Session
 import models
 import models_buyback
 from config import settings
-from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_packages import PACKAGE_KIND_LABELS
-
-logger = logging.getLogger(__name__)
 
 # Official A-one 72265 / format F65A4-1 (公開仕様)
 LABEL_PRODUCT_CODE_DEFAULT = "72265"
@@ -43,19 +37,6 @@ MARGIN_LEFT_MM = round(
 MARGIN_TOP_MM = round(
     (SHEET_HEIGHT_MM - (ROWS * LABEL_HEIGHT_MM + (ROWS - 1) * GAP_V_MM)) / 2, 2
 )
-
-LABEL_YASAN_HEADERS = [
-    "管理ID",
-    "バーコード番号",
-    "商品名",
-    "価格表示",
-    "バーコード用文字",
-    "QRコード用文字",
-    "分類",
-    "保管場所",
-    "補足",
-]
-
 
 def shop_name() -> str:
     return (getattr(settings, "BUYBACK_SHOP_NAME", None) or "").strip() or "KRX TCG"
@@ -106,109 +87,17 @@ def _package_product_name(
     return f"{shop_name()} {kind} {buy} ({package.box_index}/{package.total_boxes})"
 
 
-def _build_csv_row(
-    request: models_buyback.BuybackRequest,
-    package: models_buyback.BuybackShipmentPackage,
-    barcode: models_buyback.BuybackBarcode | None,
-    *,
-    include_applicant_name: bool,
-    dest: models.User | None,
-) -> list[str]:
-    token = (barcode.scan_token if barcode else "") or ""
-    human = (barcode.human_readable if barcode else None) or package.package_code
-    note_parts = ["取扱注意"]
-    if include_applicant_name and dest and (dest.name or "").strip():
-        # Optional name for box stickers; never put address/phone/email in CSV.
-        note_parts.append((dest.name or "").strip()[:40])
-    return [
-        package.package_code,
-        human,
-        _package_product_name(request, package),
-        "",  # 価格表示 — not used for logistics packages
-        token or human,  # バーコード生成用（scan_token優先）
-        package.package_code,  # QR用は公開梱包ID
-        PACKAGE_KIND_LABELS.get(package.package_kind, package.package_kind or ""),
-        request.inbound_mgmt_id or "",
-        " / ".join(note_parts),
-    ]
-
-
 def build_label_yasan_csv(
     db: Session,
     *,
     package_ids: list[int],
     include_applicant_name: bool = False,
 ) -> tuple[str, int]:
-    if not package_ids:
-        raise HTTPException(status_code=400, detail="出力する梱包を選択してください")
-
-    packages = (
-        db.query(models_buyback.BuybackShipmentPackage)
-        .filter(models_buyback.BuybackShipmentPackage.id.in_(package_ids))
-        .order_by(
-            models_buyback.BuybackShipmentPackage.request_id.asc(),
-            models_buyback.BuybackShipmentPackage.box_index.asc(),
-            models_buyback.BuybackShipmentPackage.id.asc(),
-        )
-        .all()
+    del db, package_ids, include_applicant_name
+    raise HTTPException(
+        status_code=410,
+        detail="CSVバーコード出力は廃止されました。ブラウザ印刷を使用してください",
     )
-    if not packages:
-        raise HTTPException(status_code=404, detail="対象の梱包が見つかりません")
-
-    found_ids = {p.id for p in packages}
-    missing = [pid for pid in package_ids if pid not in found_ids]
-    if missing:
-        raise HTTPException(status_code=404, detail=f"梱包が見つかりません: {missing}")
-
-    request_ids = {p.request_id for p in packages}
-    requests = {
-        r.id: r
-        for r in db.query(models_buyback.BuybackRequest)
-        .filter(models_buyback.BuybackRequest.id.in_(request_ids))
-        .all()
-    }
-    dest_ids = {p.destination_user_id for p in packages if p.destination_user_id}
-    destinations = (
-        {
-            u.id: u
-            for u in db.query(models.User).filter(models.User.id.in_(dest_ids)).all()
-        }
-        if dest_ids
-        else {}
-    )
-
-    output = io.StringIO()
-    writer = csv.writer(output, lineterminator="\r\n")
-    writer.writerow(LABEL_YASAN_HEADERS)
-
-    for package in packages:
-        request = requests.get(package.request_id)
-        if not request:
-            raise HTTPException(
-                status_code=404,
-                detail=f"買取申込が見つかりません (package_id={package.id})",
-            )
-        barcode = get_active_barcode_for_entity(
-            db,
-            entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
-            entity_id=package.id,
-        )
-        dest = (
-            destinations.get(package.destination_user_id)
-            if package.destination_user_id
-            else None
-        )
-        writer.writerow(
-            _build_csv_row(
-                request,
-                package,
-                barcode,
-                include_applicant_name=include_applicant_name,
-                dest=dest,
-            )
-        )
-
-    return output.getvalue(), len(packages)
 
 
 def list_label_rows_for_print(
@@ -217,7 +106,7 @@ def list_label_rows_for_print(
     package_ids: list[int],
     include_pii_name: bool,
 ) -> list[dict[str, Any]]:
-    """Compact rows for 72265 browser print (scan_token + display fields)."""
+    """Compact rows for secure 72265 browser print."""
     if not package_ids:
         raise HTTPException(status_code=400, detail="印刷する梱包を選択してください")
 
@@ -254,19 +143,12 @@ def list_label_rows_for_print(
         request = requests.get(package.request_id)
         if not request:
             continue
-        barcode = get_active_barcode_for_entity(
-            db,
-            entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
-            entity_id=package.id,
-        )
         dest = destinations.get(package.destination_user_id) if include_pii_name else None
         rows.append(
             {
                 "package_id": package.id,
                 "package_code": package.package_code,
-                "scan_token": barcode.scan_token if barcode else None,
-                "barcode_human_readable": (barcode.human_readable if barcode else None)
-                or package.package_code,
+                "barcode_human_readable": package.package_code,
                 "public_buyback_code": request.public_buyback_code,
                 "request_number": request.request_number,
                 "inbound_mgmt_id": request.inbound_mgmt_id,

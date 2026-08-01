@@ -77,7 +77,7 @@ def test_get_application_form_payload_is_pii_minimized(api_client, db):
     assert body["declared_item_count"] == 2
     assert len(body["items"]) == 1
     assert body["items"][0]["product_name"] == "印刷テストカード"
-    assert body["scan_token"]
+    assert "scan_token" not in body
     assert body["identity_status_label"]
     assert len(body["notices"]) >= 6
 
@@ -90,6 +90,22 @@ def test_get_application_form_payload_is_pii_minimized(api_client, db):
     assert "postal_code" not in body
     assert "phone_number" not in body
     assert "address" not in body
+
+    barcode = (
+        db.query(models_buyback.BuybackBarcode)
+        .filter(
+            models_buyback.BuybackBarcode.entity_type
+            == models_buyback.BuybackBarcodeEntityType.inbound_shipment.value
+        )
+        .one()
+    )
+    image = api_client.get(
+        f"/api/buyback/requests/{request.id}/application-form/barcode.svg",
+        headers=_auth_header(user),
+    )
+    assert image.status_code == 200
+    assert image.headers["content-type"].startswith("image/svg+xml")
+    assert barcode.scan_token not in image.text
 
 
 def test_issue_application_form_logs_print(api_client, db):

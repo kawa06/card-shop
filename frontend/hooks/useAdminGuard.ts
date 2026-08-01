@@ -1,47 +1,58 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { useAdminSessionStore } from '@/hooks/useAdminPermissions'
 
 export function useAdminGuard() {
   const router = useRouter()
-  const { isSignedIn, isLoaded: clerkLoaded } = useAuth()
+  const { isSignedIn, isLoaded: clerkLoaded, userId, sessionId } = useAuth()
   const loginSession = useAdminSessionStore((s) => s.loginSession)
   const session = useAdminSessionStore((s) => s.session)
-  const loaded = useAdminSessionStore((s) => s.loaded)
-  const [checked, setChecked] = useState(false)
+  const status = useAdminSessionStore((s) => s.status)
+  const identity = useAdminSessionStore((s) => s.identity)
 
   const checkAccess = useCallback(async () => {
-    if (!clerkLoaded) return
+    if (!clerkLoaded || !isSignedIn) return
+    await loginSession()
+  }, [clerkLoaded, isSignedIn, loginSession])
 
-    if (!isSignedIn) {
+  useEffect(() => {
+    if (!clerkLoaded) return
+    if (!isSignedIn || status === 'unauthenticated') {
       router.push('/sign-in')
       return
     }
-
-    const result = await loginSession()
-    if (!result?.is_admin) {
+    if (status === 'forbidden' || (status === 'ready' && !session?.is_admin)) {
       router.push('/')
-      return
     }
+  }, [clerkLoaded, isSignedIn, router, session?.is_admin, status])
 
-    setChecked(true)
-  }, [clerkLoaded, isSignedIn, loginSession, router])
-
-  useEffect(() => {
-    checkAccess()
-  }, [checkAccess])
-
-  const isReady = clerkLoaded && isSignedIn && !!session?.is_admin && checked
+  const currentIdentity =
+    userId && sessionId ? `${userId}:${sessionId}` : null
+  const identityMatches = !!currentIdentity && identity === currentIdentity
+  const canUseVerifiedSession =
+    status === 'ready' || status === 'loading' || status === 'transient'
+  const isReady =
+    clerkLoaded &&
+    !!isSignedIn &&
+    identityMatches &&
+    canUseVerifiedSession &&
+    !!session?.is_admin
 
   return {
     isReady,
-    isAdmin: !!session?.is_admin,
-    isSyncing: !isReady && clerkLoaded,
-    syncError: null,
+    isAdmin: identityMatches && !!session?.is_admin,
+    isSyncing: status === 'idle' || status === 'loading',
+    syncError:
+      status === 'transient'
+        ? '管理者セッションを更新できませんでした。接続回復後に再試行します。'
+        : status === 'error'
+          ? '管理者セッションを確認できませんでした。'
+          : null,
     retrySync: checkAccess,
     session,
+    status,
   }
 }

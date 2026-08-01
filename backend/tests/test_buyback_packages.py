@@ -78,7 +78,7 @@ def test_issue_multi_box_packages(api_client, db):
     assert rows[0]["package_code"].endswith("-01")
     assert rows[1]["package_code"].endswith("-02")
     assert rows[2]["package_code"].endswith("-03")
-    assert rows[0]["scan_token"]
+    assert all("scan_token" not in row for row in rows)
     assert rows[0]["preferred_time_slot"] == "14-16時"
     assert rows[0]["status"] == "packing"
     # Box 1 has return items attached
@@ -123,7 +123,7 @@ def test_complete_package_and_label(api_client, db):
     body = label.json()
     assert body["package_code"].endswith("-01")
     assert body["applicant_name"] == "梱包テスト客"
-    assert body["scan_token"]
+    assert "scan_token" not in body
 
 
 def test_cannot_issue_while_submitted(api_client, db):

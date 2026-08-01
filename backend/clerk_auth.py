@@ -61,8 +61,8 @@ def _fetch_clerk_jwks() -> list[dict[str, Any]]:
         res = httpx.get(url, timeout=10.0)
         res.raise_for_status()
         return res.json().get("keys", [])
-    except httpx.HTTPError as exc:
-        logger.warning("Failed to fetch Clerk JWKS: %s", exc)
+    except httpx.HTTPError:
+        logger.warning("Failed to fetch Clerk JWKS")
         return []
 
 
@@ -107,8 +107,8 @@ def _email_from_clerk_api(clerk_user_id: str) -> Optional[str]:
                 return normalize_email(email)
             if not primary_id:
                 return normalize_email(email)
-    except httpx.HTTPError as exc:
-        logger.warning("Failed to fetch Clerk user %s: %s", clerk_user_id, exc)
+    except httpx.HTTPError:
+        logger.warning("Failed to fetch Clerk user")
     return None
 
 

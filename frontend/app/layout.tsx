@@ -1,6 +1,7 @@
 import { ClerkProvider } from '@clerk/nextjs'
 import { ClerkBackendSync } from '@/components/auth/ClerkBackendSync'
 import { ClerkTokenBridge } from '@/components/auth/ClerkTokenBridge'
+import { AdminSessionSync } from '@/components/auth/AdminSessionSync'
 import { clerkAppearance } from '@/lib/clerk/appearance'
 import { clerkLocalization } from '@/lib/clerk/localization'
 // Version: 2026-06-20-v2
@@ -82,6 +83,7 @@ export default function RootLayout({
         <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>
           <ClerkBackendSync />
           <ClerkTokenBridge />
+          <AdminSessionSync />
           <LangInit />
           <RateInit />
           <div className="flex flex-col min-h-screen overflow-x-hidden">

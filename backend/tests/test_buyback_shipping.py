@@ -9,6 +9,7 @@ import models
 import models_buyback
 from services.buyback_cart import add_cart_item
 from services.buyback_requests import submit_request_from_cart
+from services.admin_rbac import ROLE_PERMISSION_CODES
 from tests.conftest import auth_headers, create_admin_user
 
 ALL_CHECKS = {
@@ -88,6 +89,19 @@ def _prepare_packed_package(db, api_client, admin, customer):
         json={"tracking_number": "SHIP-TRACK-001"},
     )
     assert done.status_code == 200
+    assert "scan_token" not in package
+    assert "scan_token" not in done.json()
+    barcode = (
+        db.query(models_buyback.BuybackBarcode)
+        .filter(
+            models_buyback.BuybackBarcode.entity_type
+            == models_buyback.BuybackBarcodeEntityType.shipment_package.value,
+            models_buyback.BuybackBarcode.entity_id == package["id"],
+            models_buyback.BuybackBarcode.is_active.is_(True),
+        )
+        .one()
+    )
+    package["test_scan_token"] = barcode.scan_token
     return request, package
 
 
@@ -99,16 +113,22 @@ def test_ship_scan_and_confirm(api_client, db):
     scan = api_client.post(
         "/api/admin/buyback/ship/scan",
         headers=auth_headers(admin),
-        json={"code": package["scan_token"]},
+        json={"code": package["test_scan_token"]},
     )
     assert scan.status_code == 200
     body = scan.json()
     assert body["found"] is True
+    assert "scan_token" not in body
     assert body["can_confirm"] is True
     assert body["destination_name"] == "発送テスト客"
     assert body["destination_address"]["postal_code"] == "6500001"
     assert body["preferred_time_slot"] == "14-16時"
     assert len(body["checklist_items"]) == 9
+    stored_before_confirm = db.get(
+        models_buyback.BuybackShipmentPackage, package["id"]
+    )
+    db.refresh(stored_before_confirm)
+    assert stored_before_confirm.status == "packed"
 
     confirm = api_client.post(
         "/api/admin/buyback/ship/confirm",
@@ -116,7 +136,7 @@ def test_ship_scan_and_confirm(api_client, db):
         json={
             "package_id": package["id"],
             "checklist": ALL_CHECKS,
-            "scanned_code": package["scan_token"],
+            "scanned_code": package["test_scan_token"],
         },
     )
     assert confirm.status_code == 200
@@ -144,6 +164,43 @@ def test_ship_scan_and_confirm(api_client, db):
     assert request.status == "returned"
 
 
+def test_ship_read_only_scan_cannot_confirm_or_change_state(
+    api_client, db, monkeypatch
+):
+    admin = create_admin_user(
+        db, email="ship-read-only@test.com", role_code="shipping_manager"
+    )
+    customer = _customer(db, email="ship-read-customer@test.com")
+    _, package = _prepare_packed_package(db, api_client, admin, customer)
+    monkeypatch.setitem(
+        ROLE_PERMISSION_CODES,
+        "shipping_manager",
+        {"buyback.ship.read", "buyback.ship.pii.read", "buyback.package.read"},
+    )
+    headers = auth_headers(admin)
+
+    scan = api_client.post(
+        "/api/admin/buyback/ship/scan",
+        headers=headers,
+        json={"code": package["test_scan_token"]},
+    )
+    confirm = api_client.post(
+        "/api/admin/buyback/ship/confirm",
+        headers=headers,
+        json={
+            "package_id": package["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": package["test_scan_token"],
+        },
+    )
+
+    stored = db.get(models_buyback.BuybackShipmentPackage, package["id"])
+    db.refresh(stored)
+    assert scan.status_code == 200
+    assert confirm.status_code == 403
+    assert stored.status == "packed"
+
+
 def test_double_ship_blocked(api_client, db):
     admin = create_admin_user(db, email="ship-dup@test.com", role_code="shipping_manager")
     customer = _customer(db, email="ship2@example.com")
@@ -152,16 +209,24 @@ def test_double_ship_blocked(api_client, db):
     first = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=auth_headers(admin),
-        json={"package_id": package["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": package["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": package["test_scan_token"],
+        },
     )
     assert first.status_code == 200
 
     second = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=auth_headers(admin),
-        json={"package_id": package["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": package["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": package["test_scan_token"],
+        },
     )
-    assert second.status_code == 400
+    assert second.status_code == 409
     assert "二重発送" in second.json()["detail"] or "発送済み" in second.json()["detail"]
 
     rescan = api_client.post(
@@ -170,7 +235,8 @@ def test_double_ship_blocked(api_client, db):
         json={"code": package["package_code"]},
     )
     assert rescan.status_code == 200
-    assert rescan.json()["already_shipped"] is True
+    assert rescan.json()["found"] is False
+    assert rescan.json()["message"] == "無効なバーコードです"
 
 
 def test_incomplete_checklist_blocked(api_client, db):
@@ -183,7 +249,11 @@ def test_incomplete_checklist_blocked(api_client, db):
     res = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=auth_headers(admin),
-        json={"package_id": package["id"], "checklist": incomplete},
+        json={
+            "package_id": package["id"],
+            "checklist": incomplete,
+            "scanned_code": package["test_scan_token"],
+        },
     )
     assert res.status_code == 400
 
@@ -199,7 +269,11 @@ def test_incomplete_address_blocks_confirm(api_client, db):
     res = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=auth_headers(admin),
-        json={"package_id": package["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": package["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": package["test_scan_token"],
+        },
     )
     assert res.status_code == 400
     assert "住所" in res.json()["detail"]
@@ -215,6 +289,10 @@ def test_cancelled_blocks_confirm(api_client, db):
     res = api_client.post(
         "/api/admin/buyback/ship/confirm",
         headers=auth_headers(admin),
-        json={"package_id": package["id"], "checklist": ALL_CHECKS},
+        json={
+            "package_id": package["id"],
+            "checklist": ALL_CHECKS,
+            "scanned_code": package["test_scan_token"],
+        },
     )
     assert res.status_code == 400

@@ -53,6 +53,13 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-200 mt-8 pt-6 text-center text-sm">
+          {lang === 'en' && (
+            <p className="mx-auto mb-3 max-w-3xl text-xs leading-relaxed text-gray-400">
+              Translations are provided automatically and may contain inaccuracies.
+              For official information, including prices, shipping conditions, and terms,
+              please refer to the Japanese version.
+            </p>
+          )}
           <p>&copy; {new Date().getFullYear()} KRX TCG. All rights reserved.</p>
         </div>
       </div>

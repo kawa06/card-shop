@@ -69,13 +69,14 @@ def _issue_one_package(db, api_client, admin, customer):
 
 def test_role_permissions_phase8():
     appraiser = permission_codes_for_role("appraiser")
-    assert "buyback.receive" in appraiser
+    assert "buyback.receive" not in appraiser
     assert "admin.pii.read" not in appraiser
     assert "buyback.ship.confirm" not in appraiser
-    assert "buyback.logs.read" in appraiser
+    assert "buyback.logs.read" not in appraiser
 
     shipping = permission_codes_for_role("shipping_manager")
-    assert "admin.pii.read" in shipping
+    assert "admin.pii.read" not in shipping
+    assert "buyback.ship.pii.read" in shipping
     assert "buyback.ship.confirm" in shipping
     assert "buyback.logs.read" in shipping
 
@@ -85,7 +86,7 @@ def test_role_permissions_phase8():
     assert "buyback.receive" not in viewer
 
 
-def test_appraiser_scan_hides_address(api_client, db):
+def test_appraiser_cannot_scan_inbound(api_client, db):
     admin = create_admin_user(db, email="appraiser-pii@test.com", role_code="appraiser")
     customer = _customer(db)
     with patch("services.buyback_requests.notify_buyback_request_submitted"):
@@ -133,12 +134,8 @@ def test_appraiser_scan_hides_address(api_client, db):
         headers=auth_headers(admin),
         json={"code": barcode.scan_token},
     )
-    assert scan.status_code == 200
-    body = scan.json()
-    assert body["found"] is True
-    assert body.get("address") in (None, {})
-    assert body.get("user_email") in (None, "")
-    assert body.get("phone_number") in (None, "")
+    assert scan.status_code == 403
+    assert customer.email not in scan.text
 
 
 def test_appraiser_cannot_ship_confirm(api_client, db):
@@ -157,7 +154,7 @@ def test_appraiser_cannot_ship_confirm(api_client, db):
     assert res.status_code == 403
 
 
-def test_csv_export_writes_print_and_audit_logs(api_client, db):
+def test_csv_export_is_disabled_without_writing_logs(api_client, db):
     admin = create_admin_user(db, email="logs-csv@test.com", role_code="buyback_manager")
     customer = _customer(db, email="logs-csv-c@example.com")
     _, package = _issue_one_package(db, api_client, admin, customer)
@@ -167,7 +164,7 @@ def test_csv_export_writes_print_and_audit_logs(api_client, db):
         headers=auth_headers(admin),
         json={"package_ids": [package["id"]]},
     )
-    assert res.status_code == 200
+    assert res.status_code == 410
 
     print_log = (
         db.query(models_buyback.BuybackPackagePrintLog)
@@ -177,8 +174,7 @@ def test_csv_export_writes_print_and_audit_logs(api_client, db):
         )
         .first()
     )
-    assert print_log is not None
-    assert print_log.includes_pii is False
+    assert print_log is None
 
     audit = (
         db.query(models_buyback.BuybackAuditLog)
@@ -186,7 +182,7 @@ def test_csv_export_writes_print_and_audit_logs(api_client, db):
         .order_by(models_buyback.BuybackAuditLog.id.desc())
         .first()
     )
-    assert audit is not None
+    assert audit is None
 
 
 def test_list_logistics_logs(api_client, db):

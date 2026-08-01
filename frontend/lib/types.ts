@@ -348,6 +348,51 @@ export interface AdminBuybackStats {
   payout_pending_count: number
 }
 
+export interface AdminBuybackCatalogPrice {
+  id?: number
+  condition_code: string
+  price_normal: number
+  price_high?: number | null
+  purchase_limit?: number | null
+  tier_overflow_price?: number | null
+  effective_from?: string | null
+}
+
+export interface AdminBuybackCatalogProduct {
+  id: number
+  name: string
+  category: string
+  card_number?: string | null
+  rarity?: string | null
+  pack_name?: string | null
+  image_url?: string | null
+  notes?: string | null
+  is_active: boolean
+  sort_order: number
+  prices: AdminBuybackCatalogPrice[]
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface AdminBuybackCatalogProductInput {
+  name: string
+  category: string
+  card_number?: string | null
+  rarity?: string | null
+  pack_name?: string | null
+  image_url?: string | null
+  notes?: string | null
+  is_active: boolean
+  sort_order: number
+  prices: Array<{
+    condition_code: string
+    price_normal: number
+    price_high?: number | null
+    purchase_limit?: number | null
+    tier_overflow_price?: number | null
+  }>
+}
+
 export interface AdminIdentityListItem {
   id: number
   user_id: number
@@ -574,7 +619,6 @@ export interface AdminBuybackScanResult {
   request_id?: number | null
   inbound_shipment_id?: number | null
   barcode_id?: number | null
-  scan_token?: string | null
   request_number?: string | null
   public_buyback_code?: string | null
   inbound_mgmt_id?: string | null
@@ -639,7 +683,6 @@ export interface AdminBuybackPackage {
   packed_at?: string | null
   shipped_at?: string | null
   admin_note?: string | null
-  scan_token?: string | null
   barcode_human_readable?: string | null
   items?: AdminBuybackPackageItem[]
   created_at?: string | null
@@ -677,7 +720,6 @@ export interface AdminBuybackShipVerifyResult {
   message?: string | null
   package_id?: number | null
   barcode_id?: number | null
-  scan_token?: string | null
   package_code?: string | null
   package_kind?: string | null
   package_kind_label?: string | null
@@ -740,7 +782,6 @@ export interface AdminBuybackLabelLayout {
 export interface AdminBuybackLabelSheetCell {
   package_id: number
   package_code: string
-  scan_token?: string | null
   barcode_human_readable?: string | null
   public_buyback_code?: string | null
   request_number?: string | null
@@ -775,7 +816,6 @@ export interface AdminBuybackLogisticsLog {
   entity_id?: string | null
   includes_pii?: boolean | null
   is_reprint?: boolean | null
-  scan_token_prefix?: string | null
   details?: Record<string, unknown> | null
   device_info?: string | null
   ip_address?: string | null

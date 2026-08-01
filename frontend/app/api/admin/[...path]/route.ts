@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { resolveAdminAccess } from '@/lib/auth/resolve-admin-email'
+import { adminProxyHeaders } from '@/lib/auth/admin-proxy-signature'
 
 function getBackendUrl() {
   return (
@@ -8,13 +9,6 @@ function getBackendUrl() {
     process.env.API_URL ||
     'https://backend-production-054e.up.railway.app'
   ).replace(/\/$/, '')
-}
-
-/** Shared with Railway backend/internal_admin_auth.py (override via ADMIN_PROXY_SECRET). */
-const ADMIN_PROXY_SECRET = process.env.ADMIN_PROXY_SECRET || 'card-shop-internal-admin-v1'
-
-function getInternalSecret() {
-  return ADMIN_PROXY_SECRET
 }
 
 async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
@@ -33,11 +27,11 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
 
   const email = access.email
 
-  const secret = getInternalSecret()
-  if (!secret) {
+  const signedHeaders = adminProxyHeaders(email)
+  if (!signedHeaders) {
     return NextResponse.json(
-      { detail: 'サーバー設定（ADMIN_PROXY_SECRET）が不足しています' },
-      { status: 500 }
+      { detail: '管理APIを利用できません' },
+      { status: 503 }
     )
   }
 
@@ -48,8 +42,7 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   const headers = new Headers()
   const contentType = request.headers.get('content-type')
   if (contentType) headers.set('Content-Type', contentType)
-  headers.set('X-Internal-Admin-Secret', secret)
-  headers.set('X-Admin-Email', email)
+  Object.entries(signedHeaders).forEach(([key, value]) => headers.set(key, value))
 
   const incomingAuth = request.headers.get('authorization')
   const clerkToken =

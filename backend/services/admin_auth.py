@@ -295,7 +295,7 @@ def ensure_legacy_admin_migrated(db: Session) -> None:
     users = db.query(models.User).all()
     for user in users:
         email = normalize_email(user.email)
-        should_be_admin = user.is_admin or is_admin_email(email)
+        should_be_admin = bool(user.is_admin)
         if not should_be_admin:
             continue
         role = owner_role if is_admin_email(email) else admin_role

@@ -36,13 +36,6 @@ const LINE_STATUS_OPTIONS = [
   { value: 'rejected', label: '買取不可' },
 ]
 
-const RETURN_STATUS_OPTIONS = [
-  { value: 'none', label: '—' },
-  { value: 'pending', label: '返送準備中' },
-  { value: 'shipped', label: '返送済み' },
-  { value: 'completed', label: '返送完了' },
-]
-
 type ItemDraft = {
   line_status: string
   assessed_unit_price: string
@@ -119,7 +112,9 @@ export default function AdminBuybackRequestDetailPage() {
   const canIssuePackages =
     hasPermission('buyback.package.write') &&
     detail &&
-    ['assessed', 'awaiting_customer', 'accepted', 'rejected', 'returned'].includes(detail.status)
+    ['assessed', 'awaiting_customer', 'accepted', 'rejected'].includes(detail.status)
+  const canAssess = hasPermission('buyback.assessment.write')
+  const canCompletePayout = hasPermission('buyback.payout.complete')
 
   useEffect(() => {
     setIsMounted(true)
@@ -227,11 +222,6 @@ export default function AdminBuybackRequestDetailPage() {
             rejection_reason_text: draft.rejection_reason_text.trim() || null,
             is_return_target: draft.is_return_target,
             is_disposal_target: draft.is_disposal_target,
-            return_status: draft.return_status,
-            return_tracking_number: draft.return_tracking_number.trim() || null,
-            return_shipping_cost: draft.return_shipping_cost.trim()
-              ? Number(draft.return_shipping_cost)
-              : null,
           }
         }),
         recalculate_assessed_total: true,
@@ -365,9 +355,11 @@ export default function AdminBuybackRequestDetailPage() {
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-gray-50 px-4 py-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold">商品査定</h2>
-                <Button onClick={handleSaveItems} disabled={isSavingItems} size="sm">
-                  査定内容を保存
-                </Button>
+                {canAssess && (
+                  <Button onClick={handleSaveItems} disabled={isSavingItems} size="sm">
+                    査定内容を保存
+                  </Button>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -479,42 +471,19 @@ export default function AdminBuybackRequestDetailPage() {
                             </label>
                           </td>
                           <td className="px-3 py-3">
-                            <select
-                              className="border rounded-md px-2 py-1 text-sm w-full min-w-[120px]"
-                              value={draft.return_status}
-                              onChange={(e) =>
-                                updateItemDraft(item.id, { return_status: e.target.value })
-                              }
-                            >
-                              {RETURN_STATUS_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                            <span className="text-gray-600">{draft.return_status || 'none'}</span>
                           </td>
                           <td className="px-3 py-3">
-                            <Input
-                              className="min-w-[120px]"
-                              value={draft.return_tracking_number}
-                              onChange={(e) =>
-                                updateItemDraft(item.id, {
-                                  return_tracking_number: e.target.value,
-                                })
-                              }
-                            />
+                            <span className="text-gray-600">
+                              {draft.return_tracking_number || '—'}
+                            </span>
                           </td>
                           <td className="px-3 py-3">
-                            <Input
-                              className="min-w-[100px]"
-                              placeholder="円"
-                              value={draft.return_shipping_cost}
-                              onChange={(e) =>
-                                updateItemDraft(item.id, {
-                                  return_shipping_cost: e.target.value,
-                                })
-                              }
-                            />
+                            <span className="text-gray-600">
+                              {draft.return_shipping_cost
+                                ? `¥${Number(draft.return_shipping_cost).toLocaleString('ja-JP')}`
+                                : '—'}
+                            </span>
                           </td>
                         </tr>
                       )
@@ -684,7 +653,7 @@ export default function AdminBuybackRequestDetailPage() {
                     )}
                   </p>
                 )}
-                {detail.status === 'payout_pending' && (
+                {detail.status === 'payout_pending' && canCompletePayout && (
                   <>
                     <Input
                       placeholder="振込金額（円）"

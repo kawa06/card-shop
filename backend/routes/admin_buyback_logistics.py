@@ -6,9 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 import schemas_buyback
+import models_buyback
 from auth import get_current_admin_context
 from database import get_db
 from services.admin_auth import AdminAccessError, AdminContext, require_permission
+from services.barcode_render import render_code128_svg
+from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_label_yasan import (
     build_label_yasan_csv,
     csv_filename,
@@ -47,10 +50,27 @@ def _client_ip(request: Request) -> str | None:
 
 
 def _require_perm(permission: str):
-    def _dep(ctx: AdminContext = Depends(get_current_admin_context)) -> AdminContext:
+    def _dep(
+        request: Request,
+        db: Session = Depends(get_db),
+        ctx: AdminContext = Depends(get_current_admin_context),
+    ) -> AdminContext:
         try:
             require_permission(ctx, permission)
         except AdminAccessError as exc:
+            write_buyback_audit(
+                db,
+                actor_user_id=ctx.user.id,
+                action="permission_denied",
+                entity_type="buyback_logistics_endpoint",
+                entity_id=request.url.path,
+                details={
+                    "required_permission": permission,
+                    "method": request.method,
+                    "failure_reason": "insufficient_permission",
+                },
+            )
+            db.commit()
             raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         return ctx
 
@@ -95,6 +115,7 @@ def admin_receive_inbound(
         admin_note=payload.admin_note,
         device_info=payload.device_info,
         ip_address=_client_ip(request),
+        include_pii=include_pii,
     )
     if not include_pii:
         result["user_email"] = None
@@ -176,7 +197,11 @@ def admin_get_package_label(
     ctx: AdminContext = Depends(_require_perm("buyback.package.read")),
 ):
     include_pii = (
-        "admin.pii.read" in ctx.permissions and "buyback.print.pii" in ctx.permissions
+        (
+            "admin.pii.read" in ctx.permissions
+            or "buyback.ship.pii.read" in ctx.permissions
+        )
+        and "buyback.print.pii" in ctx.permissions
     )
     row = get_package_label_payload(
         db,
@@ -200,7 +225,11 @@ def admin_print_package_label(
 ):
     body = payload or schemas_buyback.AdminBuybackPackagePrintIn()
     include_pii = (
-        "admin.pii.read" in ctx.permissions and "buyback.print.pii" in ctx.permissions
+        (
+            "admin.pii.read" in ctx.permissions
+            or "buyback.ship.pii.read" in ctx.permissions
+        )
+        and "buyback.print.pii" in ctx.permissions
     )
     row = get_package_label_payload(
         db,
@@ -214,6 +243,43 @@ def admin_print_package_label(
     return schemas_buyback.AdminBuybackPackageLabelOut(**row)
 
 
+@router.get("/packages/{package_id}/barcode.svg")
+def admin_package_barcode_svg(
+    package_id: int,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.print.internal")),
+):
+    package = (
+        db.query(models_buyback.BuybackShipmentPackage)
+        .filter(models_buyback.BuybackShipmentPackage.id == package_id)
+        .first()
+    )
+    if not package:
+        raise HTTPException(status_code=404, detail="梱包が見つかりません")
+    barcode = get_active_barcode_for_entity(
+        db,
+        entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
+        entity_id=package.id,
+        barcode_type=models_buyback.BuybackBarcodeType.package_outbound.value,
+    )
+    if not barcode:
+        raise HTTPException(status_code=404, detail="バーコードが見つかりません")
+    write_package_print_log(
+        db,
+        actor_user_id=ctx.user.id,
+        print_type="package_barcode_render",
+        entity_type="buyback_shipment_package",
+        entity_id=package.id,
+    )
+    db.commit()
+    svg = render_code128_svg(barcode.scan_token)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store, private"},
+    )
+
+
 @router.post("/ship/scan", response_model=schemas_buyback.AdminBuybackShipVerifyOut)
 def admin_ship_verify_scan(
     payload: schemas_buyback.AdminBuybackScanIn,
@@ -221,8 +287,10 @@ def admin_ship_verify_scan(
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(_require_perm("buyback.ship.read")),
 ):
-    # Address/phone require admin.pii.read (shipping_manager has it via role mapping).
-    include_pii = "admin.pii.read" in ctx.permissions
+    include_pii = (
+        "admin.pii.read" in ctx.permissions
+        or "buyback.ship.pii.read" in ctx.permissions
+    )
     result = scan_for_ship_verify(
         db,
         admin_user=ctx.user,
@@ -241,7 +309,10 @@ def admin_ship_confirm(
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(_require_perm("buyback.ship.confirm")),
 ):
-    include_pii = "admin.pii.read" in ctx.permissions
+    include_pii = (
+        "admin.pii.read" in ctx.permissions
+        or "buyback.ship.pii.read" in ctx.permissions
+    )
     result = confirm_shipment(
         db,
         admin_user=ctx.user,
@@ -252,6 +323,7 @@ def admin_ship_confirm(
         shipping_method=payload.shipping_method,
         device_info=payload.device_info,
         ip_address=_client_ip(request),
+        include_pii=include_pii,
     )
     if not include_pii:
         result["destination_phone"] = None
@@ -278,7 +350,11 @@ def admin_export_label_yasan_csv(
     # Name on CSV also requires print.pii + pii.read (box sticker convenience only)
     include_name = bool(payload.include_applicant_name)
     if include_name and not (
-        "admin.pii.read" in ctx.permissions and "buyback.print.pii" in ctx.permissions
+        (
+            "admin.pii.read" in ctx.permissions
+            or "buyback.ship.pii.read" in ctx.permissions
+        )
+        and "buyback.print.pii" in ctx.permissions
     ):
         raise HTTPException(
             status_code=403,
@@ -333,7 +409,11 @@ def admin_buyback_label_sheet(
     copies = max(1, min(int(payload.copies or 1), 20))
 
     include_name = bool(payload.include_applicant_name) and (
-        "admin.pii.read" in ctx.permissions and "buyback.print.pii" in ctx.permissions
+        (
+            "admin.pii.read" in ctx.permissions
+            or "buyback.ship.pii.read" in ctx.permissions
+        )
+        and "buyback.print.pii" in ctx.permissions
     )
     base_rows = list_label_rows_for_print(
         db,

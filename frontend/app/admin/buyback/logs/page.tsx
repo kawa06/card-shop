@@ -125,7 +125,6 @@ export default function AdminBuybackLogisticsLogsPage() {
                         </Link>
                       ) : null}
                       {log.package_id ? ` 梱包#${log.package_id}` : ''}
-                      {log.scan_token_prefix ? ` token:${log.scan_token_prefix}…` : ''}
                     </td>
                     <td className="px-3 py-2">{log.result || '—'}</td>
                   </tr>

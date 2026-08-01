@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from datetime import datetime
 from typing import Optional
 
@@ -21,8 +20,7 @@ from services.buyback_compliance import (
 )
 from services.buyback_inbound import provision_request_logistics
 from services.buyback_requests import get_user_request
-
-logger = logging.getLogger(__name__)
+from services.sensitive_redaction import redact_text
 
 APPLICATION_FORM_NOTICES = [
     "この申込書を買取品と一緒に箱へ入れてください",
@@ -43,35 +41,32 @@ def _log_print(
     is_reprint: bool,
     device_info: Optional[str] = None,
 ) -> None:
-    try:
-        db.add(
-            models_buyback.BuybackPackagePrintLog(
-                actor_user_id=actor_user_id,
-                print_type=print_type,
-                entity_type="buyback_request",
-                entity_id=request_id,
-                includes_pii=False,
-                is_reprint=is_reprint,
-                device_info=(device_info or "").strip() or None,
-            )
+    db.add(
+        models_buyback.BuybackPackagePrintLog(
+            actor_user_id=actor_user_id,
+            print_type=print_type,
+            entity_type="buyback_request",
+            entity_id=request_id,
+            includes_pii=False,
+            is_reprint=is_reprint,
+            device_info=(redact_text(device_info) or "").strip() or None,
         )
-        db.add(
-            models_buyback.BuybackAuditLog(
-                actor_user_id=actor_user_id,
-                action="application_form_printed",
-                entity_type="buyback_request",
-                entity_id=str(request_id),
-                details_json=json.dumps(
-                    {
-                        "print_type": print_type,
-                        "is_reprint": is_reprint,
-                    },
-                    ensure_ascii=False,
-                ),
-            )
+    )
+    db.add(
+        models_buyback.BuybackAuditLog(
+            actor_user_id=actor_user_id,
+            action="application_form_printed",
+            entity_type="buyback_request",
+            entity_id=str(request_id),
+            details_json=json.dumps(
+                {
+                    "print_type": print_type,
+                    "is_reprint": is_reprint,
+                },
+                ensure_ascii=False,
+            ),
         )
-    except Exception as exc:
-        logger.warning("Failed to write application form print log: %s", exc)
+    )
 
 
 def build_application_form(
@@ -165,7 +160,6 @@ def build_application_form(
         "guardian_status": guardian,
         "guardian_status_label": guardian_label,
         "requires_guardian_consent": bool(compliance.get("requires_guardian_consent")),
-        "scan_token": barcode.scan_token,
         "barcode_human_readable": barcode.human_readable or request.inbound_mgmt_id,
         "application_form_issued_at": request.application_form_issued_at,
         "is_reprint": is_reprint and mark_issued,

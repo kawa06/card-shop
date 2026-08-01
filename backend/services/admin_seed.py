@@ -81,7 +81,7 @@ def seed_admin_rbac(db: Session) -> None:
 
 def _bootstrap_owner_admins(db: Session, owner_role: models_admin.AdminRole) -> None:
     for user in db.query(models.User).all():
-        if not is_admin_email(user.email):
+        if not user.is_admin or not is_admin_email(user.email):
             continue
         existing = (
             db.query(models_admin.AdminUser)

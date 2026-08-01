@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import type { AdminSession } from '@/lib/types'
+import { adminProxyHeaders } from '@/lib/auth/admin-proxy-signature'
 
 function getBackendUrl() {
   return (
@@ -8,10 +9,6 @@ function getBackendUrl() {
     process.env.API_URL ||
     'https://backend-production-054e.up.railway.app'
   ).replace(/\/$/, '')
-}
-
-function getInternalSecret() {
-  return process.env.ADMIN_PROXY_SECRET || 'card-shop-internal-admin-v1'
 }
 
 function emailFromSessionClaims(
@@ -106,13 +103,12 @@ export async function resolveAdminAccess(
   const email = await resolveClerkEmail(request)
   if (!email) return null
 
-  const secret = getInternalSecret()
-  if (!secret) return null
+  const signedHeaders = adminProxyHeaders(email)
+  if (!signedHeaders) return null
 
   const authState = await auth()
   const headers: Record<string, string> = {
-    'X-Internal-Admin-Secret': secret,
-    'X-Admin-Email': email,
+    ...signedHeaders,
   }
 
   const incomingAuth = request?.headers.get('authorization')

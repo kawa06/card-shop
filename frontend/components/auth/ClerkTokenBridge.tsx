@@ -9,7 +9,7 @@ export function ClerkTokenBridge() {
 
   useEffect(() => {
     if (!isLoaded) return
-    setClerkTokenGetter(() => getToken())
+    setClerkTokenGetter((options) => getToken(options))
     return () => setClerkTokenGetter(null)
   }, [getToken, isLoaded])
 

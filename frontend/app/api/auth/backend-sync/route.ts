@@ -11,7 +11,7 @@ function getBackendUrl() {
 }
 
 async function backendClerkProvision(email: string, password: string, name: string) {
-  const secret = process.env.AUTH_SYNC_SECRET || process.env.CLERK_SECRET_KEY
+  const secret = (process.env.AUTH_SYNC_SECRET || '').trim()
   if (!secret) return null
   const res = await fetch(`${getBackendUrl()}/api/auth/clerk-provision`, {
     method: 'POST',
@@ -96,8 +96,7 @@ export async function POST() {
     if (!authData?.access_token) {
       return NextResponse.json(
         {
-          detail:
-            'バックエンドとの同期に失敗しました。Railway に AUTH_SYNC_SECRET または CLERK_SECRET_KEY（Vercel と同じ値）が設定されているか確認してください。',
+          detail: 'バックエンドとの同期に失敗しました。',
         },
         { status: 502 }
       )
@@ -108,12 +107,11 @@ export async function POST() {
       user: {
         ...authData.user,
         is_verified: true,
-        is_admin: authData.user?.is_admin || email === 'rikukai0609@icloud.com',
+        is_admin: Boolean(authData.user?.is_admin),
       },
       auth_provider: 'clerk',
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : '同期エラー'
-    return NextResponse.json({ detail: message }, { status: 500 })
+  } catch {
+    return NextResponse.json({ detail: 'バックエンドとの同期に失敗しました。' }, { status: 500 })
   }
 }

@@ -25,7 +25,6 @@ export type BuybackLabelLayout = {
 export type BuybackLabelSheetCell = {
   package_id: number
   package_code: string
-  scan_token?: string | null
   barcode_human_readable?: string | null
   public_buyback_code?: string | null
   request_number?: string | null

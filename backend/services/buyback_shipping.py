@@ -5,18 +5,25 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from functools import wraps
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, joinedload
 
 import models
 import models_buyback
-from services.buyback_barcodes import get_active_barcode_for_entity, lookup_barcode_by_token
+from services.buyback_barcodes import resolve_active_barcode_token
 from services.buyback_emails import STATUS_LABELS, notify_buyback_package_shipped
 from services.buyback_packages import PACKAGE_KIND_LABELS, PACKAGE_STATUS_LABELS
+from services.buyback_operation_locks import request_operation_lock
+from services.sensitive_redaction import redact_audit_value, redact_text
 
 logger = logging.getLogger(__name__)
+INVALID_BARCODE_MESSAGE = "無効なバーコードです"
+REDACTED_SCAN_TOKEN = "[redacted]"
 
 SHIP_CHECK_ITEMS: list[dict[str, str]] = [
     {"code": "name_ok", "label": "宛名が正しい"},
@@ -34,6 +41,7 @@ BLOCKED_REQUEST_STATUSES = {
     models_buyback.BuybackRequestStatus.cancelled.value,
     models_buyback.BuybackRequestStatus.paid.value,
     models_buyback.BuybackRequestStatus.draft.value,
+    models_buyback.BuybackRequestStatus.returned.value,
 }
 
 
@@ -51,23 +59,24 @@ def _log_scan(
     device_info: Optional[str] = None,
     details: Optional[dict] = None,
 ) -> None:
-    try:
-        db.add(
-            models_buyback.BuybackPackageScanLog(
-                actor_user_id=actor_user_id,
-                scan_token=(scan_token or "")[:64] or "empty",
-                barcode_id=barcode_id,
-                action=action,
-                result=result,
-                request_id=request_id,
-                package_id=package_id,
-                ip_address=(ip_address or "")[:64] or None,
-                device_info=(device_info or "")[:255] or None,
-                details_json=json.dumps(details, ensure_ascii=False) if details else None,
-            )
+    db.add(
+        models_buyback.BuybackPackageScanLog(
+            actor_user_id=actor_user_id,
+            scan_token=REDACTED_SCAN_TOKEN,
+            barcode_id=barcode_id,
+            action=action,
+            result=result,
+            request_id=request_id,
+            package_id=package_id,
+            ip_address=(redact_text(ip_address) or "")[:64] or None,
+            device_info=(redact_text(device_info) or "")[:255] or None,
+            details_json=(
+                json.dumps(redact_audit_value(details), ensure_ascii=False)
+                if details
+                else None
+            ),
         )
-    except Exception as exc:
-        logger.warning("Failed to write ship scan log: %s", exc)
+    )
 
 
 def _address_complete(user: models.User | None) -> bool:
@@ -83,54 +92,29 @@ def _address_complete(user: models.User | None) -> bool:
 
 
 def _resolve_outbound_package(
-    db: Session, code: str
-) -> tuple[Optional[models_buyback.BuybackBarcode], Optional[models_buyback.BuybackShipmentPackage]]:
-    token = (code or "").strip()
-    if not token:
-        return None, None
-
-    barcode = lookup_barcode_by_token(db, token)
-    if barcode and barcode.entity_type == models_buyback.BuybackBarcodeEntityType.shipment_package.value:
-        package = (
-            db.query(models_buyback.BuybackShipmentPackage)
-            .filter(models_buyback.BuybackShipmentPackage.id == barcode.entity_id)
-            .first()
-        )
-        return barcode, package
+    db: Session, code: Optional[str]
+) -> tuple[
+    Optional[models_buyback.BuybackBarcode],
+    Optional[models_buyback.BuybackShipmentPackage],
+    Optional[str],
+]:
+    barcode, failure_reason = resolve_active_barcode_token(
+        db,
+        code,
+        entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
+        barcode_type=models_buyback.BuybackBarcodeType.package_outbound.value,
+    )
+    if not barcode:
+        return None, None, failure_reason
 
     package = (
         db.query(models_buyback.BuybackShipmentPackage)
-        .filter(models_buyback.BuybackShipmentPackage.package_code == token)
+        .filter(models_buyback.BuybackShipmentPackage.id == barcode.entity_id)
         .first()
     )
-    if package:
-        barcode = get_active_barcode_for_entity(
-            db,
-            entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
-            entity_id=package.id,
-            barcode_type=models_buyback.BuybackBarcodeType.package_outbound.value,
-        )
-        return barcode, package
-
-    barcode = (
-        db.query(models_buyback.BuybackBarcode)
-        .filter(
-            models_buyback.BuybackBarcode.human_readable == token,
-            models_buyback.BuybackBarcode.is_active.is_(True),
-            models_buyback.BuybackBarcode.entity_type
-            == models_buyback.BuybackBarcodeEntityType.shipment_package.value,
-        )
-        .first()
-    )
-    if barcode:
-        package = (
-            db.query(models_buyback.BuybackShipmentPackage)
-            .filter(models_buyback.BuybackShipmentPackage.id == barcode.entity_id)
-            .first()
-        )
-        return barcode, package
-
-    return None, None
+    if not package:
+        return None, None, "bound_entity_not_found"
+    return barcode, package, None
 
 
 def _build_warnings(
@@ -237,7 +221,6 @@ def build_ship_preview(
         "found": True,
         "package_id": package.id,
         "barcode_id": barcode.id if barcode else None,
-        "scan_token": barcode.scan_token if barcode else None,
         "package_code": package.package_code,
         "package_kind": package.package_kind,
         "package_kind_label": PACKAGE_KIND_LABELS.get(package.package_kind, package.package_kind),
@@ -257,8 +240,8 @@ def build_ship_preview(
         else None,
         "preferred_time_slot": package.preferred_time_slot,
         "tracking_number": package.tracking_number,
-        "applicant_name": applicant.name if applicant else None,
-        "destination_name": dest.name if dest else None,
+        "applicant_name": applicant.name if include_pii and applicant else None,
+        "destination_name": dest.name if include_pii and dest else None,
         "items": item_rows,
         "checklist_items": SHIP_CHECK_ITEMS,
         "warnings": warnings,
@@ -296,29 +279,29 @@ def scan_for_ship_verify(
     db: Session,
     *,
     admin_user: models.User,
-    code: str,
+    code: Optional[str],
     include_pii: bool,
     ip_address: Optional[str] = None,
     device_info: Optional[str] = None,
 ) -> dict:
-    barcode, package = _resolve_outbound_package(db, code)
-    token = (code or "").strip()
+    barcode, package, failure_reason = _resolve_outbound_package(db, code)
 
     if not package:
         _log_scan(
             db,
             actor_user_id=admin_user.id,
-            scan_token=token or "empty",
+            scan_token=REDACTED_SCAN_TOKEN,
             barcode_id=None,
             action="ship_verify_scan",
-            result="not_found",
+            result="invalid",
             ip_address=ip_address,
             device_info=device_info,
+            details={"failure_reason": failure_reason or "invalid_token"},
         )
         db.commit()
         return {
             "found": False,
-            "message": "梱包バーコードに該当する荷物が見つかりません",
+            "message": INVALID_BARCODE_MESSAGE,
             "already_shipped": False,
             "can_confirm": False,
             "checklist_items": SHIP_CHECK_ITEMS,
@@ -326,11 +309,6 @@ def scan_for_ship_verify(
             "notices": [],
             "items": [],
         }
-
-    # Move packed -> awaiting_verify on successful scan
-    if package.status == models_buyback.BuybackShipmentPackageStatus.packed.value:
-        package.status = models_buyback.BuybackShipmentPackageStatus.awaiting_verify.value
-        package.updated_at = datetime.utcnow()
 
     payload = build_ship_preview(
         db, package=package, barcode=barcode, include_pii=include_pii
@@ -347,7 +325,7 @@ def scan_for_ship_verify(
     _log_scan(
         db,
         actor_user_id=admin_user.id,
-        scan_token=barcode.scan_token if barcode else token,
+        scan_token=REDACTED_SCAN_TOKEN,
         barcode_id=barcode.id if barcode else None,
         action="ship_verify_scan",
         result=result,
@@ -358,23 +336,35 @@ def scan_for_ship_verify(
         details={"include_pii": include_pii},
     )
     if include_pii:
-        try:
-            db.add(
-                models_buyback.BuybackAuditLog(
-                    actor_user_id=admin_user.id,
-                    action="pii_viewed_on_ship_verify",
-                    entity_type="buyback_shipment_package",
-                    entity_id=str(package.id),
-                    details_json=json.dumps({"via": "ship_verify"}, ensure_ascii=False),
-                )
+        db.add(
+            models_buyback.BuybackAuditLog(
+                actor_user_id=admin_user.id,
+                action="pii_viewed_on_ship_verify",
+                entity_type="buyback_shipment_package",
+                entity_id=str(package.id),
+                details_json=json.dumps({"via": "ship_verify"}, ensure_ascii=False),
             )
-        except Exception as exc:
-            logger.warning("Failed PII audit on ship verify: %s", exc)
+        )
 
     db.commit()
     return payload
 
 
+def _serialize_ship_operation(func):
+    @wraps(func)
+    def _wrapped(db: Session, *args, **kwargs):
+        _, package, _ = _resolve_outbound_package(db, kwargs.get("scanned_code"))
+        if not package:
+            return func(db, *args, **kwargs)
+        request_id = package.request_id
+        db.rollback()
+        with request_operation_lock(request_id):
+            return func(db, *args, **kwargs)
+
+    return _wrapped
+
+
+@_serialize_ship_operation
 def confirm_shipment(
     db: Session,
     *,
@@ -386,30 +376,62 @@ def confirm_shipment(
     shipping_method: Optional[str] = None,
     device_info: Optional[str] = None,
     ip_address: Optional[str] = None,
+    include_pii: bool = False,
 ) -> dict:
-    package = (
-        db.query(models_buyback.BuybackShipmentPackage)
-        .filter(models_buyback.BuybackShipmentPackage.id == package_id)
+    barcode, package, failure_reason = _resolve_outbound_package(db, scanned_code)
+    if not barcode or not package or package.id != package_id:
+        _log_scan(
+            db,
+            actor_user_id=admin_user.id,
+            scan_token=REDACTED_SCAN_TOKEN,
+            barcode_id=barcode.id if barcode else None,
+            action="ship_confirm",
+            result="invalid",
+            request_id=package.request_id if package else None,
+            package_id=package.id if package else None,
+            ip_address=ip_address,
+            device_info=device_info,
+            details={
+                "failure_reason": (
+                    "target_mismatch"
+                    if package and package.id != package_id
+                    else failure_reason or "invalid_token"
+                )
+            },
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail=INVALID_BARCODE_MESSAGE)
+
+    request = (
+        db.query(models_buyback.BuybackRequest)
+        .filter(models_buyback.BuybackRequest.id == package.request_id)
+        .with_for_update()
         .first()
     )
-    if not package:
-        raise HTTPException(status_code=404, detail="梱包が見つかりません")
-
+    if not request:
+        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+    db.refresh(package)
     existing = (
         db.query(models_buyback.BuybackShipmentConfirmation)
         .filter(models_buyback.BuybackShipmentConfirmation.package_id == package.id)
         .first()
     )
     if existing or package.status == models_buyback.BuybackShipmentPackageStatus.shipped.value:
-        raise HTTPException(status_code=400, detail="発送済みです。二重発送はできません")
-
-    request = (
-        db.query(models_buyback.BuybackRequest)
-        .filter(models_buyback.BuybackRequest.id == package.request_id)
-        .first()
-    )
-    if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        _log_scan(
+            db,
+            actor_user_id=admin_user.id,
+            scan_token=REDACTED_SCAN_TOKEN,
+            barcode_id=barcode.id,
+            action="ship_confirm",
+            result="already_shipped",
+            request_id=package.request_id,
+            package_id=package.id,
+            ip_address=ip_address,
+            device_info=device_info,
+            details={"failure_reason": "duplicate_operation"},
+        )
+        db.commit()
+        raise HTTPException(status_code=409, detail="発送済みです。二重発送はできません")
     if request.status == models_buyback.BuybackRequestStatus.cancelled.value:
         raise HTTPException(status_code=400, detail="キャンセル済み申込は発送できません")
     if request.status in {
@@ -437,20 +459,17 @@ def confirm_shipment(
             detail=f"未完了の確認項目があります: {', '.join(missing)}",
         )
 
-    barcode = None
-    if scanned_code:
-        barcode, resolved = _resolve_outbound_package(db, scanned_code)
-        if resolved and resolved.id != package.id:
-            raise HTTPException(status_code=400, detail="読み取ったバーコードが梱包と一致しません")
-    if not barcode:
-        barcode = get_active_barcode_for_entity(
-            db,
-            entity_type=models_buyback.BuybackBarcodeEntityType.shipment_package.value,
-            entity_id=package.id,
-            barcode_type=models_buyback.BuybackBarcodeType.package_outbound.value,
-        )
+    shippable_statuses = {
+        models_buyback.BuybackShipmentPackageStatus.packing.value,
+        models_buyback.BuybackShipmentPackageStatus.packed.value,
+        models_buyback.BuybackShipmentPackageStatus.awaiting_verify.value,
+    }
+    if package.status not in shippable_statuses:
+        raise HTTPException(status_code=400, detail="現在の梱包状態では発送確定できません")
 
     tn = (tracking_number or package.tracking_number or "").strip() or None
+    if tn and redact_text(tn) != tn:
+        raise HTTPException(status_code=400, detail="追跡番号が不正です")
     if tn:
         dup = (
             db.query(models_buyback.BuybackShipmentPackage.id)
@@ -462,16 +481,52 @@ def confirm_shipment(
         )
         if dup:
             raise HTTPException(status_code=400, detail="この追跡番号は別の梱包で使用されています")
-        package.tracking_number = tn
 
     method = (shipping_method or package.shipping_method or "").strip() or None
-    if method:
-        package.shipping_method = method
+    if method and redact_text(method) != method:
+        raise HTTPException(status_code=400, detail="発送方法が不正です")
 
     now = datetime.utcnow()
-    package.status = models_buyback.BuybackShipmentPackageStatus.shipped.value
-    package.shipped_at = now
-    package.updated_at = now
+    try:
+        claimed = db.execute(
+            update(models_buyback.BuybackShipmentPackage)
+            .where(
+                models_buyback.BuybackShipmentPackage.id == package.id,
+                models_buyback.BuybackShipmentPackage.status.in_(shippable_statuses),
+            )
+            .values(
+                status=models_buyback.BuybackShipmentPackageStatus.shipped.value,
+                shipped_at=now,
+                updated_at=now,
+                tracking_number=tn,
+                shipping_method=method,
+            )
+            .execution_options(synchronize_session=False)
+        )
+    except OperationalError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="同じ申込の発送処理が進行中です",
+        ) from exc
+    if claimed.rowcount != 1:
+        db.rollback()
+        _log_scan(
+            db,
+            actor_user_id=admin_user.id,
+            scan_token=REDACTED_SCAN_TOKEN,
+            barcode_id=barcode.id,
+            action="ship_confirm",
+            result="already_shipped",
+            request_id=package.request_id,
+            package_id=package.id,
+            ip_address=ip_address,
+            device_info=device_info,
+            details={"failure_reason": "concurrent_operation"},
+        )
+        db.commit()
+        raise HTTPException(status_code=409, detail="発送済みです。二重発送はできません")
+    db.refresh(package)
 
     confirmation = models_buyback.BuybackShipmentConfirmation(
         package_id=package.id,
@@ -481,10 +536,17 @@ def confirm_shipment(
         tracking_number=package.tracking_number,
         shipping_method=package.shipping_method,
         checklist_json=json.dumps(checklist, ensure_ascii=False),
-        device_info=(device_info or "")[:255] or None,
+        device_info=(redact_text(device_info) or "")[:255] or None,
     )
     db.add(confirmation)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="発送済みです。二重発送はできません",
+        ) from exc
 
     snapshot = models_buyback.BuybackShipmentAddressSnapshot(
         confirmation_id=confirmation.id,
@@ -544,6 +606,7 @@ def confirm_shipment(
                 models_buyback.BuybackShipmentPackage.request_id == request.id,
                 models_buyback.BuybackShipmentPackage.package_kind == package.package_kind,
             )
+            .populate_existing()
             .all()
         )
         if siblings and all(
@@ -565,7 +628,7 @@ def confirm_shipment(
                         changed_by_user_id=admin_user.id,
                         note="発送確定（返送）",
                         related_barcode_id=barcode.id if barcode else None,
-                        device_info=(device_info or "")[:255] or None,
+                        device_info=(redact_text(device_info) or "")[:255] or None,
                         change_reason="ship_confirm",
                     )
                 )
@@ -573,47 +636,46 @@ def confirm_shipment(
     _log_scan(
         db,
         actor_user_id=admin_user.id,
-        scan_token=barcode.scan_token if barcode else (scanned_code or package.package_code),
-        barcode_id=barcode.id if barcode else None,
+        scan_token=REDACTED_SCAN_TOKEN,
+        barcode_id=barcode.id,
         action="ship_confirm",
         result="success",
         request_id=request.id,
         package_id=package.id,
         ip_address=ip_address,
         device_info=device_info,
-        details={"checklist": checklist, "tracking_number": package.tracking_number},
+        details={"checklist": checklist},
     )
-    try:
-        db.add(
-            models_buyback.BuybackAuditLog(
-                actor_user_id=admin_user.id,
-                action="shipment_confirmed",
-                entity_type="buyback_shipment_package",
-                entity_id=str(package.id),
-                details_json=json.dumps(
-                    {
-                        "package_code": package.package_code,
-                        "tracking_number": package.tracking_number,
-                        "confirmation_id": confirmation.id,
-                    },
-                    ensure_ascii=False,
-                ),
-            )
+    db.add(
+        models_buyback.BuybackAuditLog(
+            actor_user_id=admin_user.id,
+            action="shipment_confirmed",
+            entity_type="buyback_shipment_package",
+            entity_id=str(package.id),
+            details_json=json.dumps(
+                {
+                    "package_code": package.package_code,
+                    "confirmation_id": confirmation.id,
+                },
+                ensure_ascii=False,
+            ),
         )
-    except Exception as exc:
-        logger.warning("Failed ship confirm audit: %s", exc)
+    )
 
     db.commit()
 
     try:
         if dest:
             notify_buyback_package_shipped(db, request, dest, package)
-    except Exception as exc:
-        logger.warning("Failed package shipped notification: %s", exc)
+    except Exception:
+        logger.warning(
+            "Package shipped notification failed",
+            extra={"request_id": request.id, "package_id": package.id},
+        )
 
     return build_ship_preview(
         db,
         package=package,
         barcode=barcode,
-        include_pii=True,
+        include_pii=include_pii,
     )

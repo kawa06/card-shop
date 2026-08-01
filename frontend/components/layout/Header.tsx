@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
 import { useLangStore } from '@/store/lang'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
+import { useAdminSessionStore } from '@/hooks/useAdminPermissions'
 import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +24,7 @@ export default function Header() {
   const { user, fetchMe, hasHydrated, setHasHydrated, authProvider, logout } = useAuthStore()
   const { isLoggedIn } = useBackendAuth()
   const isAdmin = useIsAdmin()
+  const clearAdminSession = useAdminSessionStore((state) => state.clearSession)
   const { items, fetchCart } = useCartStore()
   const { lang, setLang } = useLangStore()
   const [searchQuery, setSearchQuery] = useState('')
@@ -60,6 +62,7 @@ export default function Header() {
 
   const handleMobileLogout = async () => {
     setMobileMenuOpen(false)
+    clearAdminSession()
     logout()
     try {
       await signOut({ redirectUrl: '/' })

@@ -95,7 +95,7 @@ def test_label_layout_api(api_client, db):
     assert res.json()["faces"] == 65
 
 
-def test_label_csv_export(api_client, db):
+def test_label_csv_export_is_disabled_to_prevent_raw_token_disclosure(api_client, db):
     admin = create_admin_user(db, email="label-csv@test.com", role_code="buyback_manager")
     customer = _customer(db)
     _, packages = _issue_packages(db, api_client, admin, customer, boxes=2)
@@ -106,21 +106,11 @@ def test_label_csv_export(api_client, db):
         headers=auth_headers(admin),
         json={"package_ids": ids, "include_applicant_name": False},
     )
-    assert res.status_code == 200
-    assert "text/csv" in res.headers["content-type"]
-    text = res.content.decode("utf-8-sig")
-    lines = text.strip().split("\r\n")
-    assert lines[0].startswith("管理ID,バーコード番号,商品名")
-    assert len(lines) == 3  # header + 2 packages
-    assert packages[0]["package_code"] in text
-    assert "取扱注意" in text
-    # No address / phone / email in CSV
-    assert "6500001" not in text
-    assert "ラベルテスト客" not in text
-    assert customer.email not in text
+    assert res.status_code == 410
+    assert customer.email not in res.text
 
 
-def test_label_csv_with_name_requires_pii(api_client, db):
+def test_label_csv_with_name_is_also_disabled(api_client, db):
     admin = create_admin_user(db, email="label-csv-name@test.com", role_code="buyback_manager")
     customer = _customer(db, email="label-name@example.com")
     _, packages = _issue_packages(db, api_client, admin, customer, boxes=1)
@@ -130,10 +120,7 @@ def test_label_csv_with_name_requires_pii(api_client, db):
         headers=auth_headers(admin),
         json={"package_ids": [packages[0]["id"]], "include_applicant_name": True},
     )
-    assert res.status_code == 200
-    text = res.content.decode("utf-8-sig")
-    assert "ラベルテスト客" in text
-    assert "6500001" not in text
+    assert res.status_code == 410
 
 
 def test_label_sheet_start_position(api_client, db):
@@ -155,8 +142,26 @@ def test_label_sheet_start_position(api_client, db):
     assert body["start_position"] == 10
     assert body["copies"] == 2
     assert len(body["labels"]) == 2
-    assert body["labels"][0]["scan_token"]
+    assert "scan_token" not in body["labels"][0]
     assert body["layout"]["faces"] == 65
+
+    barcode = (
+        db.query(models_buyback.BuybackBarcode)
+        .filter(
+            models_buyback.BuybackBarcode.entity_type
+            == models_buyback.BuybackBarcodeEntityType.shipment_package.value,
+            models_buyback.BuybackBarcode.entity_id == packages[0]["id"],
+        )
+        .one()
+    )
+    image = api_client.get(
+        f"/api/admin/buyback/packages/{packages[0]['id']}/barcode.svg",
+        headers=auth_headers(admin),
+    )
+    assert image.status_code == 200
+    assert image.headers["content-type"].startswith("image/svg+xml")
+    assert "<rect" in image.text
+    assert barcode.scan_token not in image.text
 
 
 def test_viewer_cannot_export_label_csv(api_client, db):

@@ -3,32 +3,57 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import hmac
 import secrets
+import time
 from typing import Optional
 
 from fastapi import Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from admin_emails import ensure_admin, normalize_email
+from admin_emails import normalize_email
 import models
-import models_admin
+from services.admin_auth import get_admin_user_for_user
 
-# Must match frontend/app/api/admin/[...path]/route.ts (do not fall back to AUTH_SYNC_SECRET).
-INTERNAL_ADMIN_SECRET = (
-    os.getenv("ADMIN_PROXY_SECRET") or "card-shop-internal-admin-v1"
-).strip()
+ADMIN_PROXY_MAX_SKEW_SECONDS = 60
+
+
+def _admin_proxy_secret() -> str:
+    """Return the configured proxy secret. Missing configuration always disables proxy auth."""
+    return (os.getenv("ADMIN_PROXY_SECRET") or "").strip()
+
+
+def build_admin_proxy_signature(*, secret: str, email: str, timestamp: str) -> str:
+    message = f"{timestamp}\n{normalize_email(email)}".encode("utf-8")
+    return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
 def authenticate_internal_admin(request: Request, db: Session) -> Optional[models.User]:
-    if not INTERNAL_ADMIN_SECRET:
+    secret = _admin_proxy_secret()
+    if not secret:
         return None
 
-    header_secret = (request.headers.get("X-Internal-Admin-Secret") or "").strip()
     email_raw = (request.headers.get("X-Admin-Email") or "").strip()
-    if not header_secret or not email_raw:
+    timestamp = (request.headers.get("X-Admin-Timestamp") or "").strip()
+    signature = (request.headers.get("X-Admin-Signature") or "").strip()
+    if not email_raw or not timestamp or not signature:
         return None
-    if not secrets.compare_digest(header_secret, INTERNAL_ADMIN_SECRET):
+
+    try:
+        signed_at = int(timestamp)
+    except ValueError:
+        return None
+    if abs(int(time.time()) - signed_at) > ADMIN_PROXY_MAX_SKEW_SECONDS:
+        return None
+
+    expected = build_admin_proxy_signature(
+        secret=secret,
+        email=email_raw,
+        timestamp=timestamp,
+    )
+    if not secrets.compare_digest(signature, expected):
         return None
 
     email = normalize_email(email_raw)
@@ -36,13 +61,7 @@ def authenticate_internal_admin(request: Request, db: Session) -> Optional[model
     if user is None:
         return None
 
-    admin_user = (
-        db.query(models_admin.AdminUser)
-        .filter(models_admin.AdminUser.user_id == user.id)
-        .first()
-    )
-    if admin_user is None:
+    if get_admin_user_for_user(db, user, require_active=True) is None:
         return None
 
-    user = ensure_admin(user, db)
     return user

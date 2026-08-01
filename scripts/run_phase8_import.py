@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -31,7 +34,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--admin-secret",
-        default=os.getenv("ADMIN_PROXY_SECRET", "card-shop-internal-admin-v1"),
+        default=os.getenv("ADMIN_PROXY_SECRET", ""),
     )
     args = parser.parse_args()
 
@@ -46,10 +49,22 @@ def main() -> int:
         "dry_run": args.dry_run,
     }
     url = args.backend_url.rstrip("/") + "/api/admin/buyback/import-firestore"
+    secret = (args.admin_secret or "").strip()
+    email = (args.admin_email or "").strip().lower()
+    if not secret or not email:
+        print("Admin proxy credentials are required", file=sys.stderr)
+        return 2
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        f"{timestamp}\n{email}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
     headers = {
         "Content-Type": "application/json",
-        "X-Internal-Admin-Secret": args.admin_secret,
-        "X-Admin-Email": args.admin_email,
+        "X-Admin-Email": email,
+        "X-Admin-Timestamp": timestamp,
+        "X-Admin-Signature": signature,
     }
     response = httpx.post(url, headers=headers, json=body, timeout=120)
     print(response.status_code, response.text)

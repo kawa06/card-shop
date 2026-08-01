@@ -164,8 +164,43 @@ def test_buyback_full_api_flow(mock_payout_email, mock_request_email, api_client
     )
     assert approve.status_code == 200
 
+    inbound = (
+        db.query(models_buyback.BuybackInboundShipment)
+        .filter(models_buyback.BuybackInboundShipment.request_id == request_id)
+        .one()
+    )
+    inbound_barcode = (
+        db.query(models_buyback.BuybackBarcode)
+        .filter(
+            models_buyback.BuybackBarcode.entity_type
+            == models_buyback.BuybackBarcodeEntityType.inbound_shipment.value,
+            models_buyback.BuybackBarcode.entity_id == inbound.id,
+            models_buyback.BuybackBarcode.is_active.is_(True),
+        )
+        .one()
+    )
+    scan = api_client.post(
+        "/api/admin/buyback/scan",
+        headers=admin,
+        json={"code": inbound_barcode.scan_token},
+    )
+    assert scan.status_code == 200
+    assert scan.json()["found"] is True
+    assert "scan_token" not in scan.json()
+    received = api_client.post(
+        "/api/admin/buyback/inbound/receive",
+        headers=admin,
+        json={
+            "inbound_shipment_id": inbound.id,
+            "scanned_code": inbound_barcode.scan_token,
+            "actual_item_count": 1,
+        },
+    )
+    assert received.status_code == 200
+    assert received.json()["request_status"] == "received"
+    assert "scan_token" not in received.json()
+
     transitions = [
-        ("received", {}),
         ("assessing", {}),
         ("assessed", {"assessed_total": 2800}),
         ("accepted", {}),

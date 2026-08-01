@@ -1,12 +1,16 @@
 'use client'
 
-import { useUser } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { useAdminSessionStore } from '@/hooks/useAdminPermissions'
 
 /** Server-validated admin session (not client-writable email checks). */
 export function useIsAdmin(): boolean {
+  const { userId, sessionId } = useAuth()
   const session = useAdminSessionStore((s) => s.session)
-  return !!session?.is_admin
+  const identity = useAdminSessionStore((s) => s.identity)
+  const currentIdentity =
+    userId && sessionId ? `${userId}:${sessionId}` : null
+  return !!currentIdentity && identity === currentIdentity && !!session?.is_admin
 }
 
 export function useClerkEmail(): string | null {

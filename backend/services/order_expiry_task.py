@@ -23,6 +23,6 @@ async def background_order_expiry_task(db_factory) -> None:
                     logger.info("Expired %s overdue bank-transfer order(s)", count)
             finally:
                 db.close()
-        except Exception as exc:
-            logger.error("Order expiry task failed: %s", exc)
+        except Exception:
+            logger.error("Order expiry task failed")
         await asyncio.sleep(POLL_INTERVAL_SECONDS)

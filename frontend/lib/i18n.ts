@@ -26,6 +26,10 @@ const dict: Record<string, string> = {
   '価格': 'Price',
   'レアリティ': 'Rarity',
   'カテゴリー': 'Category',
+  // Category / pack catalog names (EN UI)
+  'ポケモンカード': 'Pokémon Cards',
+  'ワンピースカード': 'One Piece Cards',
+  'メガドリームex': 'Mega Dream ex',
   'セット名': 'Set Name',
   '数量': 'Quantity',
   '小計': 'Subtotal',
@@ -372,4 +376,10 @@ const dict: Record<string, string> = {
 export function t(key: string, lang: string): string {
   if (lang === 'ja') return key
   return dict[key] || key
+}
+
+/** English label from the static dict only; null if unmapped. */
+export function enDictLabel(key: string): string | null {
+  const value = dict[key]
+  return value && value !== key ? value : null
 }

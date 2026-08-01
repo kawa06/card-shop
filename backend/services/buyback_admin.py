@@ -27,6 +27,7 @@ from services.buyback_item_labels import (
     format_rejection_reason,
 )
 from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
+from services.buyback_logistics_logs import write_buyback_audit
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +56,6 @@ VALID_LINE_STATUSES = {
     models_buyback.BuybackItemLineStatus.rejected.value,
 }
 
-VALID_RETURN_STATUSES = {
-    models_buyback.BuybackItemReturnStatus.none.value,
-    models_buyback.BuybackItemReturnStatus.pending.value,
-    models_buyback.BuybackItemReturnStatus.shipped.value,
-    models_buyback.BuybackItemReturnStatus.completed.value,
-}
-
-
 def _audit(
     db: Session,
     *,
@@ -72,18 +65,14 @@ def _audit(
     entity_id: str,
     details: dict,
 ) -> None:
-    try:
-        db.add(
-            models_buyback.BuybackAuditLog(
-                actor_user_id=actor_user_id,
-                action=action,
-                entity_type=entity_type,
-                entity_id=entity_id,
-                details_json=json.dumps(details, ensure_ascii=False),
-            )
-        )
-    except Exception as exc:
-        logger.warning("Failed to write buyback admin audit log: %s", exc)
+    write_buyback_audit(
+        db,
+        actor_user_id=actor_user_id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=details,
+    )
 
 
 def list_identity_verifications(
@@ -197,6 +186,7 @@ def list_admin_requests(
     *,
     status: Optional[str] = None,
     q: Optional[str] = None,
+    allow_pii_search: bool = False,
     limit: int = 100,
 ) -> list[models_buyback.BuybackRequest]:
     query = (
@@ -208,13 +198,15 @@ def list_admin_requests(
         query = query.filter(models_buyback.BuybackRequest.status == status)
     if q:
         term = f"%{q.strip()}%"
-        query = query.filter(
-            or_(
-                models.User.email.ilike(term),
-                models.User.name.ilike(term),
-                models_buyback.BuybackRequest.request_number.ilike(term),
+        search_filters = [models_buyback.BuybackRequest.request_number.ilike(term)]
+        if allow_pii_search:
+            search_filters.extend(
+                [
+                    models.User.email.ilike(term),
+                    models.User.name.ilike(term),
+                ]
             )
-        )
+        query = query.filter(or_(*search_filters))
     return (
         query.order_by(
             models_buyback.BuybackRequest.submitted_at.desc(),
@@ -250,9 +242,47 @@ def update_request_status(
     tracking_number: Optional[str] = None,
     assessed_total: Optional[int] = None,
     payout_total: Optional[int] = None,
+    allow_payout_completion: bool = False,
 ) -> models_buyback.BuybackRequest:
     request = get_admin_request(db, request_id)
     current = request.status
+    if new_status in {
+        models_buyback.BuybackRequestStatus.received.value,
+        models_buyback.BuybackRequestStatus.returned.value,
+    }:
+        _audit(
+            db,
+            actor_user_id=admin_user.id,
+            action="protected_status_update_denied",
+            entity_type="buyback_request",
+            entity_id=str(request.id),
+            details={
+                "from_status": current,
+                "to_status": new_status,
+                "failure_reason": "barcode_required",
+            },
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail="無効なバーコードです")
+    if (
+        new_status == models_buyback.BuybackRequestStatus.paid.value
+        and not allow_payout_completion
+    ):
+        _audit(
+            db,
+            actor_user_id=admin_user.id,
+            action="protected_status_update_denied",
+            entity_type="buyback_request",
+            entity_id=str(request.id),
+            details={
+                "from_status": current,
+                "to_status": new_status,
+                "failure_reason": "dedicated_operation_required",
+            },
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail="専用の振込完了処理を使用してください")
+
     allowed = REQUEST_TRANSITIONS.get(current, set())
     if new_status not in allowed:
         raise HTTPException(
@@ -312,8 +342,11 @@ def update_request_status(
                 models_buyback.BuybackRequestStatus.rejected.value,
             }:
                 notify_buyback_decision(db, request, user)
-    except Exception as exc:
-        logger.warning("Failed status-change notification: %s", exc)
+    except Exception:
+        logger.warning(
+            "Status-change notification failed",
+            extra={"request_id": request.id},
+        )
 
     return get_admin_request(db, request_id)
 
@@ -328,6 +361,28 @@ def update_request_items(
     apply_handling_policy: bool = True,
 ) -> models_buyback.BuybackRequest:
     request = get_admin_request(db, request_id)
+    if any(
+        any(
+            key in payload
+            for key in (
+                "return_status",
+                "return_tracking_number",
+                "return_shipping_cost",
+            )
+        )
+        for payload in item_updates
+    ):
+        _audit(
+            db,
+            actor_user_id=admin_user.id,
+            action="protected_return_update_denied",
+            entity_type="buyback_request",
+            entity_id=str(request.id),
+            details={"failure_reason": "barcode_required"},
+        )
+        db.commit()
+        raise HTTPException(status_code=400, detail="無効なバーコードです")
+
     items_by_id = {item.id: item for item in (request.items or [])}
 
     for payload in item_updates:
@@ -354,16 +409,6 @@ def update_request_items(
             item.is_return_target = bool(payload["is_return_target"])
         if "is_disposal_target" in payload and payload["is_disposal_target"] is not None:
             item.is_disposal_target = bool(payload["is_disposal_target"])
-        if "return_status" in payload and payload["return_status"] is not None:
-            return_status = payload["return_status"]
-            if return_status not in VALID_RETURN_STATUSES:
-                raise HTTPException(status_code=400, detail=f"無効な返送状況: {return_status}")
-            item.return_status = return_status
-        if "return_tracking_number" in payload:
-            item.return_tracking_number = (payload["return_tracking_number"] or "").strip() or None
-        if "return_shipping_cost" in payload:
-            item.return_shipping_cost = payload["return_shipping_cost"]
-
         if item.line_status == models_buyback.BuybackItemLineStatus.rejected.value:
             reason = format_rejection_reason(item.rejection_reason_code, item.rejection_reason_text)
             if not reason:
@@ -452,6 +497,7 @@ def complete_request_payout(
         new_status=models_buyback.BuybackRequestStatus.paid.value,
         admin_note=admin_note,
         payout_total=amount,
+        allow_payout_completion=True,
     )
 
     email_ok = True
@@ -462,9 +508,8 @@ def complete_request_payout(
         )
         if not email_ok and email_err:
             logger.warning(
-                "Payout completion email failed for request %s: %s",
-                request_id,
-                email_err,
+                "Payout completion email failed",
+                extra={"request_id": request_id},
             )
 
     _audit(
@@ -477,7 +522,7 @@ def complete_request_payout(
             "request_number": updated.request_number,
             "payout_total": amount,
             "email_sent": send_email and email_ok,
-            "email_error": email_err,
+            "email_failed": bool(email_err),
         },
     )
     db.commit()

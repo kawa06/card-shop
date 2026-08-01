@@ -75,8 +75,17 @@ def translate(req: TranslateRequest, db: Session = Depends(get_db)):
         try:
             deepl_results = deepl_translate(texts_to_translate, req.target)
         except Exception:
-            # Fallback: return original texts on failure
-            deepl_results = texts_to_translate.copy()
+            if req.target == "EN":
+                from services.localize_name import translate_external_batch
+
+                fallback = translate_external_batch(texts_to_translate)
+                deepl_results = [
+                    value or original
+                    for value, original in zip(fallback, texts_to_translate)
+                ]
+            else:
+                # The free fallback currently supports JA -> EN only.
+                deepl_results = texts_to_translate.copy()
 
         for i, idx in enumerate(indices):
             translated = deepl_results[i]

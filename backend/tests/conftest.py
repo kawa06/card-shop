@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
+import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,6 +29,7 @@ def db():
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        hide_parameters=True,
     )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
@@ -42,6 +45,7 @@ def db():
 def buyback_test_settings(monkeypatch):
     monkeypatch.setattr(settings, "DEBUG", True)
     monkeypatch.setattr(settings, "BUYBACK_PAYOUT_ENCRYPTION_KEY", "test-key-for-buyback-payout-32b")
+    monkeypatch.setenv("ADMIN_PROXY_SECRET", "test-only-admin-proxy-secret")
 
 
 @pytest.fixture(autouse=True)
@@ -86,9 +90,18 @@ def auth_headers(user: models.User) -> dict[str, str]:
 
 
 def admin_headers(email: str = "rikukai0609@icloud.com") -> dict[str, str]:
+    from internal_admin_auth import build_admin_proxy_signature
+
+    timestamp = str(int(time.time()))
+    secret = os.getenv("ADMIN_PROXY_SECRET", "")
     return {
-        "X-Internal-Admin-Secret": "card-shop-internal-admin-v1",
         "X-Admin-Email": email,
+        "X-Admin-Timestamp": timestamp,
+        "X-Admin-Signature": build_admin_proxy_signature(
+            secret=secret,
+            email=email,
+            timestamp=timestamp,
+        ),
     }
 
 

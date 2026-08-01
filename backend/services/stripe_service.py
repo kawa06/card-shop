@@ -39,7 +39,7 @@ def stripe_key_valid() -> bool:
         if _is_stripe_permission_denied(exc) and settings.STRIPE_SECRET_KEY.strip().startswith("rk_"):
             logger.info("Stripe restricted key authenticated without Account read scope")
             return True
-        logger.warning("Stripe key validation failed: %s", exc)
+        logger.warning("Stripe key validation failed")
         return False
 
 

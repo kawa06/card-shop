@@ -119,8 +119,8 @@ def add_columns_if_missing():
         try:
             existing_columns = [c["name"] for c in inspector.get_columns(table_name)]
             print(f"Existing columns in {table_name}: {existing_columns}")
-        except Exception as e:
-            print(f"Could not inspect table {table_name} (it might not exist yet): {e}")
+        except Exception:
+            print(f"Could not inspect table {table_name}")
             continue
 
         for col_name, col_def in columns:
@@ -133,8 +133,8 @@ def add_columns_if_missing():
                     conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {col_name} {ddl}"))
                     conn.commit()
                 print(f"Successfully added {table_name}.{col_name}")
-            except Exception as e:
-                print(f"ERROR: Failed to add {table_name}.{col_name}: {e}")
+            except Exception:
+                print(f"ERROR: Failed to add {table_name}.{col_name}")
 
     print("Database migrations completed.")
 
@@ -149,15 +149,15 @@ async def lifespan(app: FastAPI):
         db_info = database_info()
         if not db_info["persistent"]:
             print(f"WARNING: {db_info['warning']}")
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
+    except Exception:
+        print("Database initialization failed")
 
     # Initial refresh on startup
     try:
         with SessionLocal() as db:
             await refresh_all_rates(db)
-    except Exception as e:
-        print(f"Initial shipping rates refresh failed: {e}")
+    except Exception:
+        print("Initial shipping rates refresh failed")
     
     # Start background tasks
     update_task = asyncio.create_task(background_shipping_update_task(SessionLocal))

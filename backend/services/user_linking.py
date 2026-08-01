@@ -13,7 +13,7 @@ import bcrypt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from admin_emails import ensure_admin, is_admin_email, normalize_email
+from admin_emails import normalize_email
 import models
 import models_buyback
 
@@ -54,9 +54,9 @@ def _audit(
             )
         )
         db.commit()
-    except Exception as exc:
+    except Exception:
         db.rollback()
-        logger.warning("Failed to write buyback audit log: %s", exc)
+        logger.warning("Failed to write buyback audit log")
 
 
 def resolve_clerk_user(
@@ -84,7 +84,7 @@ def resolve_clerk_user(
         .first()
     )
     if by_clerk:
-        return LinkOutcome(ensure_admin(by_clerk, db), LinkResult.found_by_clerk_id)
+        return LinkOutcome(by_clerk, LinkResult.found_by_clerk_id)
 
     email_matches = (
         db.query(models.User)
@@ -140,9 +140,9 @@ def resolve_clerk_user(
                 user_id=user.id,
                 details={"email": email},
             )
-            return LinkOutcome(ensure_admin(user, db), LinkResult.linked_existing)
+            return LinkOutcome(user, LinkResult.linked_existing)
 
-        return LinkOutcome(ensure_admin(user, db), LinkResult.found_by_clerk_id)
+        return LinkOutcome(user, LinkResult.found_by_clerk_id)
 
     display_name = (name or "").strip() or email.split("@")[0]
     user = models.User(
@@ -151,7 +151,7 @@ def resolve_clerk_user(
         password_hash=bcrypt.hashpw(
             secrets.token_urlsafe(32).encode("utf-8"), bcrypt.gensalt()
         ).decode("utf-8"),
-        is_admin=is_admin_email(email),
+        is_admin=False,
         is_verified=True,
         clerk_user_id=clerk_user_id,
     )

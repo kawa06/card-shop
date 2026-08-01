@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
 from auth import hash_password
 import models
@@ -111,7 +112,7 @@ def test_reject_identity(db):
     assert rejected.rejection_reason == "画像が不鮮明です"
 
 
-def test_update_request_status(db):
+def test_update_request_status_cannot_bypass_barcode_receive(db):
     admin = _admin(db)
     customer = _customer(db)
     request = models_buyback.BuybackRequest(
@@ -124,17 +125,19 @@ def test_update_request_status(db):
     db.commit()
     db.refresh(request)
 
-    updated = update_request_status(
-        db,
-        request_id=request.id,
-        admin_user=admin,
-        new_status=models_buyback.BuybackRequestStatus.received.value,
-        admin_note="着荷確認",
-    )
-    assert updated.status == models_buyback.BuybackRequestStatus.received.value
-    assert updated.admin_note == "着荷確認"
-    assert len(updated.status_history) == 1
-    assert updated.status_history[0].to_status == "received"
+    with pytest.raises(HTTPException) as exc_info:
+        update_request_status(
+            db,
+            request_id=request.id,
+            admin_user=admin,
+            new_status=models_buyback.BuybackRequestStatus.received.value,
+            admin_note="着荷確認",
+        )
+    assert "無効なバーコードです" in str(exc_info.value)
+    db.refresh(request)
+    assert request.status == models_buyback.BuybackRequestStatus.submitted.value
+    assert request.admin_note is None
+    assert len(request.status_history) == 0
 
 
 def _payout_pending_request(db, customer: models.User) -> models_buyback.BuybackRequest:

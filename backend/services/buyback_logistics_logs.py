@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 import models
 import models_buyback
+from services.sensitive_redaction import redact_audit_value, redact_text
 
 
 def write_buyback_audit(
@@ -27,7 +28,11 @@ def write_buyback_audit(
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id) if entity_id is not None else None,
-            details_json=json.dumps(details, ensure_ascii=False) if details else None,
+            details_json=(
+                json.dumps(redact_audit_value(details), ensure_ascii=False)
+                if details
+                else None
+            ),
         )
     )
 
@@ -51,7 +56,7 @@ def write_package_print_log(
             entity_id=entity_id,
             includes_pii=includes_pii,
             is_reprint=is_reprint,
-            device_info=(device_info or "")[:255] or None,
+            device_info=(redact_text(device_info) or "")[:255] or None,
         )
     )
 
@@ -72,9 +77,10 @@ def _parse_details(raw: Optional[str]) -> Optional[dict]:
         return None
     try:
         data = json.loads(raw)
-        return data if isinstance(data, dict) else {"value": data}
-    except Exception:
-        return {"raw": raw[:200]}
+        parsed = data if isinstance(data, dict) else {"value": data}
+        return redact_audit_value(parsed)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {"parse_error": True}
 
 
 def list_logistics_logs(
@@ -114,9 +120,8 @@ def list_logistics_logs(
                     "entity_id": str(log.barcode_id) if log.barcode_id else None,
                     "includes_pii": None,
                     "is_reprint": None,
-                    "scan_token_prefix": (log.scan_token or "")[:8] or None,
                     "details": _parse_details(log.details_json),
-                    "device_info": log.device_info,
+                    "device_info": redact_text(log.device_info),
                     "ip_address": log.ip_address,
                     "created_at": log.created_at,
                 }
@@ -163,9 +168,8 @@ def list_logistics_logs(
                     "entity_id": str(log.entity_id),
                     "includes_pii": log.includes_pii,
                     "is_reprint": log.is_reprint,
-                    "scan_token_prefix": None,
                     "details": None,
-                    "device_info": log.device_info,
+                    "device_info": redact_text(log.device_info),
                     "ip_address": None,
                     "created_at": log.created_at,
                 }
@@ -219,7 +223,6 @@ def list_logistics_logs(
                     "entity_id": log.entity_id,
                     "includes_pii": "pii" in action,
                     "is_reprint": None,
-                    "scan_token_prefix": None,
                     "details": _parse_details(log.details_json),
                     "device_info": None,
                     "ip_address": None,

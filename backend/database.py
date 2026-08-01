@@ -11,7 +11,10 @@ if settings.DATABASE_URL.startswith("sqlite"):
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
-    echo=settings.DEBUG,
+    # Scanner tokens are bearer credentials. SQL bind values must never be logged,
+    # including in local DEBUG mode or DB exception strings.
+    echo=False,
+    hide_parameters=True,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

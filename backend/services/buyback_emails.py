@@ -101,9 +101,9 @@ def _record_delivery(
             )
         )
         db.commit()
-    except Exception as exc:
+    except Exception:
         db.rollback()
-        logger.warning("Failed to record notification delivery: %s", exc)
+        logger.warning("Failed to record notification delivery")
 
 
 def notify_buyback_request_submitted(

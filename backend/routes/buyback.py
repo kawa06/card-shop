@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
 from auth import create_access_token, get_current_user
@@ -42,7 +42,9 @@ from services.buyback_payout_accounts import (
     set_default_payout_account,
 )
 from services.buyback_application_form import build_application_form
+from services.barcode_render import render_code128_svg
 from services.buyback_barcodes import get_active_barcode_for_entity
+from services.buyback_logistics_logs import write_package_print_log
 from services.buyback_requests import get_user_request, list_user_requests, submit_request_from_cart
 from services.user_linking import LinkResult, resolve_clerk_user
 import models
@@ -67,19 +69,6 @@ def _load_inbound_for_request(
         .filter(models_buyback.BuybackInboundShipment.request_id == request_id)
         .first()
     )
-
-
-def _application_scan_token(db: Session, request_id: int) -> str | None:
-    inbound = _load_inbound_for_request(db, request_id)
-    if not inbound:
-        return None
-    barcode = get_active_barcode_for_entity(
-        db,
-        entity_type=models_buyback.BuybackBarcodeEntityType.inbound_shipment.value,
-        entity_id=inbound.id,
-        barcode_type=models_buyback.BuybackBarcodeType.application_inbound.value,
-    )
-    return barcode.scan_token if barcode else None
 
 
 def _require_clerk_bearer(request: Request) -> str:
@@ -341,7 +330,6 @@ def _serialize_request_detail(
         public_buyback_code=request.public_buyback_code,
         inbound_mgmt_id=request.inbound_mgmt_id,
         public_member_id=user.public_member_id if user else None,
-        application_scan_token=_application_scan_token(db, request.id),
         inbound_status=inbound_status,
         inbound_status_label=INBOUND_STATUS_LABELS.get(inbound_status, inbound_status)
         if inbound_status
@@ -424,6 +412,43 @@ def get_buyback_application_form(
         mark_issued=False,
     )
     return schemas_buyback.BuybackApplicationFormOut(**payload)
+
+
+@router.get("/requests/{request_id}/application-form/barcode.svg")
+def get_buyback_application_barcode_svg(
+    request_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    request = get_user_request(db, user_id=current_user.id, request_id=request_id)
+    inbound = (
+        db.query(models_buyback.BuybackInboundShipment)
+        .filter(models_buyback.BuybackInboundShipment.request_id == request.id)
+        .first()
+    )
+    if not inbound:
+        raise HTTPException(status_code=404, detail="バーコードが見つかりません")
+    barcode = get_active_barcode_for_entity(
+        db,
+        entity_type=models_buyback.BuybackBarcodeEntityType.inbound_shipment.value,
+        entity_id=inbound.id,
+        barcode_type=models_buyback.BuybackBarcodeType.application_inbound.value,
+    )
+    if not barcode:
+        raise HTTPException(status_code=404, detail="バーコードが見つかりません")
+    write_package_print_log(
+        db,
+        actor_user_id=current_user.id,
+        print_type="application_barcode_render",
+        entity_type="buyback_request",
+        entity_id=request.id,
+    )
+    db.commit()
+    return Response(
+        content=render_code128_svg(barcode.scan_token),
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store, private"},
+    )
 
 
 @router.post(

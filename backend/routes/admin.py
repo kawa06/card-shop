@@ -164,10 +164,14 @@ def admin_create_category(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
+    from services.localize_name import fill_name_en
+
     existing = db.query(models.Category).filter(models.Category.slug == payload.slug).first()
     if existing:
         raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
-    category = models.Category(**payload.model_dump())
+    data = payload.model_dump()
+    data["name_en"] = fill_name_en(db, data.get("name") or "", data.get("name_en"))
+    category = models.Category(**data)
     db.add(category)
     safe_commit(db, action="カード作成")
     db.refresh(category)
@@ -181,11 +185,19 @@ def admin_update_category(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
+    from services.localize_name import fill_name_en
+
     category = db.query(models.Category).filter(models.Category.id == category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="カテゴリーが見つかりません")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
         setattr(category, field, value)
+    # Re-translate when Japanese name changes and English was not explicitly set.
+    if "name" in updates and "name_en" not in updates:
+        category.name_en = fill_name_en(db, category.name, None)
+    elif not (category.name_en or "").strip():
+        category.name_en = fill_name_en(db, category.name, None)
     safe_commit(db, action="カード作成")
     db.refresh(category)
     return category
@@ -220,10 +232,14 @@ def admin_create_pack(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
+    from services.localize_name import fill_name_en
+
     existing = db.query(models.Pack).filter(models.Pack.slug == payload.slug).first()
     if existing:
         raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
-    pack = models.Pack(**payload.model_dump())
+    data = payload.model_dump()
+    data["name_en"] = fill_name_en(db, data.get("name") or "", data.get("name_en"))
+    pack = models.Pack(**data)
     db.add(pack)
     safe_commit(db, action="カード作成")
     db.refresh(pack)
@@ -237,6 +253,8 @@ def admin_update_pack(
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
+    from services.localize_name import fill_name_en
+
     pack = db.query(models.Pack).filter(models.Pack.id == pack_id).first()
     if not pack:
         raise HTTPException(status_code=404, detail="パックが見つかりません")
@@ -250,6 +268,10 @@ def admin_update_pack(
             raise HTTPException(status_code=400, detail="このスラッグは既に使用されています")
     for field, value in updates.items():
         setattr(pack, field, value)
+    if "name" in updates and "name_en" not in updates:
+        pack.name_en = fill_name_en(db, pack.name, None)
+    elif not (pack.name_en or "").strip():
+        pack.name_en = fill_name_en(db, pack.name, None)
     safe_commit(db, action="パック更新")
     db.refresh(pack)
     return pack
