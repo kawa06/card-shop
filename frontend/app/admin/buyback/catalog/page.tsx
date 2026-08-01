@@ -12,8 +12,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
 import { compressImageFile } from '@/lib/image-compress'
+import {
+  BUYBACK_CATEGORY_OPTIONS,
+  LEGACY_BUYBACK_CATEGORY_OPTIONS,
+  conditionOptionsForRow,
+  getBuybackCategoryLabel,
+  getBuybackConditionLabel,
+  nextUnusedConditionCode,
+} from '@/lib/buyback-catalog-options'
 
-const CATEGORIES = ['raw', 'graded', 'sealed', 'accessory']
+const CATEGORY_OPTIONS = [...BUYBACK_CATEGORY_OPTIONS, ...LEGACY_BUYBACK_CATEGORY_OPTIONS]
 
 interface PriceFormRow {
   condition_code: string
@@ -36,8 +44,8 @@ interface ProductForm {
   prices: PriceFormRow[]
 }
 
-const emptyPriceRow = (): PriceFormRow => ({
-  condition_code: 'default',
+const emptyPriceRow = (condition_code = 'A'): PriceFormRow => ({
+  condition_code,
   price_normal: '',
   price_high: '',
   purchase_limit: '',
@@ -65,8 +73,27 @@ function parseOptionalInt(value: string): number | null {
 }
 
 function toPayload(form: ProductForm): AdminBuybackCatalogProductInput | null {
-  const priceNormal = parseOptionalInt(form.prices[0]?.price_normal ?? '')
-  if (priceNormal === null || priceNormal < 0) return null
+  if (!form.name.trim() || !form.category.trim()) return null
+  if (!form.prices.length) return null
+
+  const seen = new Set<string>()
+  const prices = []
+  for (const row of form.prices) {
+    const code = row.condition_code.trim()
+    if (!code) return null
+    const key = code.toLowerCase()
+    if (seen.has(key)) return null
+    seen.add(key)
+    const normal = parseOptionalInt(row.price_normal)
+    if (normal === null || normal < 0) return null
+    prices.push({
+      condition_code: code,
+      price_normal: normal,
+      price_high: parseOptionalInt(row.price_high),
+      purchase_limit: parseOptionalInt(row.purchase_limit),
+      tier_overflow_price: parseOptionalInt(row.tier_overflow_price),
+    })
+  }
 
   return {
     name: form.name.trim(),
@@ -78,19 +105,7 @@ function toPayload(form: ProductForm): AdminBuybackCatalogProductInput | null {
     notes: form.notes.trim() || null,
     is_active: form.is_active,
     sort_order: parseOptionalInt(form.sort_order) ?? 0,
-    prices: form.prices.map((row) => {
-      const normal = parseOptionalInt(row.price_normal)
-      if (normal === null || normal < 0) {
-        throw new Error('invalid price')
-      }
-      return {
-        condition_code: row.condition_code.trim() || 'default',
-        price_normal: normal,
-        price_high: parseOptionalInt(row.price_high),
-        purchase_limit: parseOptionalInt(row.purchase_limit),
-        tier_overflow_price: parseOptionalInt(row.tier_overflow_price),
-      }
-    }),
+    prices,
   }
 }
 
@@ -221,16 +236,11 @@ export default function AdminBuybackCatalogPage() {
     e.preventDefault()
     if (!canWrite) return
     setSaving(true)
-    let payload: AdminBuybackCatalogProductInput | null = null
-    try {
-      payload = toPayload(form)
-    } catch {
-      payload = null
-    }
-    if (!payload || !payload.name || !payload.category) {
+    const payload = toPayload(form)
+    if (!payload) {
       toast({
         title: 'エラー',
-        description: '必須項目と価格を確認してください',
+        description: '必須項目・状態別価格・重複する状態がないか確認してください',
         variant: 'destructive',
       })
       setSaving(false)
@@ -262,6 +272,27 @@ export default function AdminBuybackCatalogPage() {
       setSaving(false)
     }
   }
+
+  const addPriceRow = () => {
+    const nextCode = nextUnusedConditionCode(form.prices.map((row) => row.condition_code))
+    if (!nextCode) {
+      toast({
+        title: '追加できません',
+        description: 'A〜E・ジャンクは最大6状態まで設定できます',
+        variant: 'destructive',
+      })
+      return
+    }
+    setForm({ ...form, prices: [...form.prices, emptyPriceRow(nextCode)] })
+  }
+
+  const removePriceRow = (index: number) => {
+    if (form.prices.length <= 1) return
+    setForm({ ...form, prices: form.prices.filter((_, i) => i !== index) })
+  }
+
+  const selectedCategoryHint =
+    CATEGORY_OPTIONS.find((item) => item.value === form.category)?.hint ?? ''
 
   if (!isMounted || !isReady) return null
 
@@ -323,12 +354,16 @@ export default function AdminBuybackCatalogPage() {
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                     className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-sm"
                   >
-                    {CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
+                    {CATEGORY_OPTIONS.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.label}
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500">
+                    買取表のタブに表示されます。
+                    {selectedCategoryHint ? ` ${selectedCategoryHint}` : ''}
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label>カード番号</Label>
@@ -396,18 +431,53 @@ export default function AdminBuybackCatalogPage() {
               </div>
 
               <div className="border-t border-gray-200 pt-4 space-y-3">
-                <h3 className="font-medium text-sm">状態別価格 *</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-medium text-sm">状態別価格 *</h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      A〜E・ジャンクの状態ごとに買取価格を設定できます。
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addPriceRow}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    状態を追加
+                  </Button>
+                </div>
+                <div className="hidden sm:grid sm:grid-cols-[120px_repeat(4,minmax(0,1fr))_40px] gap-3 text-xs text-gray-500 px-1">
+                  <span>状態</span>
+                  <span>通常買取 *</span>
+                  <span>高価買取</span>
+                  <span>上限枚数</span>
+                  <span>上限超過後</span>
+                  <span />
+                </div>
                 {form.prices.map((row, index) => (
-                  <div key={index} className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    <Input
+                  <div
+                    key={`${index}-${row.condition_code}`}
+                    className="grid grid-cols-1 sm:grid-cols-[120px_repeat(4,minmax(0,1fr))_40px] gap-3 items-start"
+                  >
+                    <select
                       value={row.condition_code}
                       onChange={(e) => {
                         const prices = [...form.prices]
                         prices[index] = { ...prices[index], condition_code: e.target.value }
                         setForm({ ...form, prices })
                       }}
-                      placeholder="状態コード"
-                    />
+                      className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 text-sm"
+                    >
+                      {conditionOptionsForRow(
+                        row.condition_code,
+                        form.prices.map((priceRow) => priceRow.condition_code)
+                      ).map((option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                     <Input
                       type="number"
                       min="0"
@@ -456,6 +526,16 @@ export default function AdminBuybackCatalogPage() {
                       }}
                       placeholder="上限超過後"
                     />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={form.prices.length <= 1}
+                      onClick={() => removePriceRow(index)}
+                      aria-label="状態を削除"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -504,8 +584,8 @@ export default function AdminBuybackCatalogPage() {
                     <th className="text-left px-4 py-3">カード</th>
                     <th className="text-left px-4 py-3">カテゴリー</th>
                     <th className="text-left px-4 py-3">パック</th>
-                    <th className="text-right px-4 py-3">通常買取</th>
-                    <th className="text-left px-4 py-3">状態</th>
+                    <th className="text-right px-4 py-3">状態別価格</th>
+                    <th className="text-left px-4 py-3">公開</th>
                     {canWrite && <th className="text-right px-4 py-3">操作</th>}
                   </tr>
                 </thead>
@@ -518,10 +598,22 @@ export default function AdminBuybackCatalogPage() {
                           {[item.card_number, item.rarity].filter(Boolean).join(' · ') || '—'}
                         </div>
                       </td>
-                      <td className="px-4 py-3">{item.category}</td>
+                      <td className="px-4 py-3">
+                        <div>{getBuybackCategoryLabel(item.category)}</div>
+                        <div className="text-xs text-gray-400">{item.category}</div>
+                      </td>
                       <td className="px-4 py-3">{item.pack_name || '—'}</td>
-                      <td className="px-4 py-3 text-right">
-                        ¥{(item.prices[0]?.price_normal ?? 0).toLocaleString()}
+                      <td className="px-4 py-3 text-right align-top">
+                        <div className="space-y-1">
+                          {item.prices.map((price) => (
+                            <div key={price.id ?? price.condition_code}>
+                              <span className="text-xs text-gray-500">
+                                {getBuybackConditionLabel(price.condition_code)}
+                              </span>
+                              <div>¥{price.price_normal.toLocaleString()}</div>
+                            </div>
+                          ))}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <span
