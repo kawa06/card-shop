@@ -295,6 +295,7 @@ def cancel_unpaid_order(
     release_inventory_for_order(db, order)
     order.payment_status = "expired" if as_expired else "cancelled"
     order.status = models.OrderStatus.cancelled
+    order.shipping_status = "cancelled"
     db.commit()
     db.refresh(order)
     if order.payment_method in BANK_TRANSFER_METHODS:

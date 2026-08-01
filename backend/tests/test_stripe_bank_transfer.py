@@ -132,6 +132,7 @@ def test_cancel_unpaid_order_releases_stock(db, test_user):
 
     assert order.payment_status == "expired"
     assert order.status == models.OrderStatus.cancelled
+    assert order.shipping_status == "cancelled"
     assert order.stock_reserved is False
     assert card.stock == 10
 

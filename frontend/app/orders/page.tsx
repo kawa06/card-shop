@@ -11,6 +11,7 @@ import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
 import { buildTrackingUrl } from '@/lib/tracking'
+import { resolveOrderDisplayStatus } from '@/lib/order-display-status'
 
 const statusLabels: Record<string, string> = {
   pending: '処理中',
@@ -107,7 +108,7 @@ export default function OrdersPage() {
 
         <div className="space-y-3">
           {orders.map((order) => {
-            const displayStatus = order.shipping_status || order.status
+            const displayStatus = resolveOrderDisplayStatus(order)
             const statusLabel = statusLabels[displayStatus] || displayStatus
             const statusColor = statusColors[displayStatus] || 'text-gray-400'
             const isExpanded = expandedId === order.id

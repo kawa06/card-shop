@@ -16,6 +16,7 @@ import {
   shippingStatusLabel,
 } from '@/components/admin/AdminOrderShippingForm'
 import { AdminSendShippingEmailButton } from '@/components/admin/AdminSendShippingEmailButton'
+import { resolveOrderDisplayStatus } from '@/lib/order-display-status'
 
 const paymentMethodLabels: Record<string, string> = {
   stripe_card: 'クレジットカード',
@@ -214,7 +215,7 @@ export default function AdminOrdersPage() {
               {orders.map((order) => {
                 const isExpanded = expandedId === order.id
                 const ps = order.payment_status || 'pending'
-                const ss = order.shipping_status || 'unshipped'
+                const ss = resolveOrderDisplayStatus(order)
                 const isBankTransfer = order.payment_method === 'stripe_bank_transfer'
                 const canManagePayment = ps === 'awaiting_payment' && isBankTransfer
 

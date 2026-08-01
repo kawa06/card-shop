@@ -24,6 +24,7 @@ import {
   shippingStatusLabel,
 } from '@/components/admin/AdminOrderShippingForm'
 import { AdminSendShippingEmailButton } from '@/components/admin/AdminSendShippingEmailButton'
+import { resolveOrderDisplayStatus } from '@/lib/order-display-status'
 
 const paymentStatusLabels: Record<string, string> = {
   awaiting_payment: '入金待ち',
@@ -237,7 +238,7 @@ export default function AdminOrderDetailPage() {
                     決済: {paymentStatusLabels[ps] || ps}
                   </span>
                   <span className="text-xs font-bold px-2 py-1 rounded border bg-white">
-                    発送: {shippingStatusLabel(order.shipping_status)}
+                    発送: {shippingStatusLabel(resolveOrderDisplayStatus(order))}
                   </span>
                   <span className="text-xs font-bold px-2 py-1 rounded border bg-white">
                     注文: {orderStatusLabels[order.status] || order.status}
