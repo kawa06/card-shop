@@ -24,7 +24,8 @@ import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { cardsApi, ordersApi, categoriesApi, announcementsApi, adminApi, shippingApi, packsApi, adminInquiriesApi, adminBuybackApi } from '@/lib/api'
+import { adminBuybackApi, adminApi, adminInquiriesApi, announcementsApi, cardsApi, categoriesApi, ordersApi, packsApi, shippingApi } from '@/lib/api'
+import { buybackAdminUrl } from '@/lib/buyback-admin-url'
 
 interface Stats {
   cards: number
@@ -115,16 +116,16 @@ export default function AdminPage() {
         ]
       : []),
     ...(hasPermission('buyback.catalog.read')
-      ? [{ href: '/admin/buyback/catalog', icon: CreditCard, label: '買取カタログ管理', count: 0, color: 'text-lime-600', bg: 'bg-lime-500/10 border-lime-500/20' }]
+      ? [{ href: buybackAdminUrl('catalog'), external: true, icon: CreditCard, label: '買取カタログ管理', count: 0, color: 'text-lime-600', bg: 'bg-lime-500/10 border-lime-500/20' }]
       : []),
     ...(hasPermission('buyback.settings.read')
-      ? [{ href: '/admin/buyback/settings', icon: Settings, label: '買取チャネル設定', count: 0, color: 'text-violet-600', bg: 'bg-violet-500/10 border-violet-500/20' }]
+      ? [{ href: buybackAdminUrl('settings'), external: true, icon: Settings, label: '買取チャネル設定', count: 0, color: 'text-violet-600', bg: 'bg-violet-500/10 border-violet-500/20' }]
       : []),
     ...(hasPermission('buyback.settings.read')
-      ? [{ href: '/admin/buyback/banners', icon: Bell, label: '限定価格バナー', count: 0, color: 'text-rose-600', bg: 'bg-rose-500/10 border-rose-500/20' }]
+      ? [{ href: buybackAdminUrl('banners'), external: true, icon: Bell, label: '限定価格バナー', count: 0, color: 'text-rose-600', bg: 'bg-rose-500/10 border-rose-500/20' }]
       : []),
     ...(hasPermission('buyback.reservation.read')
-      ? [{ href: '/admin/buyback/reservations', icon: Package, label: '店舗買取予約', count: 0, color: 'text-indigo-600', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
+      ? [{ href: buybackAdminUrl('reservations'), external: true, icon: Package, label: '店舗買取予約', count: 0, color: 'text-indigo-600', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
       : []),
     ...(hasPermission('buyback.identity.read')
       ? [{ href: '/admin/buyback/kyc', icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' }]
@@ -142,7 +143,12 @@ export default function AdminPage() {
       ? [{ href: '/admin/buyback/logs', icon: Shield, label: '買取物流ログ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
       : []),
     ...(hasPermission('buyback.request.read')
-      ? [{ href: '/admin/buyback/requests', icon: Package, label: '買取申込管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
+      ? [{ href: buybackAdminUrl('requests'), external: true, icon: Package, label: '買取申込管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
+      : []),
+    ...(hasPermission('buyback.catalog.read') ||
+    hasPermission('buyback.request.read') ||
+    hasPermission('buyback.settings.read')
+      ? [{ href: buybackAdminUrl('ops'), external: true, icon: Shield, label: '買取詳細操作ハブ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
       : []),
     ...(hasPermission('buyback.payout.complete')
       ? [{ href: '/admin/buyback/payouts', icon: Banknote, label: '買取振込管理', count: stats.buybackPayoutPending, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
@@ -161,8 +167,8 @@ export default function AdminPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sections.map(({ href, icon: Icon, label, count, color, bg }) => (
-            <Link key={href} href={href}>
+          {sections.map(({ href, icon: Icon, label, count, color, bg, external }) => {
+            const card = (
               <div className={`rounded-xl border ${bg} p-6 hover:scale-[1.02] transition-transform cursor-pointer`}>
                 <div className="flex items-center justify-between mb-4">
                   <Icon className={`h-8 w-8 ${color}`} />
@@ -175,8 +181,20 @@ export default function AdminPage() {
                   <p className={`text-3xl font-bold mt-1 ${color}`}>{count}</p>
                 )}
               </div>
-            </Link>
-          ))}
+            )
+            if (external) {
+              return (
+                <a key={href} href={href} target="_blank" rel="noopener noreferrer">
+                  {card}
+                </a>
+              )
+            }
+            return (
+              <Link key={href} href={href}>
+                {card}
+              </Link>
+            )
+          })}
         </div>
       </div>
     </div>
