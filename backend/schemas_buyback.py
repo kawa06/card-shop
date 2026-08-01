@@ -58,6 +58,9 @@ class BuybackProductOut(BaseModel):
     category: str
     image_url: Optional[str] = None
     notes: Optional[str] = None
+    promo_badge_text: Optional[str] = None
+    promo_badge_bg: Optional[str] = None
+    promo_badge_fg: Optional[str] = None
     prices: List[BuybackProductPriceOut] = []
 
     class Config:
@@ -92,6 +95,11 @@ class AdminBuybackCatalogProductIn(BaseModel):
     pack_name: Optional[StrictStr] = Field(default=None, max_length=255)
     image_url: Optional[StrictStr] = None
     notes: Optional[StrictStr] = None
+    promo_badge_text: Optional[StrictStr] = Field(default=None, max_length=32)
+    promo_badge_bg: Optional[StrictStr] = Field(default=None, max_length=32)
+    promo_badge_fg: Optional[StrictStr] = Field(default=None, max_length=32)
+    promo_badge_starts_at: Optional[datetime] = None
+    promo_badge_ends_at: Optional[datetime] = None
     is_active: StrictBool = True
     sort_order: StrictInt = 0
     prices: List[AdminBuybackCatalogPriceIn] = Field(min_length=1)
@@ -104,9 +112,16 @@ class AdminBuybackCatalogProductIn(BaseModel):
             raise ValueError("value is required")
         return value
 
-    @field_validator("card_number", "rarity", "pack_name", "image_url", "notes")
+    @field_validator("card_number", "rarity", "pack_name", "image_url", "notes", "promo_badge_text")
     @classmethod
     def trim_optional_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return value.strip() or None
+
+    @field_validator("promo_badge_bg", "promo_badge_fg")
+    @classmethod
+    def trim_optional_color(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
         return value.strip() or None
@@ -140,6 +155,11 @@ class AdminBuybackCatalogProductOut(BaseModel):
     pack_name: Optional[str] = None
     image_url: Optional[str] = None
     notes: Optional[str] = None
+    promo_badge_text: Optional[str] = None
+    promo_badge_bg: Optional[str] = None
+    promo_badge_fg: Optional[str] = None
+    promo_badge_starts_at: Optional[datetime] = None
+    promo_badge_ends_at: Optional[datetime] = None
     is_active: bool
     sort_order: int
     prices: List[AdminBuybackCatalogPriceOut]

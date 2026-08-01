@@ -472,6 +472,11 @@ def _serialize_catalog_product(
         pack_name=product.pack_name,
         image_url=product.image_url,
         notes=product.notes,
+        promo_badge_text=product.promo_badge_text,
+        promo_badge_bg=product.promo_badge_bg,
+        promo_badge_fg=product.promo_badge_fg,
+        promo_badge_starts_at=product.promo_badge_starts_at,
+        promo_badge_ends_at=product.promo_badge_ends_at,
         is_active=product.is_active,
         sort_order=product.sort_order,
         prices=[

@@ -20,6 +20,7 @@ import {
   getBuybackConditionLabel,
   nextUnusedConditionCode,
 } from '@/lib/buyback-catalog-options'
+import { localInputToIso, toLocalInputValue } from '@/lib/buyback-datetime'
 
 const CATEGORY_OPTIONS = [...BUYBACK_CATEGORY_OPTIONS, ...LEGACY_BUYBACK_CATEGORY_OPTIONS]
 
@@ -39,6 +40,11 @@ interface ProductForm {
   pack_name: string
   image_url: string
   notes: string
+  promo_badge_text: string
+  promo_badge_bg: string
+  promo_badge_fg: string
+  promo_badge_starts_at: string
+  promo_badge_ends_at: string
   is_active: boolean
   sort_order: string
   prices: PriceFormRow[]
@@ -60,6 +66,11 @@ const emptyForm = (): ProductForm => ({
   pack_name: '',
   image_url: '',
   notes: '',
+  promo_badge_text: '',
+  promo_badge_bg: '#c0392b',
+  promo_badge_fg: '#ffffff',
+  promo_badge_starts_at: '',
+  promo_badge_ends_at: '',
   is_active: true,
   sort_order: '0',
   prices: [emptyPriceRow()],
@@ -103,6 +114,13 @@ function toPayload(form: ProductForm): AdminBuybackCatalogProductInput | null {
     pack_name: form.pack_name.trim() || null,
     image_url: form.image_url.trim() || null,
     notes: form.notes.trim() || null,
+    promo_badge_text: form.promo_badge_text.trim() || null,
+    promo_badge_bg: form.promo_badge_text.trim() ? form.promo_badge_bg : null,
+    promo_badge_fg: form.promo_badge_text.trim() ? form.promo_badge_fg : null,
+    promo_badge_starts_at: form.promo_badge_starts_at
+      ? localInputToIso(form.promo_badge_starts_at)
+      : null,
+    promo_badge_ends_at: form.promo_badge_ends_at ? localInputToIso(form.promo_badge_ends_at) : null,
     is_active: form.is_active,
     sort_order: parseOptionalInt(form.sort_order) ?? 0,
     prices,
@@ -118,6 +136,11 @@ function productToForm(product: AdminBuybackCatalogProduct): ProductForm {
     pack_name: product.pack_name || '',
     image_url: product.image_url || '',
     notes: product.notes || '',
+    promo_badge_text: product.promo_badge_text || '',
+    promo_badge_bg: product.promo_badge_bg || '#c0392b',
+    promo_badge_fg: product.promo_badge_fg || '#ffffff',
+    promo_badge_starts_at: toLocalInputValue(product.promo_badge_starts_at),
+    promo_badge_ends_at: toLocalInputValue(product.promo_badge_ends_at),
     is_active: product.is_active,
     sort_order: String(product.sort_order ?? 0),
     prices:
@@ -428,6 +451,73 @@ export default function AdminBuybackCatalogPage() {
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4 space-y-4">
+                <div>
+                  <h3 className="font-medium text-sm">カード限定バッジ</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    買取リストの各カードに小さく表示する限定価格バッジです。
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label>バッジ文言</Label>
+                    <Input
+                      value={form.promo_badge_text}
+                      onChange={(e) => setForm({ ...form, promo_badge_text: e.target.value })}
+                      placeholder="例: 限定UP"
+                      maxLength={32}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>背景色</Label>
+                    <Input
+                      type="color"
+                      value={form.promo_badge_bg}
+                      onChange={(e) => setForm({ ...form, promo_badge_bg: e.target.value })}
+                      disabled={!form.promo_badge_text.trim()}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>文字色</Label>
+                    <Input
+                      type="color"
+                      value={form.promo_badge_fg}
+                      onChange={(e) => setForm({ ...form, promo_badge_fg: e.target.value })}
+                      disabled={!form.promo_badge_text.trim()}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>表示開始（任意）</Label>
+                    <Input
+                      type="datetime-local"
+                      value={form.promo_badge_starts_at}
+                      onChange={(e) => setForm({ ...form, promo_badge_starts_at: e.target.value })}
+                      disabled={!form.promo_badge_text.trim()}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>表示終了（任意）</Label>
+                    <Input
+                      type="datetime-local"
+                      value={form.promo_badge_ends_at}
+                      onChange={(e) => setForm({ ...form, promo_badge_ends_at: e.target.value })}
+                      disabled={!form.promo_badge_text.trim()}
+                    />
+                  </div>
+                </div>
+                {form.promo_badge_text.trim() && (
+                  <span
+                    className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold"
+                    style={{
+                      backgroundColor: form.promo_badge_bg,
+                      color: form.promo_badge_fg,
+                    }}
+                  >
+                    {form.promo_badge_text}
+                  </span>
+                )}
               </div>
 
               <div className="border-t border-gray-200 pt-4 space-y-3">

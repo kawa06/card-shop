@@ -11,17 +11,26 @@ from fastapi import HTTPException
 from auth import hash_password
 import models
 import models_buyback
+import schemas_buyback
 from services.buyback_cart import add_cart_item
 from services.buyback_channel import (
     create_banner,
     get_or_create_channel_settings,
     list_active_banners,
     list_available_slots,
+    normalize_product_promo_badge_fields,
     now_jst,
+    resolve_active_product_promo_badge,
+    to_naive_utc,
+    update_banner,
     update_channel_settings,
     validate_store_visit_at,
+    _banner_is_active,
 )
+from services.buyback_logistics_logs import write_buyback_audit
 from services.buyback_requests import submit_request_from_cart
+from services.sensitive_redaction import redact_audit_value
+import json
 
 
 def _create_user(db, email: str = "channel@example.com") -> models.User:
@@ -101,6 +110,102 @@ def test_banner_active_window(db):
     db.commit()
     active_after = list_active_banners(db)
     assert not any(b.id == banner.id for b in active_after)
+
+
+def test_banner_update_with_timezone_aware_datetimes(db):
+    now = datetime.utcnow()
+    banner = create_banner(
+        db,
+        title="期間限定",
+        description=None,
+        target_channel="both",
+        starts_at=now - timedelta(hours=1),
+        ends_at=now + timedelta(hours=2),
+        background_color="#111111",
+        text_color="#ffffff",
+        sort_order=0,
+        is_visible=True,
+    )
+    db.commit()
+
+    aware_start = datetime.fromisoformat("2026-08-01T00:00:00+00:00")
+    aware_end = datetime.fromisoformat("2026-08-31T23:59:59+00:00")
+    update_banner(
+        db,
+        banner,
+        title="更新後",
+        starts_at=aware_start,
+        ends_at=aware_end,
+    )
+
+    before = schemas_buyback.BuybackPromoBannerOut(
+        id=banner.id,
+        title="before",
+        description=None,
+        target_channel="both",
+        starts_at=now,
+        ends_at=now + timedelta(days=1),
+        background_color="#111111",
+        text_color="#ffffff",
+        sort_order=0,
+        is_visible=True,
+        is_active=False,
+    )
+    after = schemas_buyback.BuybackPromoBannerOut(
+        id=banner.id,
+        title=banner.title,
+        description=banner.description,
+        target_channel=banner.target_channel,
+        starts_at=banner.starts_at,
+        ends_at=banner.ends_at,
+        background_color=banner.background_color,
+        text_color=banner.text_color,
+        sort_order=banner.sort_order,
+        is_visible=banner.is_visible,
+        is_active=_banner_is_active(banner, datetime.utcnow()),
+    )
+    details = {
+        "before": before.model_dump(mode="json"),
+        "after": after.model_dump(mode="json"),
+    }
+    json.dumps(redact_audit_value(details), ensure_ascii=False)
+
+    assert banner.starts_at == to_naive_utc(aware_start)
+    assert banner.ends_at == to_naive_utc(aware_end)
+    assert _banner_is_active(banner, datetime.utcnow()) is True
+
+
+def test_product_promo_badge_active_window(db):
+    product = models_buyback.BuybackProduct(
+        name="Promo Card",
+        category="raw",
+        is_active=True,
+        sort_order=0,
+        promo_badge_text="限定UP",
+        promo_badge_bg="#ff0000",
+        promo_badge_fg="#ffffff",
+        promo_badge_starts_at=datetime.utcnow() - timedelta(hours=1),
+        promo_badge_ends_at=datetime.utcnow() + timedelta(hours=1),
+    )
+    db.add(product)
+    db.commit()
+
+    active = resolve_active_product_promo_badge(product)
+    assert active is not None
+    assert active["text"] == "限定UP"
+
+    product.promo_badge_ends_at = datetime.utcnow() - timedelta(minutes=1)
+    assert resolve_active_product_promo_badge(product) is None
+
+
+def test_normalize_product_promo_badge_clears_when_empty():
+    assert normalize_product_promo_badge_fields(
+        text="  ",
+        bg="#111111",
+        fg="#ffffff",
+        starts_at=None,
+        ends_at=None,
+    ) == (None, None, None, None, None)
 
 
 def test_past_slot_not_bookable(db):

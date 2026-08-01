@@ -53,6 +53,7 @@ from services.buyback_channel import (
     list_available_slots,
     resolve_allowed_methods,
     resolve_channel_mode,
+    resolve_active_product_promo_badge,
     _banner_is_active,
     now_utc_naive,
 )
@@ -279,7 +280,9 @@ def list_buyback_products(db: Session = Depends(get_db)):
         .all()
     )
     result: list[schemas_buyback.BuybackProductOut] = []
+    now = now_utc_naive()
     for product in products:
+        promo = resolve_active_product_promo_badge(product, now)
         result.append(
             schemas_buyback.BuybackProductOut(
                 id=product.id,
@@ -288,6 +291,9 @@ def list_buyback_products(db: Session = Depends(get_db)):
                 category=product.category,
                 image_url=product.image_url,
                 notes=product.notes,
+                promo_badge_text=promo["text"] if promo else None,
+                promo_badge_bg=promo["background_color"] if promo else None,
+                promo_badge_fg=promo["text_color"] if promo else None,
                 prices=[
                     schemas_buyback.BuybackProductPriceOut(
                         condition_code=price.condition_code,

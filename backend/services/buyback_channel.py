@@ -41,6 +41,13 @@ def now_utc_naive() -> datetime:
     return datetime.utcnow()
 
 
+def to_naive_utc(dt: datetime) -> datetime:
+    """Normalize API/DB datetimes to naive UTC for consistent comparisons."""
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def _parse_hhmm(value: str) -> time:
     parts = value.strip().split(":")
     if len(parts) != 2:
@@ -163,7 +170,60 @@ def validate_buyback_method(db: Session, method: Optional[str]) -> str:
 def _banner_is_active(banner: models_buyback.BuybackPromoBanner, now: datetime) -> bool:
     if not banner.is_visible:
         return False
-    return banner.starts_at <= now <= banner.ends_at
+    starts = to_naive_utc(banner.starts_at)
+    ends = to_naive_utc(banner.ends_at)
+    now_n = to_naive_utc(now)
+    return starts <= now_n <= ends
+
+
+def resolve_active_product_promo_badge(
+    product: models_buyback.BuybackProduct,
+    now: Optional[datetime] = None,
+) -> Optional[dict[str, str]]:
+    text = (product.promo_badge_text or "").strip()
+    if not text:
+        return None
+    now_n = to_naive_utc(now or now_utc_naive())
+    if product.promo_badge_starts_at is not None and to_naive_utc(product.promo_badge_starts_at) > now_n:
+        return None
+    if product.promo_badge_ends_at is not None and to_naive_utc(product.promo_badge_ends_at) < now_n:
+        return None
+    bg = (product.promo_badge_bg or "").strip() or "#c0392b"
+    fg = (product.promo_badge_fg or "").strip() or "#ffffff"
+    if not HEX_COLOR_RE.fullmatch(bg):
+        bg = "#c0392b"
+    if not HEX_COLOR_RE.fullmatch(fg):
+        fg = "#ffffff"
+    return {"text": text, "background_color": bg, "text_color": fg}
+
+
+def normalize_product_promo_badge_fields(
+    *,
+    text: Optional[str],
+    bg: Optional[str],
+    fg: Optional[str],
+    starts_at: Optional[datetime],
+    ends_at: Optional[datetime],
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[datetime], Optional[datetime]]:
+    normalized_text = (text or "").strip() or None
+    if normalized_text and len(normalized_text) > 32:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="バッジ文言は32文字以内で入力してください",
+        )
+    if not normalized_text:
+        return None, None, None, None, None
+
+    normalized_bg = _validate_color((bg or "").strip() or "#c0392b", "バッジ背景色")
+    normalized_fg = _validate_color((fg or "").strip() or "#ffffff", "バッジ文字色")
+    norm_starts = to_naive_utc(starts_at) if starts_at else None
+    norm_ends = to_naive_utc(ends_at) if ends_at else None
+    if norm_starts and norm_ends and norm_ends <= norm_starts:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="バッジ終了日時は開始日時より後に設定してください",
+        )
+    return normalized_text, normalized_bg, normalized_fg, norm_starts, norm_ends
 
 
 def list_active_banners(
@@ -213,7 +273,7 @@ def _validate_color(value: str, field: str) -> str:
 
 
 def _validate_banner_times(starts_at: datetime, ends_at: datetime) -> None:
-    if ends_at <= starts_at:
+    if to_naive_utc(ends_at) <= to_naive_utc(starts_at):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="終了日時は開始日時より後に設定してください",
@@ -239,6 +299,8 @@ def create_banner(
     ch = (target_channel or "both").strip().lower()
     if ch not in BANNER_CHANNELS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="対象チャネルが不正です")
+    starts_at = to_naive_utc(starts_at)
+    ends_at = to_naive_utc(ends_at)
     _validate_banner_times(starts_at, ends_at)
     banner = models_buyback.BuybackPromoBanner(
         title=t,
@@ -274,9 +336,9 @@ def update_banner(
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="対象チャネルが不正です")
         banner.target_channel = ch
     if "starts_at" in fields:
-        banner.starts_at = fields["starts_at"]
+        banner.starts_at = to_naive_utc(fields["starts_at"])
     if "ends_at" in fields:
-        banner.ends_at = fields["ends_at"]
+        banner.ends_at = to_naive_utc(fields["ends_at"])
     if "starts_at" in fields or "ends_at" in fields:
         _validate_banner_times(banner.starts_at, banner.ends_at)
     if "background_color" in fields:

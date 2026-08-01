@@ -11,12 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
-
-function toLocalInputValue(iso: string) {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+import { extractApiErrorDetail, localInputToIso, toLocalInputValue } from '@/lib/buyback-datetime'
 
 const emptyForm = (): {
   title: string
@@ -92,8 +87,8 @@ export default function AdminBuybackBannersPage() {
     try {
       const payload = {
         ...form,
-        starts_at: new Date(form.starts_at).toISOString(),
-        ends_at: new Date(form.ends_at).toISOString(),
+        starts_at: localInputToIso(form.starts_at),
+        ends_at: localInputToIso(form.ends_at),
         description: form.description.trim() || null,
       }
       if (editingId) {
@@ -106,10 +101,10 @@ export default function AdminBuybackBannersPage() {
       openCreate()
       await load()
     } catch (err: unknown) {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      const detail = extractApiErrorDetail(err)
       toast({
         title: '保存に失敗しました',
-        description: typeof detail === 'string' ? detail : undefined,
+        description: detail,
         variant: 'destructive',
       })
     } finally {

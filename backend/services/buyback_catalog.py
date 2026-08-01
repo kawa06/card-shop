@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
 import models_buyback
-import schemas_buyback
+from services.buyback_channel import normalize_product_promo_badge_fields
 
 
 class CatalogConflictError(Exception):
@@ -181,6 +181,19 @@ def create_product(
             is_active=body.is_active,
             sort_order=body.sort_order,
         )
+        (
+            product.promo_badge_text,
+            product.promo_badge_bg,
+            product.promo_badge_fg,
+            product.promo_badge_starts_at,
+            product.promo_badge_ends_at,
+        ) = normalize_product_promo_badge_fields(
+            text=body.promo_badge_text,
+            bg=body.promo_badge_bg,
+            fg=body.promo_badge_fg,
+            starts_at=body.promo_badge_starts_at,
+            ends_at=body.promo_badge_ends_at,
+        )
         db.add(product)
         db.flush()
 
@@ -255,6 +268,19 @@ def update_product(
         product.notes = body.notes
         product.is_active = body.is_active
         product.sort_order = body.sort_order
+        (
+            product.promo_badge_text,
+            product.promo_badge_bg,
+            product.promo_badge_fg,
+            product.promo_badge_starts_at,
+            product.promo_badge_ends_at,
+        ) = normalize_product_promo_badge_fields(
+            text=body.promo_badge_text,
+            bg=body.promo_badge_bg,
+            fg=body.promo_badge_fg,
+            starts_at=body.promo_badge_starts_at,
+            ends_at=body.promo_badge_ends_at,
+        )
         product.updated_at = datetime.utcnow()
 
         existing = {price.condition_code.casefold(): price for price in product.prices}

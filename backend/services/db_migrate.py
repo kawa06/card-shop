@@ -115,6 +115,16 @@ def _migrate_buyback_catalog_columns() -> None:
     for col, col_type in catalog_cols:
         _add_column_if_missing("buyback_products", col, col_type)
 
+    promo_cols = [
+        ("promo_badge_text", "VARCHAR(32)"),
+        ("promo_badge_bg", "VARCHAR(32)"),
+        ("promo_badge_fg", "VARCHAR(32)"),
+        ("promo_badge_starts_at", "DATETIME"),
+        ("promo_badge_ends_at", "DATETIME"),
+    ]
+    for col, col_type in promo_cols:
+        _add_column_if_missing("buyback_products", col, col_type)
+
 
 def _migrate_buyback_request_columns() -> None:
     request_cols = [

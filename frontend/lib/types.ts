@@ -367,6 +367,11 @@ export interface AdminBuybackCatalogProduct {
   pack_name?: string | null
   image_url?: string | null
   notes?: string | null
+  promo_badge_text?: string | null
+  promo_badge_bg?: string | null
+  promo_badge_fg?: string | null
+  promo_badge_starts_at?: string | null
+  promo_badge_ends_at?: string | null
   is_active: boolean
   sort_order: number
   prices: AdminBuybackCatalogPrice[]
@@ -382,6 +387,11 @@ export interface AdminBuybackCatalogProductInput {
   pack_name?: string | null
   image_url?: string | null
   notes?: string | null
+  promo_badge_text?: string | null
+  promo_badge_bg?: string | null
+  promo_badge_fg?: string | null
+  promo_badge_starts_at?: string | null
+  promo_badge_ends_at?: string | null
   is_active: boolean
   sort_order: number
   prices: Array<{
