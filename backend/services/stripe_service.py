@@ -124,7 +124,9 @@ def create_checkout_session(
     }
 
     if checkout_type == "bank_transfer":
-        deadline = datetime.utcnow() + timedelta(hours=settings.BANK_TRANSFER_PAYMENT_DEADLINE_HOURS)
+        # Stripe Checkout `expires_at` must be within 24 hours of session creation.
+        stripe_expiry_hours = min(settings.BANK_TRANSFER_PAYMENT_DEADLINE_HOURS, 23)
+        deadline = datetime.utcnow() + timedelta(hours=stripe_expiry_hours)
         params["customer"] = get_or_create_stripe_customer(customer_email)
         params["payment_method_types"] = ["customer_balance"]
         params["payment_method_options"] = {
