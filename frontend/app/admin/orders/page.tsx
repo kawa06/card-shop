@@ -17,6 +17,13 @@ import {
 } from '@/components/admin/AdminOrderShippingForm'
 import { AdminSendShippingEmailButton } from '@/components/admin/AdminSendShippingEmailButton'
 
+const paymentMethodLabels: Record<string, string> = {
+  stripe_card: 'クレジットカード',
+  stripe_bank_transfer: '銀行振込',
+  bank_transfer: '銀行振込',
+  cod: '代金引換',
+}
+
 const paymentStatusLabels: Record<string, string> = {
   awaiting_payment: '入金待ち',
   paid: '支払い済み',
@@ -254,6 +261,11 @@ export default function AdminOrdersPage() {
                       >
                         {paymentStatusLabels[ps] || ps}
                       </span>
+                      {order.payment_method && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                          {paymentMethodLabels[order.payment_method] || order.payment_method}
+                        </span>
+                      )}
                       <span
                         className={`text-xs font-bold px-2 py-1 rounded border ${shippingStatusColors[ss] || 'text-gray-500'}`}
                       >

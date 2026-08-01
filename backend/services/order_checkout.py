@@ -15,7 +15,7 @@ from services.shipping_rates import calculate_shipping_fee
 from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
 from services.shipping_display import normalize_method_code
 from services.order_number import assign_order_number
-from services.order_emails import try_auto_purchase_email_after_payment
+from services.order_emails import try_auto_purchase_email_after_payment, try_auto_bank_transfer_cancelled_email
 
 BANK_TRANSFER_METHODS = {"stripe_bank_transfer", "bank_transfer"}
 TERMINAL_PAYMENT_STATUSES = {"paid", "cancelled", "expired"}
@@ -110,13 +110,19 @@ def reserve_inventory_for_order(db: Session, order: models.Order) -> None:
         return
     _deduct_stock_locked(db, order)
     order.stock_reserved = True
+    db.flush()
 
 
 def release_inventory_for_order(db: Session, order: models.Order) -> None:
     """Restore stock when a reserved bank-transfer order is cancelled or expires."""
     if not order.stock_reserved:
         return
-    for order_item in order.items:
+    order_items = (
+        db.query(models.OrderItem)
+        .filter(models.OrderItem.order_id == order.id)
+        .all()
+    )
+    for order_item in order_items:
         card = (
             db.query(models.Card)
             .filter(models.Card.id == order_item.card_id)
@@ -290,6 +296,9 @@ def cancel_unpaid_order(
     order.payment_status = "expired" if as_expired else "cancelled"
     order.status = models.OrderStatus.cancelled
     db.commit()
+    db.refresh(order)
+    if order.payment_method in BANK_TRANSFER_METHODS:
+        try_auto_bank_transfer_cancelled_email(db, order, as_expired=as_expired)
 
 
 def expire_overdue_bank_transfer_orders(db: Session) -> int:

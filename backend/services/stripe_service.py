@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 from functools import lru_cache
 from typing import Any
 
@@ -123,6 +124,7 @@ def create_checkout_session(
     }
 
     if checkout_type == "bank_transfer":
+        deadline = datetime.utcnow() + timedelta(hours=settings.BANK_TRANSFER_PAYMENT_DEADLINE_HOURS)
         params["customer"] = get_or_create_stripe_customer(customer_email)
         params["payment_method_types"] = ["customer_balance"]
         params["payment_method_options"] = {
@@ -131,6 +133,7 @@ def create_checkout_session(
                 "bank_transfer": {"type": "jp_bank_transfer"},
             }
         }
+        params["expires_at"] = int(deadline.timestamp())
     else:
         params["customer_email"] = customer_email
         params["payment_method_types"] = ["card"]

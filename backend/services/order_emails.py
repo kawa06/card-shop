@@ -42,6 +42,8 @@ PAYMENT_METHOD_LABELS: dict[str, str] = {
     "stripe_bank_transfer": "銀行振込（Stripe）",
 }
 
+BANK_TRANSFER_METHODS = {"stripe_bank_transfer", "bank_transfer"}
+
 
 def _format_jpy(amount: float | int) -> str:
     return f"¥{int(round(float(amount))):,}"
@@ -51,6 +53,10 @@ def _format_datetime_jst(dt: datetime | None) -> str:
     if not dt:
         return ""
     return dt.strftime("%Y/%m/%d %H:%M") + " (UTC)"
+
+
+def _payment_method_label(order: models.Order) -> str:
+    return PAYMENT_METHOD_LABELS.get(order.payment_method or "", order.payment_method or "—")
 
 
 def _order_subtotal(order: models.Order) -> float:
@@ -116,6 +122,7 @@ def _build_purchase_confirmation_html(order: models.Order, buyer_name: str) -> s
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
         <tr><td style="padding:6px 0;color:#666;">注文番号</td><td style="padding:6px 0;font-weight:bold;">{order.order_number or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">注文日時</td><td style="padding:6px 0;">{_format_datetime_jst(order.paid_at or order.created_at)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{_payment_method_label(order)}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">発送方法</td><td style="padding:6px 0;">{method_label}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">配送先</td><td style="padding:6px 0;">{(order.shipping_address or '').replace(chr(10), '<br>')}</td></tr>
       </table>
@@ -208,6 +215,176 @@ def try_auto_purchase_email_after_payment(db: Session, order: models.Order) -> N
     ok, err = send_purchase_confirmation_email(db, order.id, force=False)
     if not ok and err:
         logger.warning("Purchase confirmation email failed for order %s: %s", order.id, err)
+
+
+def _build_bank_transfer_pending_html(order: models.Order, buyer_name: str) -> str:
+    subtotal = _order_subtotal(order)
+    shipping_fee = order.shipping_fee or 0
+    deadline_text = _format_datetime_jst(order.payment_deadline)
+    method_label = SHIPPING_METHOD_LABELS.get(order.shipping_method or "", order.shipping_method or "—")
+    rows = ""
+    for item in order.items:
+        name = item.card.name if item.card else f"商品 #{item.card_id}"
+        rows += f"""
+        <tr>
+          <td style="padding:8px;border-bottom:1px solid #eee;">{name}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">{item.quantity}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">{_format_jpy(item.unit_price)}</td>
+        </tr>"""
+
+    return f"""
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
+      <h2 style="color:#ca8a04;margin:0 0 16px;">KRX TCG — 銀行振込のご案内</h2>
+      <p>{buyer_name} 様</p>
+      <p>銀行振込によるご注文を受け付けました。Stripeの決済画面に表示された<strong>振込先口座</strong>へ、<strong>指定金額</strong>をお振り込みください。</p>
+      <p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;font-size:14px;">
+        振込先・振込コード・参照番号などの詳細は、Stripe Checkout完了画面でご確認ください。<br>
+        本メールではセキュリティ上、口座情報は記載していません。
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+        <tr><td style="padding:6px 0;color:#666;">受付ID</td><td style="padding:6px 0;font-weight:bold;">#{order.id}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{_payment_method_label(order)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">お支払期限</td><td style="padding:6px 0;color:#b45309;font-weight:bold;">{deadline_text or '—'}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">発送方法</td><td style="padding:6px 0;">{method_label}</td></tr>
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:8px;text-align:left;">商品名</th>
+            <th style="padding:8px;text-align:center;">数量</th>
+            <th style="padding:8px;text-align:right;">単価</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <table style="width:100%;font-size:14px;margin-top:8px;">
+        <tr><td style="padding:4px 0;color:#666;">商品小計</td><td style="text-align:right;">{_format_jpy(subtotal)}</td></tr>
+        <tr><td style="padding:4px 0;color:#666;">送料</td><td style="text-align:right;">{_format_jpy(shipping_fee)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:bold;">お振込金額</td><td style="text-align:right;font-weight:bold;color:#ca8a04;">{_format_jpy(order.total_amount)}</td></tr>
+      </table>
+      <p style="font-size:13px;color:#444;margin-top:24px;">
+        商品は取り置き済みです。入金確認後に注文番号を発行し、発送準備を進めます。入金確認後、別途ご購入完了メールをお送りします。
+      </p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:12px;color:#666;">
+        お問い合わせ: <a href="mailto:{MAIL_REPLY_TO}">{MAIL_REPLY_TO}</a><br>
+        ※お問い合わせの際は受付ID（#{order.id}）をお書き添えください。
+      </p>
+      <p style="font-size:11px;color:#999;">&copy; KRX TCG</p>
+    </div>
+    """
+
+
+def _build_bank_transfer_cancelled_html(
+    order: models.Order,
+    buyer_name: str,
+    *,
+    as_expired: bool,
+) -> str:
+    reason = "お支払期限を過ぎたため" if as_expired else "決済が完了しなかったため"
+    return f"""
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
+      <h2 style="color:#ca8a04;margin:0 0 16px;">KRX TCG — ご注文について</h2>
+      <p>{buyer_name} 様</p>
+      <p>{reason}、ご注文（受付ID #{order.id}）はキャンセルとなりました。取り置き在庫は解放済みです。</p>
+      <p style="font-size:13px;color:#444;">
+        再度ご購入をご希望の場合は、ショップよりお手続きください。
+      </p>
+      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+      <p style="font-size:12px;color:#666;">
+        お問い合わせ: <a href="mailto:{MAIL_REPLY_TO}">{MAIL_REPLY_TO}</a>
+      </p>
+      <p style="font-size:11px;color:#999;">&copy; KRX TCG</p>
+    </div>
+    """
+
+
+def send_bank_transfer_pending_email(
+    db: Session,
+    order_id: int,
+    *,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    order = _load_order_for_email(db, order_id)
+    if not order:
+        return False, "注文が見つかりません"
+    if order.payment_status != "awaiting_payment":
+        return False, "入金待ちの注文のみ送信できます"
+    if order.payment_method not in BANK_TRANSFER_METHODS:
+        return False, "銀行振込の注文ではありません"
+    if order.email_send_status == "bank_transfer_pending_ok" and not force:
+        return True, None
+
+    buyer = order.user
+    if not buyer or not buyer.email:
+        return False, "購入者メールアドレスがありません"
+
+    buyer_name = buyer.name or buyer.email.split("@")[0]
+    html = _build_bank_transfer_pending_html(order, buyer_name)
+    subject = f"【KRX TCG】銀行振込のご案内（受付ID: #{order.id}）"
+
+    ok, err = _send_html_email(to=buyer.email, subject=subject, html=html)
+    if ok:
+        order.email_send_status = "bank_transfer_pending_ok"
+    else:
+        order.email_send_status = f"bank_transfer_pending_failed:{err or 'unknown'}"
+    db.commit()
+    return ok, err
+
+
+def send_bank_transfer_cancelled_email(
+    db: Session,
+    order_id: int,
+    *,
+    as_expired: bool,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    order = _load_order_for_email(db, order_id)
+    if not order:
+        return False, "注文が見つかりません"
+    if order.payment_method not in BANK_TRANSFER_METHODS:
+        return False, "銀行振込の注文ではありません"
+    status_key = "bank_transfer_expired_ok" if as_expired else "bank_transfer_cancelled_ok"
+    if order.email_send_status == status_key and not force:
+        return True, None
+
+    buyer = order.user
+    if not buyer or not buyer.email:
+        return False, "購入者メールアドレスがありません"
+
+    buyer_name = buyer.name or buyer.email.split("@")[0]
+    html = _build_bank_transfer_cancelled_html(order, buyer_name, as_expired=as_expired)
+    subject = f"【KRX TCG】ご注文キャンセルのお知らせ（受付ID: #{order.id}）"
+
+    ok, err = _send_html_email(to=buyer.email, subject=subject, html=html)
+    if ok:
+        order.email_send_status = status_key
+    else:
+        order.email_send_status = f"{status_key}_failed:{err or 'unknown'}"
+    db.commit()
+    return ok, err
+
+
+def try_auto_bank_transfer_pending_email(db: Session, order: models.Order) -> None:
+    if order.email_send_status == "bank_transfer_pending_ok":
+        return
+    ok, err = send_bank_transfer_pending_email(db, order.id, force=False)
+    if not ok and err:
+        logger.warning("Bank transfer pending email failed for order %s: %s", order.id, err)
+
+
+def try_auto_bank_transfer_cancelled_email(
+    db: Session,
+    order: models.Order,
+    *,
+    as_expired: bool,
+) -> None:
+    status_key = "bank_transfer_expired_ok" if as_expired else "bank_transfer_cancelled_ok"
+    if order.email_send_status == status_key:
+        return
+    ok, err = send_bank_transfer_cancelled_email(db, order.id, as_expired=as_expired, force=False)
+    if not ok and err:
+        logger.warning("Bank transfer cancelled email failed for order %s: %s", order.id, err)
 
 
 def _build_shipping_completion_html(order: models.Order, buyer_name: str) -> str:

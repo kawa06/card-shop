@@ -4,7 +4,15 @@ import { ClerkTokenBridge } from '@/components/auth/ClerkTokenBridge'
 import { AdminSessionSync } from '@/components/auth/AdminSessionSync'
 import { clerkAppearance } from '@/lib/clerk/appearance'
 import { clerkLocalization } from '@/lib/clerk/localization'
-// Version: 2026-06-20-v2
+import { JsonLd } from '@/components/seo/JsonLd'
+import {
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  TWITTER_HANDLE,
+} from '@/lib/seo'
+import { SHOP_SITE_URL } from '@/lib/site-urls'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Shippori_Mincho } from 'next/font/google'
 import './globals.css'
@@ -30,19 +38,23 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://frontend-one-topaz-20.vercel.app/'),
+  metadataBase: new URL(`${SHOP_SITE_URL}/`),
   title: {
-    default: 'KRX TCG | トレーディングカード販売サイト',
+    default: DEFAULT_TITLE,
     template: '%s | KRX TCG',
   },
   icons: {
     icon: '/favicon.ico',
     apple: '/logo-main.png',
   },
-  description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
+  description: DEFAULT_DESCRIPTION,
   openGraph: {
     type: 'website',
     siteName: 'KRX TCG',
+    locale: 'ja_JP',
+    url: SHOP_SITE_URL,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
     images: [
       {
         url: '/ogp.png',
@@ -54,7 +66,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@oripa_kawa',
+    site: TWITTER_HANDLE,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: ['/ogp.png'],
   },
   robots: {
     index: true,
@@ -64,7 +79,6 @@ export const metadata: Metadata = {
     google: 'DMTMs-DnAVdJ_8pURPDHh3Xg64UtljMFYdfS30SVfBc',
   },
   alternates: {
-    canonical: '/',
     languages: {
       'ja-JP': '/',
       'en-US': '/?lang=en',
@@ -80,6 +94,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={`${inter.variable} ${shippori.variable} font-sans min-h-screen bg-white text-gray-900 overflow-x-hidden`}>
+        <JsonLd data={[buildOrganizationJsonLd(), buildWebsiteJsonLd()]} />
         <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>
           <ClerkBackendSync />
           <ClerkTokenBridge />

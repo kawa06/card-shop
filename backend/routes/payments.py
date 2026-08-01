@@ -17,6 +17,7 @@ from services.order_checkout import (
     resolve_shipping_fee,
     validate_shipping_method,
 )
+from services.order_emails import try_auto_bank_transfer_pending_email
 from services.stripe_events import claim_stripe_event, save_stripe_payment_refs
 from services.countries import is_domestic_japan
 from config import settings
@@ -87,6 +88,8 @@ def _handle_bank_transfer_pending(db: Session, order: models.Order) -> models.Or
     elif not order.payment_deadline:
         order.payment_deadline = bank_transfer_payment_deadline()
     db.commit()
+    db.refresh(order)
+    try_auto_bank_transfer_pending_email(db, order)
     db.refresh(order)
     return order
 

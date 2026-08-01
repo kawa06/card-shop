@@ -1,12 +1,17 @@
 import { Metadata } from 'next'
 import HomeClient from './HomeClient'
+import { absoluteUrl, DEFAULT_DESCRIPTION, DEFAULT_TITLE } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'KRX TCG | トレーディングカード販売サイト',
-  description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店。最新のカードからレアなアイテムまで豊富に取り揃えています。',
+  title: DEFAULT_TITLE,
+  description: DEFAULT_DESCRIPTION,
+  alternates: {
+    canonical: absoluteUrl('/'),
+  },
   openGraph: {
-    title: 'KRX TCG | トレーディングカード販売サイト',
-    description: 'ポケモンカード・ワンピースなど人気カードを取り扱う専門店',
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    url: absoluteUrl('/'),
     images: ['/ogp.png'],
   },
 }
