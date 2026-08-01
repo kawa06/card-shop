@@ -37,6 +37,7 @@ def run_schema_upgrades() -> None:
     _migrate_inquiry_tables()
     _migrate_buyback_schema()
     _migrate_buyback_logistics_schema()
+    _migrate_buyback_channel_schema()
     _migrate_admin_security_schema()
 
 
@@ -202,6 +203,40 @@ def _migrate_buyback_logistics_schema() -> None:
     _create_unique_index_if_missing(
         "buyback_shipment_packages", "ix_buyback_shipment_packages_package_code", "package_code"
     )
+
+
+def _migrate_buyback_channel_schema() -> None:
+    """Store/mail channel settings, promo banners, store reservations."""
+    import json
+
+    import models_buyback  # noqa: F401
+    from services.buyback_channel import DEFAULT_BUSINESS_HOURS, get_or_create_channel_settings
+
+    channel_tables = [
+        ("buyback_channel_settings", models_buyback.BuybackChannelSettings),
+        ("buyback_promo_banners", models_buyback.BuybackPromoBanner),
+        ("buyback_store_reservations", models_buyback.BuybackStoreReservation),
+    ]
+    for table_name, model in channel_tables:
+        _create_table_if_missing(table_name, model)
+
+    _add_column_if_missing("buyback_requests", "buyback_method", "VARCHAR(16)")
+    _add_column_if_missing("buyback_requests", "store_visit_at", "DATETIME")
+
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            row = get_or_create_channel_settings(db)
+            if not row.business_hours_json:
+                row.business_hours_json = json.dumps(DEFAULT_BUSINESS_HOURS, ensure_ascii=False)
+            if not row.closed_dates_json:
+                row.closed_dates_json = json.dumps([], ensure_ascii=False)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.error("buyback channel settings seed failed")
 
 
 def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:

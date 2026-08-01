@@ -232,6 +232,8 @@ class BuybackRequest(Base):
     application_form_issued_at = Column(DateTime, nullable=True)
     customer_planned_ship_date = Column(Date, nullable=True)
     customer_shipped_at = Column(DateTime, nullable=True)
+    buyback_method = Column(String(16), nullable=True, index=True)
+    store_visit_at = Column(DateTime, nullable=True, index=True)
     logistics_note = Column(Text, nullable=True)
     received_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     received_at = Column(DateTime, nullable=True)
@@ -539,6 +541,51 @@ class BuybackAuditLog(Base):
     entity_id = Column(String(64), nullable=True, index=True)
     details_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class BuybackChannelSettings(Base):
+    """Singleton (id=1): store/mail availability and store hours."""
+
+    __tablename__ = "buyback_channel_settings"
+
+    id = Column(Integer, primary_key=True)
+    store_enabled = Column(Boolean, default=True, nullable=False)
+    mail_enabled = Column(Boolean, default=True, nullable=False)
+    slot_interval_minutes = Column(Integer, default=30, nullable=False)
+    business_hours_json = Column(Text, nullable=True)
+    closed_dates_json = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BuybackPromoBanner(Base):
+    __tablename__ = "buyback_promo_banners"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    target_channel = Column(String(16), nullable=False, default="both", index=True)
+    starts_at = Column(DateTime, nullable=False, index=True)
+    ends_at = Column(DateTime, nullable=False, index=True)
+    background_color = Column(String(32), nullable=False, default="#1a1a2e")
+    text_color = Column(String(32), nullable=False, default="#ffffff")
+    sort_order = Column(Integer, nullable=False, default=0, index=True)
+    is_visible = Column(Boolean, default=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BuybackStoreReservation(Base):
+    __tablename__ = "buyback_store_reservations"
+    __table_args__ = (
+        UniqueConstraint("visit_at", name="uq_buyback_store_reservation_visit_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(Integer, ForeignKey("buyback_requests.id"), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    visit_at = Column(DateTime, nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="confirmed", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class NotificationDelivery(Base):

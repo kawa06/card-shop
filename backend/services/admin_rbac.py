@@ -48,6 +48,9 @@ ADMIN_PERMISSION_DEFINITIONS: list[tuple[str, str, str]] = [
     ("buyback.print.internal", "内部ラベル印刷", "buyback"),
     ("buyback.print.pii", "住所付き印刷", "buyback"),
     ("buyback.logs.read", "買取物流ログ閲覧", "buyback"),
+    ("buyback.settings.read", "買取チャネル設定閲覧", "buyback"),
+    ("buyback.settings.write", "買取チャネル設定変更", "buyback"),
+    ("buyback.reservation.read", "店舗買取予約閲覧", "buyback"),
 ]
 
 ROLE_PERMISSION_CODES: dict[str, set[str]] = {
@@ -79,6 +82,9 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "buyback.print.internal",
         "buyback.print.pii",
         "buyback.logs.read",
+        "buyback.settings.read",
+        "buyback.settings.write",
+        "buyback.reservation.read",
     },
     "sales_manager": {
         "admin.audit.read",
@@ -109,6 +115,9 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "buyback.print.internal",
         "buyback.print.pii",
         "buyback.logs.read",
+        "buyback.settings.read",
+        "buyback.settings.write",
+        "buyback.reservation.read",
     },
     "appraiser": {
         "admin.reauth",

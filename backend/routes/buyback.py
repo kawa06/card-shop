@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from datetime import date
 from sqlalchemy.orm import Session, joinedload
 
 from auth import create_access_token, get_current_user
@@ -46,6 +47,15 @@ from services.barcode_render import render_code128_svg
 from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_logistics_logs import write_package_print_log
 from services.buyback_requests import get_user_request, list_user_requests, submit_request_from_cart
+from services.buyback_channel import (
+    get_or_create_channel_settings,
+    list_active_banners,
+    list_available_slots,
+    resolve_allowed_methods,
+    resolve_channel_mode,
+    _banner_is_active,
+    now_utc_naive,
+)
 from services.user_linking import LinkResult, resolve_clerk_user
 import models
 import models_buyback
@@ -160,6 +170,58 @@ def buyback_health(db: Session = Depends(get_db)):
         products_source=products_source,
         cutover_complete=cutover_complete,
     )
+
+
+def _serialize_public_banner(banner: models_buyback.BuybackPromoBanner) -> schemas_buyback.BuybackPromoBannerOut:
+    now = now_utc_naive()
+    return schemas_buyback.BuybackPromoBannerOut(
+        id=banner.id,
+        title=banner.title,
+        description=banner.description,
+        target_channel=banner.target_channel,
+        starts_at=banner.starts_at,
+        ends_at=banner.ends_at,
+        background_color=banner.background_color,
+        text_color=banner.text_color,
+        sort_order=banner.sort_order,
+        is_visible=banner.is_visible,
+        is_active=_banner_is_active(banner, now),
+    )
+
+
+@router.get("/channel/config", response_model=schemas_buyback.BuybackPublicChannelConfigOut)
+def get_public_channel_config(
+    channel: str | None = Query(None, description="store or mail filter for banners"),
+    db: Session = Depends(get_db),
+):
+    settings = get_or_create_channel_settings(db)
+    banners = list_active_banners(db, channel=channel)
+    return schemas_buyback.BuybackPublicChannelConfigOut(
+        channel_mode=resolve_channel_mode(settings),
+        allowed_methods=resolve_allowed_methods(settings),
+        store_enabled=settings.store_enabled,
+        mail_enabled=settings.mail_enabled,
+        slot_interval_minutes=settings.slot_interval_minutes,
+        banners=[_serialize_public_banner(b) for b in banners],
+    )
+
+
+@router.get("/channel/slots", response_model=schemas_buyback.BuybackStoreSlotsOut)
+def get_store_slots(
+    target_date: date = Query(..., alias="date"),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    slots = list_available_slots(db, target_date=target_date)
+    formatted = []
+    for slot in slots:
+        formatted.append(
+            schemas_buyback.BuybackStoreSlotOut(
+                visit_at=slot,
+                label=slot.strftime("%H:%M"),
+            )
+        )
+    return schemas_buyback.BuybackStoreSlotsOut(date=target_date, slots=formatted)
 
 
 @router.post("/auth/sync", response_model=schemas_buyback.BuybackSyncResponse)
@@ -345,6 +407,8 @@ def _serialize_request_detail(
         payout_total=request.payout_total,
         rejected_item_handling=handling,
         rejected_item_handling_label=rejected_item_handling_label(handling),
+        buyback_method=request.buyback_method,
+        store_visit_at=request.store_visit_at,
         submitted_at=request.submitted_at,
         application_form_issued_at=request.application_form_issued_at,
         assessed_at=request.assessed_at,
@@ -373,6 +437,8 @@ def create_buyback_request(
         agreed_prepaid_shipping=payload.agreed_prepaid_shipping,
         agreed_cod_consequence=payload.agreed_cod_consequence,
         agreed_condition_rejection=payload.agreed_condition_rejection,
+        buyback_method=payload.buyback_method,
+        store_visit_at=payload.store_visit_at,
     )
     return _serialize_request_detail(db, request, user=current_user)
 

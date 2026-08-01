@@ -573,6 +573,25 @@ export const adminBuybackApi = {
     ),
   deleteCatalogProduct: (id: number) =>
     apiClient.delete(`/admin/buyback/catalog/products/${id}`),
+  getChannelSettings: () =>
+    apiClient.get<import('./types').BuybackChannelSettings>('/admin/buyback/channel/settings'),
+  updateChannelSettings: (data: Partial<{
+    store_enabled: boolean
+    mail_enabled: boolean
+    slot_interval_minutes: number
+    business_hours: Record<string, import('./types').BuybackBusinessDayHours>
+    closed_dates: string[]
+  }>) =>
+    apiClient.put<import('./types').BuybackChannelSettings>('/admin/buyback/channel/settings', data),
+  listBanners: () =>
+    apiClient.get<import('./types').BuybackPromoBanner[]>('/admin/buyback/banners'),
+  createBanner: (data: Omit<import('./types').BuybackPromoBanner, 'id' | 'is_active' | 'created_at' | 'updated_at'>) =>
+    apiClient.post<import('./types').BuybackPromoBanner>('/admin/buyback/banners', data),
+  updateBanner: (id: number, data: Partial<Omit<import('./types').BuybackPromoBanner, 'id' | 'is_active' | 'created_at' | 'updated_at'>>) =>
+    apiClient.put<import('./types').BuybackPromoBanner>(`/admin/buyback/banners/${id}`, data),
+  deleteBanner: (id: number) => apiClient.delete(`/admin/buyback/banners/${id}`),
+  listReservations: (params?: { from_date?: string; to_date?: string }) =>
+    apiClient.get<import('./types').BuybackStoreReservation[]>('/admin/buyback/reservations', { params }),
 }
 
 export const adminBuybackLogisticsApi = {

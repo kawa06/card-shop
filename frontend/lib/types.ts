@@ -829,3 +829,47 @@ export interface AdminBuybackLogisticsLogs {
   per_page: number
   pages: number
 }
+
+export interface BuybackBusinessDayHours {
+  open: string
+  close: string
+  closed: boolean
+}
+
+export interface BuybackChannelSettings {
+  store_enabled: boolean
+  mail_enabled: boolean
+  channel_mode: 'both' | 'store_only' | 'mail_only' | 'none'
+  allowed_methods: string[]
+  slot_interval_minutes: number
+  business_hours: Record<string, BuybackBusinessDayHours>
+  closed_dates: string[]
+  updated_at?: string | null
+}
+
+export interface BuybackPromoBanner {
+  id: number
+  title: string
+  description?: string | null
+  target_channel: 'store' | 'mail' | 'both'
+  starts_at: string
+  ends_at: string
+  background_color: string
+  text_color: string
+  sort_order: number
+  is_visible: boolean
+  is_active?: boolean
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface BuybackStoreReservation {
+  id: number
+  request_id: number
+  user_id: number
+  visit_at: string
+  status: string
+  request_number?: string | null
+  customer_name?: string | null
+  created_at?: string | null
+}

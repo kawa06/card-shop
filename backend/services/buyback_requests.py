@@ -15,6 +15,12 @@ import models_buyback
 from services.buyback_emails import notify_buyback_request_submitted
 from services.buyback_inbound import provision_request_logistics
 from services.buyback_request_number import assign_buyback_request_number
+from services.buyback_channel import (
+    create_store_reservation,
+    validate_buyback_method,
+    validate_store_visit_at,
+)
+from services.buyback_public_ids import assign_public_buyback_code, assign_public_member_id
 
 logger = logging.getLogger(__name__)
 
@@ -67,22 +73,38 @@ def submit_request_from_cart(
     agreed_prepaid_shipping: bool = False,
     agreed_cod_consequence: bool = False,
     agreed_condition_rejection: bool = False,
+    buyback_method: Optional[str] = None,
+    store_visit_at: Optional[datetime] = None,
 ) -> models_buyback.BuybackRequest:
-    if not agreed_prepaid_shipping:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="送料元払いでの発送に同意してください",
-        )
-    if not agreed_cod_consequence:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="着払い発送時の返送・返送料自己負担について確認してください",
-        )
-    if not agreed_condition_rejection:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="状態による買取不可の可能性について確認してください",
-        )
+    method = validate_buyback_method(db, buyback_method)
+    if method == "mail":
+        if not agreed_prepaid_shipping:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="送料元払いでの発送に同意してください",
+            )
+        if not agreed_cod_consequence:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="着払い発送時の返送・返送料自己負担について確認してください",
+            )
+        if not agreed_condition_rejection:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="状態による買取不可の可能性について確認してください",
+            )
+    else:
+        if not agreed_condition_rejection:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="状態による買取不可の可能性について確認してください",
+            )
+        if not store_visit_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="来店日時を選択してください",
+            )
+        store_visit_at = validate_store_visit_at(db, store_visit_at)
     allowed_handling = {
         models_buyback.RejectedItemHandling.return_rejected_only.value,
         models_buyback.RejectedItemHandling.dispose_rejected.value,
@@ -112,13 +134,15 @@ def submit_request_from_cart(
     request = models_buyback.BuybackRequest(
         user_id=user.id,
         status=models_buyback.BuybackRequestStatus.submitted.value,
-        shipping_method=(shipping_method or "").strip() or None,
+        buyback_method=method,
+        store_visit_at=store_visit_at if method == "store" else None,
+        shipping_method=(shipping_method or "").strip() or None if method == "mail" else None,
         customer_note=(customer_note or "").strip() or None,
-        customer_planned_ship_date=planned_ship_date,
+        customer_planned_ship_date=planned_ship_date if method == "mail" else None,
         estimated_total=estimated_total,
         rejected_item_handling=rejected_item_handling,
-        agreed_prepaid_shipping=agreed_prepaid_shipping,
-        agreed_cod_consequence=agreed_cod_consequence,
+        agreed_prepaid_shipping=agreed_prepaid_shipping if method == "mail" else False,
+        agreed_cod_consequence=agreed_cod_consequence if method == "mail" else False,
         agreed_condition_rejection=agreed_condition_rejection,
         submitted_at=now,
     )
@@ -126,12 +150,25 @@ def submit_request_from_cart(
     db.flush()
 
     assign_buyback_request_number(db, request)
-    inbound, barcode = provision_request_logistics(
-        db,
-        request=request,
-        user=user,
-        declared_item_count=declared_item_count,
-    )
+    inbound = None
+    barcode = None
+    reservation = None
+    if method == "mail":
+        inbound, barcode = provision_request_logistics(
+            db,
+            request=request,
+            user=user,
+            declared_item_count=declared_item_count,
+        )
+    else:
+        assign_public_buyback_code(db, request)
+        assign_public_member_id(db, user)
+        reservation = create_store_reservation(
+            db,
+            request_id=request.id,
+            user_id=user.id,
+            visit_at=store_visit_at,
+        )
 
     for cart_item in cart.items:
         product = cart_item.product
@@ -158,20 +195,31 @@ def submit_request_from_cart(
         )
     )
 
+    audit_details = {
+            "request_number": request.request_number,
+            "public_buyback_code": request.public_buyback_code,
+            "buyback_method": method,
+            "item_count": len(cart.items),
+            "estimated_total": estimated_total,
+        }
+    if method == "mail" and inbound and barcode:
+        audit_details.update(
+            {
+                "inbound_mgmt_id": request.inbound_mgmt_id,
+                "inbound_shipment_id": inbound.id,
+                "application_barcode_id": barcode.id,
+            }
+        )
+    if method == "store" and reservation:
+        audit_details["store_visit_at"] = reservation.visit_at.isoformat()
+        audit_details["reservation_id"] = reservation.id
+
     _audit_request(
         db,
         action="request_submitted",
         user_id=user.id,
         request_id=request.id,
-        details={
-            "request_number": request.request_number,
-            "public_buyback_code": request.public_buyback_code,
-            "inbound_mgmt_id": request.inbound_mgmt_id,
-            "inbound_shipment_id": inbound.id,
-            "application_barcode_id": barcode.id,
-            "item_count": len(cart.items),
-            "estimated_total": estimated_total,
-        },
+        details=audit_details,
     )
 
     for cart_item in list(cart.items):

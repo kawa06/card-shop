@@ -117,6 +117,15 @@ export default function AdminPage() {
     ...(hasPermission('buyback.catalog.read')
       ? [{ href: '/admin/buyback/catalog', icon: CreditCard, label: '買取カタログ管理', count: 0, color: 'text-lime-600', bg: 'bg-lime-500/10 border-lime-500/20' }]
       : []),
+    ...(hasPermission('buyback.settings.read')
+      ? [{ href: '/admin/buyback/settings', icon: Settings, label: '買取チャネル設定', count: 0, color: 'text-violet-600', bg: 'bg-violet-500/10 border-violet-500/20' }]
+      : []),
+    ...(hasPermission('buyback.settings.read')
+      ? [{ href: '/admin/buyback/banners', icon: Bell, label: '限定価格バナー', count: 0, color: 'text-rose-600', bg: 'bg-rose-500/10 border-rose-500/20' }]
+      : []),
+    ...(hasPermission('buyback.reservation.read')
+      ? [{ href: '/admin/buyback/reservations', icon: Package, label: '店舗買取予約', count: 0, color: 'text-indigo-600', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
+      : []),
     ...(hasPermission('buyback.identity.read')
       ? [{ href: '/admin/buyback/kyc', icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' }]
       : []),

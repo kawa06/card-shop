@@ -191,15 +191,14 @@ class BuybackRequestCreate(BaseModel):
     agreed_prepaid_shipping: bool = False
     agreed_cod_consequence: bool = False
     agreed_condition_rejection: bool = False
+    buyback_method: Optional[str] = None
+    store_visit_at: Optional[datetime] = None
 
     @model_validator(mode="after")
     def validate_submission_agreements(self) -> "BuybackRequestCreate":
-        if not self.agreed_prepaid_shipping:
-            raise ValueError("送料元払いでの発送に同意してください")
-        if not self.agreed_cod_consequence:
-            raise ValueError("着払い発送時の返送・返送料自己負担について確認してください")
-        if not self.agreed_condition_rejection:
-            raise ValueError("状態による買取不可の可能性について確認してください")
+        method = (self.buyback_method or "mail").strip().lower()
+        if method not in {"store", "mail"}:
+            raise ValueError("買取方法が不正です")
         allowed = {
             "return_rejected_only",
             "dispose_rejected",
@@ -207,6 +206,18 @@ class BuybackRequestCreate(BaseModel):
         }
         if self.rejected_item_handling not in allowed:
             raise ValueError("買取不可商品の対応方法を選択してください")
+        if method == "mail":
+            if not self.agreed_prepaid_shipping:
+                raise ValueError("送料元払いでの発送に同意してください")
+            if not self.agreed_cod_consequence:
+                raise ValueError("着払い発送時の返送・返送料自己負担について確認してください")
+            if not self.agreed_condition_rejection:
+                raise ValueError("状態による買取不可の可能性について確認してください")
+        elif method == "store":
+            if not self.agreed_condition_rejection:
+                raise ValueError("状態による買取不可の可能性について確認してください")
+            if not self.store_visit_at:
+                raise ValueError("来店日時を選択してください")
         return self
 
 
@@ -270,6 +281,8 @@ class BuybackRequestDetailOut(BaseModel):
     payout_total: Optional[int] = None
     rejected_item_handling: Optional[str] = None
     rejected_item_handling_label: Optional[str] = None
+    buyback_method: Optional[str] = None
+    store_visit_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     application_form_issued_at: Optional[datetime] = None
     assessed_at: Optional[datetime] = None
@@ -855,3 +868,104 @@ class AdminBuybackLogisticsLogsOut(BaseModel):
     page: int
     per_page: int
     pages: int
+
+
+class BuybackPromoBannerOut(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    target_channel: str
+    starts_at: datetime
+    ends_at: datetime
+    background_color: str
+    text_color: str
+    sort_order: int
+    is_visible: bool
+    is_active: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BuybackPromoBannerCreateIn(BaseModel):
+    title: str
+    description: Optional[str] = None
+    target_channel: str = "both"
+    starts_at: datetime
+    ends_at: datetime
+    background_color: str = "#1a1a2e"
+    text_color: str = "#ffffff"
+    sort_order: int = 0
+    is_visible: bool = True
+
+
+class BuybackPromoBannerUpdateIn(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    target_channel: Optional[str] = None
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+    background_color: Optional[str] = None
+    text_color: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_visible: Optional[bool] = None
+
+
+class BuybackBusinessDayHoursIn(BaseModel):
+    open: str = "10:00"
+    close: str = "19:00"
+    closed: bool = False
+
+
+class BuybackChannelSettingsOut(BaseModel):
+    store_enabled: bool
+    mail_enabled: bool
+    channel_mode: str
+    allowed_methods: List[str]
+    slot_interval_minutes: int
+    business_hours: dict
+    closed_dates: List[str]
+    updated_at: Optional[datetime] = None
+
+
+class BuybackChannelSettingsUpdateIn(BaseModel):
+    store_enabled: Optional[bool] = None
+    mail_enabled: Optional[bool] = None
+    slot_interval_minutes: Optional[int] = None
+    business_hours: Optional[dict] = None
+    closed_dates: Optional[List[str]] = None
+
+
+class BuybackPublicChannelConfigOut(BaseModel):
+    channel_mode: str
+    allowed_methods: List[str]
+    store_enabled: bool
+    mail_enabled: bool
+    slot_interval_minutes: int
+    banners: List[BuybackPromoBannerOut] = []
+
+
+class BuybackStoreSlotOut(BaseModel):
+    visit_at: datetime
+    label: str
+
+
+class BuybackStoreSlotsOut(BaseModel):
+    date: date
+    slots: List[BuybackStoreSlotOut] = []
+
+
+class BuybackStoreReservationOut(BaseModel):
+    id: int
+    request_id: int
+    user_id: int
+    visit_at: datetime
+    status: str
+    request_number: Optional[str] = None
+    customer_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
