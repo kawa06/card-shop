@@ -65,7 +65,7 @@ def request_guardian_consent(
     db.commit()
     db.refresh(consent)
 
-    notify_guardian_consent_requested(consent, user, raw_token)
+    notify_guardian_consent_requested(db, consent, user, raw_token)
     return consent, raw_token
 
 

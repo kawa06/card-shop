@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { createSyncPassword } from '@/lib/auth/sync-password'
 
@@ -10,7 +10,13 @@ function getBackendUrl() {
   ).replace(/\/$/, '')
 }
 
-async function backendClerkProvision(email: string, password: string, name: string) {
+async function backendClerkProvision(
+  email: string,
+  password: string,
+  name: string,
+  clientIp: string | null,
+  userAgent: string | null
+) {
   const secret = (process.env.AUTH_SYNC_SECRET || '').trim()
   if (!secret) return null
   const res = await fetch(`${getBackendUrl()}/api/auth/clerk-provision`, {
@@ -19,10 +25,20 @@ async function backendClerkProvision(email: string, password: string, name: stri
       'Content-Type': 'application/json',
       'X-Auth-Sync-Secret': secret,
     },
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({
+      email,
+      password,
+      name,
+      client_ip: clientIp,
+      user_agent: userAgent,
+    }),
   })
+  const body = await res.json().catch(() => ({}))
+  if (res.status === 202) {
+    return { requires2fa: true, ...body }
+  }
   if (!res.ok) return null
-  return res.json()
+  return body
 }
 
 async function backendLogin(email: string, password: string) {
@@ -31,8 +47,12 @@ async function backendLogin(email: string, password: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })
+  const body = await res.json().catch(() => ({}))
+  if (res.status === 202) {
+    return { requires2fa: true, ...body }
+  }
   if (!res.ok) return null
-  return res.json()
+  return body
 }
 
 async function backendRegister(email: string, password: string, name: string) {
@@ -51,7 +71,7 @@ async function backendRegister(email: string, password: string, name: string) {
   return res.json()
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth()
     if (!userId) {
@@ -80,9 +100,13 @@ export async function POST() {
       clerkUser?.username ||
       email.split('@')[0]
     const password = createSyncPassword(userId)
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      null
+    const userAgent = request.headers.get('user-agent')
 
-    // Provision/update Clerk-linked user first, then fall back to login.
-    let authData = await backendClerkProvision(email, password, name)
+    let authData = await backendClerkProvision(email, password, name, clientIp, userAgent)
     if (!authData) {
       authData = await backendLogin(email, password)
     }
@@ -91,6 +115,18 @@ export async function POST() {
     }
     if (!authData) {
       authData = await backendLogin(email, password)
+    }
+
+    if (authData?.requires_2fa || authData?.requires2fa) {
+      return NextResponse.json(
+        {
+          requires_2fa: true,
+          challenge_id: authData.challenge_id,
+          user_id: authData.user_id,
+          message: authData.message || '認証コードをメールで送信しました',
+        },
+        { status: 202 }
+      )
     }
 
     if (!authData?.access_token) {

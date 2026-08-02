@@ -6,6 +6,12 @@ import { User } from '@/lib/types'
 import { authApi } from '@/lib/api'
 import { useFavoritesStore } from '@/store/favorites'
 
+interface Pending2fa {
+  challenge_id: number
+  user_id: number
+  message?: string
+}
+
 interface AuthState {
   user: User | null
   token: string | null
@@ -13,9 +19,12 @@ interface AuthState {
   isAuthenticated: boolean
   hasHydrated: boolean
   authProvider: 'clerk' | 'legacy' | null
+  pending2fa: Pending2fa | null
   setHasHydrated: (state: boolean) => void
   syncBackend: () => Promise<void>
   clearBackendToken: () => void
+  clearPending2fa: () => void
+  verify2fa: (code: string) => Promise<void>
   validateBackendToken: () => Promise<boolean>
   ensureBackendAuth: (options?: { force?: boolean }) => Promise<string | null>
   login: (email: string, password: string) => Promise<void>
@@ -24,20 +33,32 @@ interface AuthState {
   fetchMe: () => Promise<void>
 }
 
-async function fetchBackendSession(): Promise<{ access_token: string; user: User }> {
+async function fetchBackendSession(): Promise<
+  { access_token: string; user: User } | { requires_2fa: true; pending: Pending2fa }
+> {
   const res = await fetch('/api/auth/backend-sync', {
     method: 'POST',
     credentials: 'same-origin',
   })
+  const body = await res.json().catch(() => ({}))
+  if (res.status === 202 && body.requires_2fa) {
+    return {
+      requires_2fa: true,
+      pending: {
+        challenge_id: body.challenge_id,
+        user_id: body.user_id,
+        message: body.message,
+      },
+    }
+  }
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
     const detail =
       typeof body.detail === 'string' && body.detail.trim()
         ? body.detail
         : 'バックエンドとの同期に失敗しました'
     throw new Error(detail)
   }
-  return res.json()
+  return body
 }
 
 function applyBackendSession(
@@ -70,9 +91,30 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       hasHydrated: false,
       authProvider: null,
+      pending2fa: null,
 
       setHasHydrated: (state: boolean) => {
         set({ hasHydrated: state })
+      },
+
+      clearPending2fa: () => set({ pending2fa: null }),
+
+      verify2fa: async (code: string) => {
+        const pending = get().pending2fa
+        if (!pending) throw new Error('認証セッションが見つかりません')
+        set({ isLoading: true })
+        try {
+          const res = await authApi.verify2fa({
+            challenge_id: pending.challenge_id,
+            user_id: pending.user_id,
+            code,
+          })
+          const { access_token, user } = res.data
+          applyBackendSession(set, access_token, user, get().authProvider || 'clerk')
+          set({ pending2fa: null })
+        } finally {
+          set({ isLoading: false })
+        }
       },
 
       syncBackend: async () => {
@@ -81,6 +123,10 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true })
           try {
             const synced = await fetchBackendSession()
+            if ('requires_2fa' in synced && synced.requires_2fa) {
+              set({ pending2fa: synced.pending, isLoading: false })
+              return
+            }
             applyBackendSession(set, synced.access_token, synced.user, 'clerk')
           } catch (error) {
             set({ isLoading: false })
@@ -157,6 +203,18 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true })
         try {
           const res = await authApi.login({ email, password })
+          if (res.status === 202 && res.data?.requires_2fa) {
+            set({
+              pending2fa: {
+                challenge_id: res.data.challenge_id,
+                user_id: res.data.user_id,
+                message: res.data.message,
+              },
+              authProvider: 'legacy',
+              isLoading: false,
+            })
+            return
+          }
           const { access_token, user } = res.data
           applyBackendSession(set, access_token, user, 'legacy')
         } catch (error) {
@@ -187,6 +245,7 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           isAuthenticated: false,
           authProvider: null,
+          pending2fa: null,
         })
       },
 

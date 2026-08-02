@@ -4,14 +4,25 @@ from __future__ import annotations
 
 import logging
 
+from sqlalchemy.orm import Session
+
 import models
 from config import settings
-from services.order_emails import _send_html_email
+from services.email_delivery import send_templated_email
 from services.verification import email_configured
 
 logger = logging.getLogger(__name__)
 
 FRONTEND_BASE = settings.FRONTEND_URL.rstrip("/")
+
+TEMPLATE_KEYS = {
+    "received": "inquiry_received",
+    "admin_new": "inquiry_received",
+    "admin_reply": "inquiry_reply",
+    "customer_reply_admin": "inquiry_reply",
+    "resolved": "inquiry_reply",
+    "closed": "inquiry_reply",
+}
 
 
 def _snippet(text: str, limit: int = 120) -> str:
@@ -25,7 +36,16 @@ def _inquiry_link(inquiry_id: int, *, admin: bool = False) -> str:
     return f"{FRONTEND_BASE}/mypage/inquiries/{inquiry_id}"
 
 
-def _send(subject: str, to: str, inner_html: str) -> None:
+def _send(
+    db: Session,
+    *,
+    template_key: str,
+    subject: str,
+    to: str,
+    inner_html: str,
+    variables: dict | None = None,
+    reference_id: str | None = None,
+) -> None:
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
       <h2 style="color:#ca8a04;margin:0 0 16px;">KRX TCG</h2>
@@ -37,10 +57,22 @@ def _send(subject: str, to: str, inner_html: str) -> None:
         if settings.DEBUG:
             logger.info("[INQUIRY EMAIL MOCK] to=%s subject=%s", to, subject)
         return
-    _send_html_email(to=to, subject=subject, html=html)
+
+    merged = {"content": inner_html, **(variables or {})}
+    send_templated_email(
+        db,
+        template_key=template_key,
+        to_email=to,
+        variables=merged,
+        fallback_subject=subject,
+        fallback_html=html,
+        reference_type="inquiry",
+        reference_id=reference_id,
+        raw_variable_keys={"content"},
+    )
 
 
-def notify_inquiry_received(inquiry: models.Inquiry, user: models.User) -> None:
+def notify_inquiry_received(db: Session, inquiry: models.Inquiry, user: models.User) -> None:
     link = _inquiry_link(inquiry.id)
     body = f"""
       <p>{user.name or 'お客'} 様</p>
@@ -52,13 +84,19 @@ def notify_inquiry_received(inquiry: models.Inquiry, user: models.User) -> None:
       <p><a href="{link}">問い合わせ詳細を確認</a></p>
     """
     _send(
-        f"【KRX TCG】お問い合わせを受け付けました（{inquiry.inquiry_number}）",
-        inquiry.reply_email,
-        body,
+        db,
+        template_key="inquiry_received",
+        subject=f"【KRX TCG】お問い合わせを受け付けました（{inquiry.inquiry_number}）",
+        to=inquiry.reply_email,
+        inner_html=body,
+        variables={"name": user.name or "お客", "email": user.email, "inquiryNo": inquiry.inquiry_number},
+        reference_id=str(inquiry.id),
     )
 
 
-def notify_admin_new_inquiry(inquiry: models.Inquiry, user: models.User, first_message: str) -> None:
+def notify_admin_new_inquiry(
+    db: Session, inquiry: models.Inquiry, user: models.User, first_message: str
+) -> None:
     admin_email = settings.MAIL_REPLY_TO or "oripakawa@gmail.com"
     link = _inquiry_link(inquiry.id, admin=True)
     body = f"""
@@ -72,10 +110,17 @@ def notify_admin_new_inquiry(inquiry: models.Inquiry, user: models.User, first_m
       <p>概要：{_snippet(first_message)}</p>
       <p><a href="{link}">管理画面で確認</a></p>
     """
-    _send(f"【KRX TCG 管理】新規問い合わせ {inquiry.inquiry_number}", admin_email, body)
+    _send(
+        db,
+        template_key="inquiry_received",
+        subject=f"【KRX TCG 管理】新規問い合わせ {inquiry.inquiry_number}",
+        to=admin_email,
+        inner_html=body,
+        reference_id=str(inquiry.id),
+    )
 
 
-def notify_customer_admin_reply(inquiry: models.Inquiry, reply_text: str) -> None:
+def notify_customer_admin_reply(db: Session, inquiry: models.Inquiry, reply_text: str) -> None:
     link = _inquiry_link(inquiry.id)
     body = f"""
       <p>お問い合わせ（{inquiry.inquiry_number}）への返信が届きました。</p>
@@ -84,13 +129,19 @@ def notify_customer_admin_reply(inquiry: models.Inquiry, reply_text: str) -> Non
       <p><a href="{link}">返信を確認</a></p>
     """
     _send(
-        f"【KRX TCG】お問い合わせへの返信（{inquiry.inquiry_number}）",
-        inquiry.reply_email,
-        body,
+        db,
+        template_key="inquiry_reply",
+        subject=f"【KRX TCG】お問い合わせへの返信（{inquiry.inquiry_number}）",
+        to=inquiry.reply_email,
+        inner_html=body,
+        variables={"inquiryNo": inquiry.inquiry_number},
+        reference_id=str(inquiry.id),
     )
 
 
-def notify_admin_customer_reply(inquiry: models.Inquiry, user: models.User, reply_text: str) -> None:
+def notify_admin_customer_reply(
+    db: Session, inquiry: models.Inquiry, user: models.User, reply_text: str
+) -> None:
     admin_email = settings.MAIL_REPLY_TO or "oripakawa@gmail.com"
     link = _inquiry_link(inquiry.id, admin=True)
     body = f"""
@@ -102,10 +153,19 @@ def notify_admin_customer_reply(inquiry: models.Inquiry, user: models.User, repl
       <p>概要：{_snippet(reply_text)}</p>
       <p><a href="{link}">管理画面で確認</a></p>
     """
-    _send(f"【KRX TCG 管理】購入者返信 {inquiry.inquiry_number}", admin_email, body)
+    _send(
+        db,
+        template_key="inquiry_reply",
+        subject=f"【KRX TCG 管理】購入者返信 {inquiry.inquiry_number}",
+        to=admin_email,
+        inner_html=body,
+        reference_id=str(inquiry.id),
+    )
 
 
-def notify_customer_inquiry_resolved(inquiry: models.Inquiry, note: str | None = None) -> None:
+def notify_customer_inquiry_resolved(
+    db: Session, inquiry: models.Inquiry, note: str | None = None
+) -> None:
     link = _inquiry_link(inquiry.id)
     body = f"""
       <p>お問い合わせ（{inquiry.inquiry_number}）を解決済みにしました。</p>
@@ -115,13 +175,18 @@ def notify_customer_inquiry_resolved(inquiry: models.Inquiry, note: str | None =
       <p><a href="{link}">問い合わせ詳細を確認</a></p>
     """
     _send(
-        f"【KRX TCG】お問い合わせ解決のお知らせ（{inquiry.inquiry_number}）",
-        inquiry.reply_email,
-        body,
+        db,
+        template_key="inquiry_reply",
+        subject=f"【KRX TCG】お問い合わせ解決のお知らせ（{inquiry.inquiry_number}）",
+        to=inquiry.reply_email,
+        inner_html=body,
+        reference_id=str(inquiry.id),
     )
 
 
-def notify_customer_inquiry_closed(inquiry: models.Inquiry, note: str | None = None) -> None:
+def notify_customer_inquiry_closed(
+    db: Session, inquiry: models.Inquiry, note: str | None = None
+) -> None:
     link = _inquiry_link(inquiry.id)
     body = f"""
       <p>お問い合わせ（{inquiry.inquiry_number}）を終了しました。</p>
@@ -131,13 +196,17 @@ def notify_customer_inquiry_closed(inquiry: models.Inquiry, note: str | None = N
       <p><a href="{link}">問い合わせ詳細を確認</a></p>
     """
     _send(
-        f"【KRX TCG】お問い合わせ終了のお知らせ（{inquiry.inquiry_number}）",
-        inquiry.reply_email,
-        body,
+        db,
+        template_key="inquiry_reply",
+        subject=f"【KRX TCG】お問い合わせ終了のお知らせ（{inquiry.inquiry_number}）",
+        to=inquiry.reply_email,
+        inner_html=body,
+        reference_id=str(inquiry.id),
     )
 
 
 def notify_inquiry_status_change(
+    db: Session,
     inquiry: models.Inquiry,
     *,
     old_status: str,
@@ -147,6 +216,6 @@ def notify_inquiry_status_change(
     if new_status == old_status:
         return
     if new_status == "resolved":
-        notify_customer_inquiry_resolved(inquiry, reply_text)
+        notify_customer_inquiry_resolved(db, inquiry, reply_text)
     elif new_status == "closed":
-        notify_customer_inquiry_closed(inquiry, reply_text)
+        notify_customer_inquiry_closed(db, inquiry, reply_text)

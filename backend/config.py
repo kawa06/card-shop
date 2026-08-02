@@ -78,6 +78,7 @@ class Settings(BaseSettings):
     MAIL_TLS: bool = False
     MAIL_SSL: bool = True
     USE_CREDENTIALS: bool = True
+    EMAIL_TEMPLATES_ENABLED: bool = True
 
     # Frontend URL for verification links
     FRONTEND_URL: str = "https://frontend-one-topaz-20.vercel.app"

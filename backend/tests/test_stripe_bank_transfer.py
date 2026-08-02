@@ -192,11 +192,13 @@ def test_purchase_email_includes_payment_method(db, test_user, paid_order, monke
 
     captured: dict[str, str] = {}
 
-    def _fake_send(*, to: str, subject: str, html: str):
-        captured["html"] = html
-        return True, None
+    def _fake_send(**kwargs):
+        captured["html"] = kwargs.get("fallback_html", "")
+        from services.email_delivery import SendResult
 
-    monkeypatch.setattr("services.order_emails._send_html_email", _fake_send)
+        return SendResult(ok=True)
+
+    monkeypatch.setattr("services.order_emails.send_templated_email", _fake_send)
     monkeypatch.setattr("services.order_emails.email_configured", lambda: True)
 
     ok, err = send_purchase_confirmation_email(db, paid_order.id, force=True)

@@ -1,5 +1,6 @@
 import { ClerkProvider } from '@clerk/nextjs'
 import { ClerkBackendSync } from '@/components/auth/ClerkBackendSync'
+import { TwoFactorGate } from '@/components/auth/TwoFactorGate'
 import { ClerkTokenBridge } from '@/components/auth/ClerkTokenBridge'
 import { AdminSessionSync } from '@/components/auth/AdminSessionSync'
 import { clerkAppearance } from '@/lib/clerk/appearance'
@@ -97,6 +98,7 @@ export default function RootLayout({
         <JsonLd data={[buildOrganizationJsonLd(), buildWebsiteJsonLd()]} />
         <ClerkProvider localization={clerkLocalization} appearance={clerkAppearance}>
           <ClerkBackendSync />
+          <TwoFactorGate />
           <ClerkTokenBridge />
           <AdminSessionSync />
           <LangInit />

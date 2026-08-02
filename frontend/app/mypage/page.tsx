@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/lib/use-toast'
+import { MypageSecurityPanel } from '@/components/mypage/MypageSecurityPanel'
 
 import { isAdminEmail } from '@/lib/auth/admin'
 
@@ -50,6 +51,7 @@ export default function MypagePage() {
   const {
     isAuthenticated,
     user,
+    token,
     logout,
     fetchMe,
     syncBackend,
@@ -467,6 +469,8 @@ export default function MypagePage() {
             </div>
           )}
         </div>
+
+        {isAuthenticated && token && <MypageSecurityPanel />}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">

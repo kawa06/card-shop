@@ -7,6 +7,7 @@ from unittest.mock import patch
 from auth import hash_password
 import models
 import models_buyback
+from services.email_delivery import SendResult
 from services.buyback_emails import (
     notify_buyback_assessment_ready,
     notify_buyback_decision,
@@ -59,15 +60,16 @@ def _request(db, user: models.User, **kwargs) -> models_buyback.BuybackRequest:
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)
-@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+@patch("services.buyback_emails.send_templated_email")
 def test_notify_buyback_request_submitted(mock_send, mock_configured, db):
+    mock_send.return_value = SendResult(ok=True)
     user = _create_user(db)
     request = _request(db, user)
 
     notify_buyback_request_submitted(db, request, user)
 
     assert mock_send.call_count == 2
-    subjects = [call.kwargs["subject"] for call in mock_send.call_args_list]
+    subjects = [call.kwargs["fallback_subject"] for call in mock_send.call_args_list]
     assert any("買取申込を受け付けました" in s for s in subjects)
     assert any("新規買取申込" in s for s in subjects)
 
@@ -77,8 +79,9 @@ def test_notify_buyback_request_submitted(mock_send, mock_configured, db):
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)
-@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+@patch("services.buyback_emails.send_templated_email")
 def test_notify_buyback_payout_completed(mock_send, mock_configured, db):
+    mock_send.return_value = SendResult(ok=True)
     user = _create_user(db)
     request = _request(
         db,
@@ -91,12 +94,13 @@ def test_notify_buyback_payout_completed(mock_send, mock_configured, db):
     assert ok is True
     assert err is None
     mock_send.assert_called_once()
-    assert "振込が完了しました" in mock_send.call_args.kwargs["subject"]
+    assert "振込が完了しました" in mock_send.call_args.kwargs["fallback_subject"]
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)
-@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+@patch("services.buyback_emails.send_templated_email")
 def test_notify_inbound_received_and_idempotent(mock_send, mock_configured, db):
+    mock_send.return_value = SendResult(ok=True)
     user = _create_user(db, email="recv@example.com")
     request = _request(
         db,
@@ -107,7 +111,7 @@ def test_notify_inbound_received_and_idempotent(mock_send, mock_configured, db):
     ok, err = notify_buyback_inbound_received(db, request, user)
     assert ok and err is None
     assert mock_send.call_count == 1
-    assert "受け取りました" in mock_send.call_args.kwargs["subject"]
+    assert "受け取りました" in mock_send.call_args.kwargs["fallback_subject"]
     assert notification_already_sent(db, "buyback_inbound_received", str(request.id))
 
     ok2, _ = notify_buyback_inbound_received(db, request, user)
@@ -116,8 +120,9 @@ def test_notify_inbound_received_and_idempotent(mock_send, mock_configured, db):
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)
-@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+@patch("services.buyback_emails.send_templated_email")
 def test_notify_assessment_and_decision(mock_send, mock_configured, db):
+    mock_send.return_value = SendResult(ok=True)
     user = _create_user(db, email="assess@example.com")
     request = _request(
         db,
@@ -127,12 +132,12 @@ def test_notify_assessment_and_decision(mock_send, mock_configured, db):
     )
 
     notify_buyback_assessment_ready(db, request, user)
-    assert any("査定結果" in c.kwargs["subject"] for c in mock_send.call_args_list)
+    assert any("査定結果" in c.kwargs["fallback_subject"] for c in mock_send.call_args_list)
 
     request.status = models_buyback.BuybackRequestStatus.accepted.value
     db.commit()
     notify_buyback_decision(db, request, user)
-    assert any("買取が成立" in c.kwargs["subject"] for c in mock_send.call_args_list)
+    assert any("買取が成立" in c.kwargs["fallback_subject"] for c in mock_send.call_args_list)
 
     keys = {d.template_key for d in db.query(models_buyback.NotificationDelivery).all()}
     assert "buyback_assessment_ready" in keys
@@ -140,8 +145,9 @@ def test_notify_assessment_and_decision(mock_send, mock_configured, db):
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)
-@patch("services.buyback_emails._send_html_email", return_value=(True, None))
+@patch("services.buyback_emails.send_templated_email")
 def test_notify_package_shipped(mock_send, mock_configured, db):
+    mock_send.return_value = SendResult(ok=True)
     user = _create_user(db, email="ship@example.com")
     request = _request(
         db,
@@ -166,8 +172,8 @@ def test_notify_package_shipped(mock_send, mock_configured, db):
     ok, err = notify_buyback_package_shipped(db, request, user, package)
     assert ok and err is None
     mock_send.assert_called_once()
-    assert "発送しました" in mock_send.call_args.kwargs["subject"]
-    assert "TRACK-123" in mock_send.call_args.kwargs["html"]
+    assert "発送しました" in mock_send.call_args.kwargs["fallback_subject"]
+    assert "TRACK-123" in mock_send.call_args.kwargs["fallback_html"]
 
     notify_buyback_package_shipped(db, request, user, package)
     assert mock_send.call_count == 1

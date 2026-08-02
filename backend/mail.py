@@ -1,19 +1,15 @@
-import httpx
-from config import settings
 import logging
+
+from sqlalchemy.orm import Session
+
+from config import settings
+from services.email_delivery import send_templated_email
 
 logger = logging.getLogger(__name__)
 
 
-async def send_verification_email(email: str, token: str) -> tuple[bool, str | None]:
+async def send_verification_email(db: Session, email: str, token: str) -> tuple[bool, str | None]:
     verification_url = f"{settings.FRONTEND_URL}/verify/{token}"
-
-    if not settings.RESEND_API_KEY:
-        if settings.DEBUG:
-            logger.info("Verification email mock completed")
-            return True, None
-        logger.error("RESEND_API_KEY is not configured")
-        return False, "RESEND_API_KEY is not configured"
 
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
@@ -30,32 +26,17 @@ async def send_verification_email(email: str, token: str) -> tuple[bool, str | N
     </div>
     """
 
-    from_address = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "from": from_address,
-                    "to": [email],
-                    "subject": "【KRX TCG】メールアドレス認証のお願い",
-                    "html": html_content,
-                },
-                timeout=30.0,
-            )
-
-            if response.status_code in (200, 201):
-                logger.info(f"Email sent successfully to {email}")
-                return True, None
-
-            error_body = response.text
-            logger.error(f"Resend API Error: {response.status_code} - {error_body}")
-            return False, f"Resend error ({response.status_code}): {error_body}"
-    except Exception as e:
-        logger.error(f"Error sending email via Resend: {str(e)}")
-        return False, str(e)
+    subject = "【KRX TCG】メールアドレス認証のお願い"
+    result = send_templated_email(
+        db,
+        template_key="member_email_verify",
+        to_email=email,
+        variables={"email": email, "url": verification_url, "content": "メールアドレスの認証をお願いします。"},
+        fallback_subject=subject,
+        fallback_html=html_content,
+        reference_type="user",
+        reference_id=email,
+    )
+    if result.ok:
+        logger.info("Email sent successfully to %s", email)
+    return result.ok, result.error

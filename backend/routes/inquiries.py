@@ -247,8 +247,8 @@ def post_inquiry(
 
     full = get_customer_inquiry(db, inquiry.id, current_user.id)
     first_msg = payload.message
-    notify_inquiry_received(full, current_user)
-    notify_admin_new_inquiry(full, current_user, first_msg)
+    notify_inquiry_received(db, full, current_user)
+    notify_admin_new_inquiry(db, full, current_user, first_msg)
     return _detail_out(full)
 
 
@@ -282,7 +282,7 @@ def post_message(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
-    notify_admin_customer_reply(inquiry, current_user, payload.message)
+    notify_admin_customer_reply(db, inquiry, current_user, payload.message)
     return _message_out(msg, inquiry)
 
 

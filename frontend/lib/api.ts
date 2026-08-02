@@ -258,6 +258,17 @@ export const authApi = {
   sendPhoneOtp: (phone: string) => apiClient.post('/auth/phone/send', { phone }),
 
   verifyPhoneOtp: (phone: string, code: string) => apiClient.post('/auth/phone/verify', { phone, code }),
+
+  verify2fa: (data: { challenge_id: number; user_id: number; code: string }) =>
+    apiClient.post('/auth/2fa/verify', data),
+
+  get2faSettings: () => apiClient.get<{ enabled: boolean; method?: string | null }>('/auth/2fa/settings'),
+
+  update2faSettings: (enabled: boolean) =>
+    apiClient.put('/auth/2fa/settings', { enabled }),
+
+  getLoginHistory: () =>
+    apiClient.get<Array<{ id: number; ip_address?: string | null; user_agent?: string | null; method: string; success: boolean; created_at: string }>>('/auth/login-history'),
 }
 
 // Cart API
@@ -756,4 +767,22 @@ export const adminSecurityApi = {
     apiClient.get<import('./types').PaginatedAuditLogs>('/admin/security/audit-logs', { params }),
   getAuditLog: (id: number) =>
     apiClient.get<import('./types').AdminAuditLog>(`/admin/security/audit-logs/${id}`),
+}
+
+export const adminEmailApi = {
+  getBrand: () => apiClient.get('/admin/email/brand'),
+  updateBrand: (data: Record<string, unknown>) => apiClient.put('/admin/email/brand', data),
+  listTemplates: (category?: string) =>
+    apiClient.get('/admin/email/templates', { params: category ? { category } : {} }),
+  getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
+  updateTemplate: (key: string, data: Record<string, unknown>) =>
+    apiClient.put(`/admin/email/templates/${encodeURIComponent(key)}`, data),
+  previewTemplate: (key: string, variables: Record<string, string>) =>
+    apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/preview`, { variables }),
+  testSend: (key: string, to_email: string, variables: Record<string, string>) =>
+    apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/test-send`, { to_email, variables }),
+  toggleActive: (key: string, is_active: boolean) =>
+    apiClient.patch(`/admin/email/templates/${encodeURIComponent(key)}/active?is_active=${is_active}`),
+  getSendLogs: (params?: { status?: string; template_key?: string; limit?: number }) =>
+    apiClient.get('/admin/email/send-logs', { params }),
 }

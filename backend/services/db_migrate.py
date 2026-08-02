@@ -41,6 +41,7 @@ def run_schema_upgrades() -> None:
     _migrate_announcements_schema()
     _migrate_admin_security_schema()
     _migrate_order_pricing_snapshots()
+    _migrate_email_auth_schema()
 
 
 def _migrate_order_pricing_snapshots() -> None:
@@ -651,3 +652,47 @@ def _migrate_international_shipping_to_ems() -> None:
         except Exception:
             db.rollback()
             logger.error("Failed international→ems migration")
+
+
+def _migrate_email_auth_schema() -> None:
+    """Email template platform + customer auth security tables."""
+    import models_email  # noqa: F401
+    from services.email_template_seed import seed_email_templates
+
+    email_tables = [
+        ("email_brand_settings", models_email.EmailBrandSettings),
+        ("email_templates", models_email.EmailTemplate),
+        ("email_send_logs", models_email.EmailSendLog),
+        ("email_scheduled_sends", models_email.EmailScheduledSend),
+        ("login_histories", models_email.LoginHistory),
+        ("user_otp_challenges", models_email.UserOtpChallenge),
+    ]
+    for table_name, model in email_tables:
+        _create_table_if_missing(table_name, model)
+
+    user_cols = [
+        ("failed_login_attempts", "INTEGER DEFAULT 0"),
+        ("locked_until", "DATETIME"),
+        ("two_factor_enabled", "BOOLEAN DEFAULT 0"),
+        ("two_factor_method", "VARCHAR(16)"),
+        ("last_login_at", "DATETIME"),
+        ("last_login_ip", "VARCHAR(64)"),
+    ]
+    for col, col_type in user_cols:
+        _add_column_if_missing("users", col, col_type)
+
+    from sqlalchemy.orm import sessionmaker
+    from services.admin_seed import seed_admin_rbac
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_admin_rbac(db)
+        except Exception:
+            db.rollback()
+            logger.error("admin RBAC re-seed for email permissions failed")
+        try:
+            seed_email_templates(db)
+        except Exception:
+            db.rollback()
+            logger.error("email template seed failed")

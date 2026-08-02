@@ -46,6 +46,12 @@ class User(Base):
     phone_verified = Column(Boolean, default=False)
     clerk_user_id = Column(String(255), unique=True, nullable=True, index=True)
     public_member_id = Column(String(32), unique=True, nullable=True, index=True)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    two_factor_method = Column(String(16), nullable=True)
+    last_login_at = Column(DateTime, nullable=True)
+    last_login_ip = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

@@ -371,13 +371,14 @@ def reply_inquiry(
         new_status = inquiry.status
         if new_status in ("resolved", "closed") and new_status != old_status:
             notify_inquiry_status_change(
+                db,
                 inquiry,
                 old_status=old_status,
                 new_status=new_status,
                 reply_text=message,
             )
         else:
-            notify_customer_admin_reply(inquiry, message)
+            notify_customer_admin_reply(db, inquiry, message)
 
     return schemas.InquiryMessageOut(
         id=msg.id,
@@ -414,6 +415,7 @@ def update_inquiry(
     db.refresh(inquiry)
     if payload.status and payload.status != old_status:
         notify_inquiry_status_change(
+            db,
             inquiry,
             old_status=old_status,
             new_status=inquiry.status,

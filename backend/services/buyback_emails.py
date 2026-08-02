@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from datetime import datetime
 
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 import models
 import models_buyback
 from config import settings
-from services.order_emails import _send_html_email
+from services.email_delivery import send_templated_email
 from services.verification import email_configured
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,74 @@ def _items_table_html(request: models_buyback.BuybackRequest) -> str:
         + "".join(rows)
         + "</tbody></table>"
     )
+
+
+def _assessment_detail_table_html(request: models_buyback.BuybackRequest) -> str:
+    rows = []
+    shipping_total = 0
+    for item in request.items:
+        assessed = item.assessed_unit_price if item.assessed_unit_price is not None else item.listed_unit_price
+        line_total = (assessed or 0) * item.quantity
+        reduction = ""
+        if item.rejection_reason_text:
+            reduction = html.escape(item.rejection_reason_text)
+        elif item.rejection_reason_code:
+            reduction = html.escape(item.rejection_reason_code)
+        if item.return_shipping_cost:
+            shipping_total += int(item.return_shipping_cost)
+        rows.append(
+            "<tr>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee;'>{html.escape(item.product_name_snapshot)}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee;text-align:right;'>{_format_jpy(assessed)}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee;text-align:center;'>{item.quantity}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee;text-align:right;'>{_format_jpy(line_total)}</td>"
+            f"<td style='padding:8px;border-bottom:1px solid #eee;font-size:12px;color:#666;'>{reduction or '—'}</td>"
+            "</tr>"
+        )
+    footer = ""
+    assessed_total = request.assessed_total or 0
+    payout_total = request.payout_total or assessed_total
+    if shipping_total:
+        footer += f"<tr><td colspan='4' style='padding:8px;text-align:right;color:#666;'>返送送料</td><td style='padding:8px;text-align:right;'>{_format_jpy(shipping_total)}</td></tr>"
+    footer += f"<tr><td colspan='4' style='padding:8px;text-align:right;font-weight:bold;'>査定合計</td><td style='padding:8px;text-align:right;font-weight:bold;'>{_format_jpy(assessed_total)}</td></tr>"
+    footer += f"<tr><td colspan='4' style='padding:8px;text-align:right;font-weight:bold;color:#ca8a04;'>お支払予定額</td><td style='padding:8px;text-align:right;font-weight:bold;color:#ca8a04;'>{_format_jpy(payout_total)}</td></tr>"
+    return (
+        "<table style='width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;'>"
+        "<thead><tr>"
+        "<th style='text-align:left;padding:8px;border-bottom:2px solid #ddd;'>商品</th>"
+        "<th style='text-align:right;padding:8px;border-bottom:2px solid #ddd;'>査定単価</th>"
+        "<th style='text-align:center;padding:8px;border-bottom:2px solid #ddd;'>数量</th>"
+        "<th style='text-align:right;padding:8px;border-bottom:2px solid #ddd;'>小計</th>"
+        "<th style='text-align:left;padding:8px;border-bottom:2px solid #ddd;'>減額理由</th>"
+        "</tr></thead><tbody>"
+        + "".join(rows)
+        + footer
+        + "</tbody></table>"
+    )
+
+
+def _buyback_template_variables(
+    user: models.User,
+    request: models_buyback.BuybackRequest,
+    *,
+    body_html: str,
+    extra: dict | None = None,
+) -> dict:
+    variables = {
+        "name": user.name or "お客",
+        "email": user.email,
+        "buyNo": request.request_number or str(request.id),
+        "content": body_html,
+        "assessedTotal": _format_jpy(request.assessed_total),
+        "payoutTotal": _format_jpy(request.payout_total or request.assessed_total),
+        "assessmentDetail": _assessment_detail_table_html(request),
+    }
+    if extra:
+        variables.update(extra)
+    return variables
+
+
+_RAW_BUYBACK_KEYS = {"content", "itemsTable", "assessmentDetail"}
 
 
 def _wrap_email(inner_html: str) -> str:
@@ -151,7 +220,21 @@ def notify_buyback_request_submitted(
             )
         return
 
-    ok, err = _send_html_email(to=user.email, subject=customer_subject, html=customer_html)
+    variables = _buyback_template_variables(
+        user, request, body_html=customer_body, extra={"itemsTable": _items_table_html(request)}
+    )
+    result = send_templated_email(
+        db,
+        template_key="buyback_request_submitted",
+        to_email=user.email,
+        variables=variables,
+        fallback_subject=customer_subject,
+        fallback_html=customer_html,
+        reference_type="buyback_request",
+        reference_id=str(request.id),
+        raw_variable_keys=_RAW_BUYBACK_KEYS,
+    )
+    ok, err = result.ok, result.error
     _record_delivery(
         db,
         user_id=user.id,
@@ -175,9 +258,23 @@ def notify_buyback_request_submitted(
     admin_html = _wrap_email(admin_body)
     admin_subject = f"【KRX TCG 管理】新規買取申込 {request_number}"
 
-    admin_ok, admin_err = _send_html_email(
-        to=ADMIN_EMAIL, subject=admin_subject, html=admin_html
+    admin_result = send_templated_email(
+        db,
+        template_key="buyback_request_admin_alert",
+        to_email=ADMIN_EMAIL,
+        variables={
+            "name": user.name or "お客",
+            "email": user.email,
+            "buyNo": request_number,
+            "content": admin_body,
+        },
+        fallback_subject=admin_subject,
+        fallback_html=admin_html,
+        reference_type="buyback_request",
+        reference_id=str(request.id),
+        raw_variable_keys={"content"},
     )
+    admin_ok, admin_err = admin_result.ok, admin_result.error
     _record_delivery(
         db,
         user_id=None,
@@ -189,6 +286,7 @@ def notify_buyback_request_submitted(
 
 
 def notify_guardian_consent_requested(
+    db: Session,
     consent: models_buyback.GuardianConsent,
     user: models.User,
     raw_token: str,
@@ -202,14 +300,22 @@ def notify_guardian_consent_requested(
       <p style="font-size:12px;color:#666;">リンクの有効期限があります。心当たりがない場合は破棄してください。</p>
     """
     subject = "【KRX TCG】保護者同意のお願い"
-    html = _wrap_email(body)
+    html_wrapped = _wrap_email(body)
 
     if not email_configured():
         if settings.DEBUG:
             logger.info("[GUARDIAN EMAIL MOCK] to=%s link=%s", consent.guardian_email, link)
         return
 
-    _send_html_email(to=consent.guardian_email, subject=subject, html=html)
+    send_templated_email(
+        db,
+        template_key="member_email_verify",
+        to_email=consent.guardian_email,
+        variables={"name": consent.guardian_name or "保護者", "content": body, "url": link},
+        fallback_subject=subject,
+        fallback_html=html_wrapped,
+        raw_variable_keys={"content"},
+    )
 
 
 def payout_email_already_sent(db: Session, request_id: int) -> bool:
@@ -262,7 +368,7 @@ def _send_customer_template(
     if notification_already_sent(db, template_key, ref_id, reference_type=reference_type) and not force:
         return True, None
 
-    html = _wrap_email(body_html)
+    html_wrapped = _wrap_email(body_html)
     if not email_configured():
         if settings.DEBUG:
             logger.info("[BUYBACK EMAIL MOCK] to=%s subject=%s key=%s", user.email, subject, template_key)
@@ -276,7 +382,19 @@ def _send_customer_template(
             )
         return True, None
 
-    ok, err = _send_html_email(to=user.email, subject=subject, html=html)
+    variables = _buyback_template_variables(user, request, body_html=body_html)
+    result = send_templated_email(
+        db,
+        template_key=template_key,
+        to_email=user.email,
+        variables=variables,
+        fallback_subject=subject,
+        fallback_html=html_wrapped,
+        reference_type=reference_type,
+        reference_id=ref_id,
+        raw_variable_keys=_RAW_BUYBACK_KEYS,
+    )
+    ok, err = result.ok, result.error
     _record_delivery(
         db,
         user_id=user.id,
@@ -339,7 +457,10 @@ def notify_buyback_assessment_ready(
         {_public_codes(request)}
         <li>ステータス：{status_label}</li>
         <li>査定合計：{_format_jpy(request.assessed_total)}</li>
+        <li>お支払予定額：{_format_jpy(request.payout_total or request.assessed_total)}</li>
       </ul>
+      <p>査定詳細：</p>
+      {_assessment_detail_table_html(request)}
       <p>内容をご確認のうえ、マイページからご対応ください。</p>
       <p><a href="{link}">査定結果を確認</a></p>
     """
@@ -478,7 +599,19 @@ def notify_buyback_payout_completed(
             )
         return True, None
 
-    ok, err = _send_html_email(to=user.email, subject=customer_subject, html=customer_html)
+    variables = _buyback_template_variables(user, request, body_html=customer_body)
+    result = send_templated_email(
+        db,
+        template_key="buyback_payout_completed",
+        to_email=user.email,
+        variables=variables,
+        fallback_subject=customer_subject,
+        fallback_html=customer_html,
+        reference_type="buyback_request",
+        reference_id=str(request.id),
+        raw_variable_keys=_RAW_BUYBACK_KEYS,
+    )
+    ok, err = result.ok, result.error
     _record_delivery(
         db,
         user_id=user.id,

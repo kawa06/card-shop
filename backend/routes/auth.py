@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -9,8 +10,18 @@ from database import get_db
 from config import settings
 from database import get_db
 from admin_emails import normalize_email
+import schemas_email
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
+from services.customer_auth_security import (
+    create_login_otp_challenge,
+    ensure_not_locked,
+    is_user_locked,
+    list_login_history,
+    record_login_failure,
+    record_login_success,
+    verify_login_otp,
+)
 from services.verification import (
     email_configured,
     twilio_configured,
@@ -40,10 +51,31 @@ class AuthResponse(BaseModel):
         from_attributes = True
 
 
+def _auth_response(user: models.User) -> dict:
+    token = create_access_token({"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer", "user": user}
+
+
+def _maybe_require_2fa(db: Session, user: models.User) -> Optional[dict]:
+    ensure_not_locked(user)
+    if user.two_factor_enabled:
+        challenge_id, _ = create_login_otp_challenge(db, user)
+        db.commit()
+        return {
+            "requires_2fa": True,
+            "challenge_id": challenge_id,
+            "user_id": user.id,
+            "message": "認証コードをメールで送信しました",
+        }
+    return None
+
+
 class ClerkProvisionRequest(BaseModel):
     email: str
     password: str
     name: str
+    client_ip: Optional[str] = None
+    user_agent: Optional[str] = None
 
 
 @router.get("/setup-status", status_code=status.HTTP_200_OK)
@@ -104,7 +136,7 @@ async def register(
     db.refresh(user)
 
     if email_configured() or settings.DEBUG:
-        sent, error = await send_verification_email(user.email, verification_token)
+        sent, error = await send_verification_email(db, user.email, verification_token)
         if not sent and not settings.DEBUG:
             db.delete(user)
             db.commit()
@@ -128,20 +160,31 @@ async def register(
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     email = normalize_email(payload.email)
     user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
     if not user or not verify_password(payload.password, user.password_hash):
+        if user:
+            ensure_not_locked(user)
+            record_login_failure(db, user, request)
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",
         )
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    ensure_not_locked(user)
+
+    challenge = _maybe_require_2fa(db, user)
+    if challenge:
+        return JSONResponse(status_code=202, content=challenge)
+
+    record_login_success(db, user, method="legacy", request=request)
+    db.commit()
+    return _auth_response(user)
 
 
-@router.post("/clerk-provision", response_model=AuthResponse)
+@router.post("/clerk-provision")
 def clerk_provision(
     payload: ClerkProvisionRequest,
     request: Request,
@@ -175,8 +218,19 @@ def clerk_provision(
         db.commit()
         db.refresh(user)
 
-    token = create_access_token({"sub": str(user.id)})
-    return {"access_token": token, "token_type": "bearer", "user": user}
+    challenge = _maybe_require_2fa(db, user)
+    if challenge:
+        return JSONResponse(status_code=202, content=challenge)
+
+    record_login_success(
+        db,
+        user,
+        method="clerk",
+        ip=payload.client_ip,
+        user_agent=payload.user_agent,
+    )
+    db.commit()
+    return _auth_response(user)
 
 
 @router.get("/me", response_model=schemas.UserOut)
@@ -251,7 +305,7 @@ async def request_verification(
     current_user.verification_token = token
     db.commit()
 
-    sent, error = await send_verification_email(current_user.email, token)
+    sent, error = await send_verification_email(db, current_user.email, token)
     if not sent and not settings.DEBUG:
         raise HTTPException(
             status_code=502,
@@ -307,6 +361,57 @@ async def verify_phone_otp(
         db.commit()
 
     return {"message": "電話番号の認証が完了しました"}
+
+
+@router.post("/2fa/verify", response_model=AuthResponse)
+def verify_two_factor(
+    payload: schemas_email.OtpVerifyIn,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    user = verify_login_otp(
+        db,
+        challenge_id=payload.challenge_id,
+        code=payload.code,
+        user_id=payload.user_id,
+    )
+    record_login_success(db, user, method="legacy", request=request)
+    db.commit()
+    return _auth_response(user)
+
+
+@router.get("/2fa/settings", response_model=schemas_email.TwoFactorSettingsOut)
+def get_two_factor_settings(
+    current_user: models.User = Depends(get_current_user),
+):
+    return schemas_email.TwoFactorSettingsOut(
+        enabled=bool(current_user.two_factor_enabled),
+        method=current_user.two_factor_method,
+    )
+
+
+@router.put("/2fa/settings", response_model=schemas_email.TwoFactorSettingsOut)
+def update_two_factor_settings(
+    payload: schemas_email.TwoFactorToggleIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.two_factor_enabled = bool(payload.enabled)
+    current_user.two_factor_method = "email" if payload.enabled else None
+    db.commit()
+    db.refresh(current_user)
+    return schemas_email.TwoFactorSettingsOut(
+        enabled=bool(current_user.two_factor_enabled),
+        method=current_user.two_factor_method,
+    )
+
+
+@router.get("/login-history", response_model=list[schemas_email.LoginHistoryOut])
+def get_login_history(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return list_login_history(db, current_user.id, limit=20)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
