@@ -123,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true })
           try {
             const synced = await fetchBackendSession()
-            if ('requires_2fa' in synced && synced.requires_2fa) {
+            if ('requires_2fa' in synced) {
               set({ pending2fa: synced.pending, isLoading: false })
               return
             }
