@@ -33,6 +33,18 @@ function HomeContent() {
   const categoryId = searchParams.get('category') ? parseInt(searchParams.get('category')!) : null
   const packId = searchParams.get('pack') ? parseInt(searchParams.get('pack')!) : null
 
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([categoriesApi.getAll(), packsApi.getAll()]).then(([categoriesRes, packsRes]) => {
+      if (cancelled) return
+      setCategories(categoriesRes.data || [])
+      setPacks(packsRes.data || [])
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -44,10 +56,8 @@ function HomeContent() {
       if (categoryId) params.category_id = categoryId
       if (packId) params.pack_id = packId
 
-      const [cardsRes, categoriesRes, packsRes, announcementsRes] = await Promise.all([
+      const [cardsRes, announcementsRes] = await Promise.all([
         cardsApi.getAll(params),
-        categoriesApi.getAll(),
-        packsApi.getAll(),
         announcementsApi.getAll(lang),
       ])
 
@@ -61,8 +71,6 @@ function HomeContent() {
         setTotalPages(cardsData.pages || 1)
         setTotalCards(cardsData.total || 0)
       }
-      setCategories(categoriesRes.data || [])
-      setPacks(packsRes.data || [])
       setAnnouncements(
         (announcementsRes.data || []).filter((a: Announcement) => a.is_active)
       )

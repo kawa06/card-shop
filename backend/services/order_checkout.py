@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 from config import settings
-from services.shipping_rates import calculate_shipping_fee
+from services.shipping_rates import calculate_shipping_fee, calculate_shipping_quote
 from services.countries import is_domestic_japan, INTERNATIONAL_METHOD_CODES
 from services.shipping_display import normalize_method_code
 from services.order_number import assign_order_number
@@ -52,7 +52,11 @@ def validate_shipping_method(
         try:
             methods = json.loads(raw)
             if isinstance(methods, list) and methods:
-                methods_set = set(methods)
+                methods_set = {
+                    normalize_method_code(m) or m
+                    for m in methods
+                    if isinstance(m, str) and m
+                }
                 allowed_methods_set = methods_set if allowed_methods_set is None else allowed_methods_set.intersection(methods_set)
         except Exception:
             pass
@@ -153,6 +157,11 @@ def create_order_from_cart(
     shipping_address: str | None,
     shipping_method: str | None,
     shipping_fee: int,
+    packaging_fee: int = 0,
+    payment_fee: int = 0,
+    discount_amount: int = 0,
+    items_subtotal: int | None = None,
+    tax_rate_snapshot: int | None = None,
     payment_method: str | None,
     payment_status: str,
     stripe_checkout_session_id: str | None = None,
@@ -161,11 +170,15 @@ def create_order_from_cart(
     payment_deadline: datetime | None = None,
 ) -> models.Order:
     validate_cart_stock(cart_items)
-    subtotal = sum(item.card.price * item.quantity for item in cart_items)
+    subtotal = int(round(items_subtotal if items_subtotal is not None else sum(item.card.price * item.quantity for item in cart_items)))
+    shipping_total = int(shipping_fee) + int(packaging_fee)
+    order_total = subtotal + shipping_total + int(payment_fee) - int(discount_amount)
 
     order = models.Order(
         user_id=user.id,
-        total_amount=round(subtotal + shipping_fee, 2),
+        total_amount=round(order_total, 2),
+        items_subtotal=subtotal,
+        tax_rate_snapshot=tax_rate_snapshot,
         postal_code=postal_code,
         country=country,
         region=region,
@@ -174,7 +187,10 @@ def create_order_from_cart(
         address_line2=address_line2,
         shipping_address=shipping_address,
         shipping_method=shipping_method,
-        shipping_fee=shipping_fee,
+        shipping_fee=int(shipping_fee),
+        packaging_fee=int(packaging_fee),
+        payment_fee=int(payment_fee),
+        discount_amount=int(discount_amount),
         payment_method=payment_method,
         payment_status=payment_status,
         stripe_checkout_session_id=stripe_checkout_session_id,
@@ -191,6 +207,7 @@ def create_order_from_cart(
                 card_id=item.card_id,
                 quantity=item.quantity,
                 unit_price=item.card.price,
+                product_name=item.card.name,
             )
         )
 
@@ -346,8 +363,17 @@ def extend_payment_deadline(
     return order
 
 
-def resolve_shipping_fee(shipping_method: str | None, region: str | None, country: str | None, db: Session) -> int:
+def resolve_shipping_quote(
+    shipping_method: str | None,
+    region: str | None,
+    country: str | None,
+    db: Session,
+) -> dict:
     if not shipping_method:
-        return 0
+        return {"fee_jpy": 0, "base_shipping_fee_jpy": 0, "packaging_fee_jpy": 0}
     shipping_method = normalize_method_code(shipping_method) or shipping_method
-    return calculate_shipping_fee(shipping_method, region, country, db=db)
+    return calculate_shipping_quote(shipping_method, region, country, db=db)
+
+
+def resolve_shipping_fee(shipping_method: str | None, region: str | None, country: str | None, db: Session) -> int:
+    return int(resolve_shipping_quote(shipping_method, region, country, db)["fee_jpy"])

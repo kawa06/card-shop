@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, ShoppingCart, ZoomIn, Package, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { cardsApi } from '@/lib/api'
 import { Card } from '@/lib/types'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useCartStore } from '@/store/cart'
@@ -49,16 +48,22 @@ function parseImageUrls(card: Card): string[] {
   return urls
 }
 
-export default function CardDetailClient({ id }: { id: string }) {
+export default function CardDetailClient({
+  id,
+  initialCard = null,
+}: {
+  id: string
+  initialCard?: Card | null
+}) {
   const router = useRouter()
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
-  const { addItem } = useCartStore()
+  const addItem = useCartStore((s) => s.addItem)
   const { lang } = useLangStore()
   const { formatCardPrice } = usePrice()
 
-  const [card, setCard] = useState<Card | null>(null)
+  const [card, setCard] = useState<Card | null>(initialCard)
   const [relatedCards, setRelatedCards] = useState<Card[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!initialCard)
   const [quantity, setQuantity] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [isZoomed, setIsZoomed] = useState(false)
@@ -74,8 +79,25 @@ export default function CardDetailClient({ id }: { id: string }) {
 
   useEffect(() => {
     const fetchCard = async () => {
+      if (initialCard) {
+        setIsLoading(false)
+        if (initialCard.category_id) {
+          try {
+            const { cardsApi } = await import('@/lib/api')
+            const relRes = await cardsApi.getAll({ category_id: initialCard.category_id, size: 5 })
+            const data = relRes.data
+            const items = Array.isArray(data) ? data : (data.items || [])
+            setRelatedCards(items.filter((c: Card) => c.id !== initialCard.id).slice(0, 4))
+          } catch {
+            /* related cards are optional */
+          }
+        }
+        return
+      }
+
       setIsLoading(true)
       try {
+        const { cardsApi } = await import('@/lib/api')
         const numId = parseInt(id)
         if (isNaN(numId)) { router.push('/'); return }
         const res = await cardsApi.getById(numId)
@@ -93,7 +115,7 @@ export default function CardDetailClient({ id }: { id: string }) {
       }
     }
     fetchCard()
-  }, [id, router])
+  }, [id, router, initialCard])
 
   const handleAddToCart = async () => {
     if (!isReady) return

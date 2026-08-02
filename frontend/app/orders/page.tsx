@@ -12,6 +12,7 @@ import { t } from '@/lib/i18n'
 import { useTranslation } from '@/hooks/useTranslation'
 import { buildTrackingUrl } from '@/lib/tracking'
 import { resolveOrderDisplayStatus } from '@/lib/order-display-status'
+import OrderPriceBreakdown from '@/components/orders/OrderPriceBreakdown'
 
 const statusLabels: Record<string, string> = {
   pending: '処理中',
@@ -148,6 +149,9 @@ export default function OrdersPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-200 p-4 space-y-3">
                     <OrderItemsList items={order.items} formatPrice={formatPrice} lang={lang} />
+                    <div className="border-t border-gray-200 pt-3">
+                      <OrderPriceBreakdown order={order} lang={lang} formatPrice={formatPrice} />
+                    </div>
                     {order.shipping_address && (
                       <div className="border-t border-gray-200 pt-3 text-sm">
                         <span className="text-gray-500">{t('配送先', lang)}: </span>
@@ -223,12 +227,20 @@ function OrderItemsList({ items, formatPrice, lang }: any) {
 
 function OrderItemRow({ item, formatPrice, lang }: any) {
   const translatedCardName = useTranslation(item.card?.name)
-  const cardName = (lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName
+  const cardName =
+    item.product_name ||
+    ((lang === 'en' && item.card?.name_en) ? item.card.name_en : translatedCardName)
+  const lineTotal = (item.unit_price || 0) * (item.quantity || 0)
   return (
-    <div className="flex justify-between items-center text-sm">
-      <span className="text-gray-600">{cardName || `${t('カード', lang)} #${item.card_id}`}</span>
-      <span className="text-gray-400">
-        {formatPrice(item.unit_price || 0)} × {item.quantity}
+    <div className="flex justify-between items-start text-sm gap-4">
+      <div className="text-gray-600 min-w-0">
+        <p>{cardName || `${t('カード', lang)} #${item.card_id}`}</p>
+        <p className="text-gray-400 text-xs">
+          {formatPrice(item.unit_price || 0)} × {item.quantity}
+        </p>
+      </div>
+      <span className="text-gray-700 font-medium whitespace-nowrap">
+        {formatPrice(lineTotal)}
       </span>
     </div>
   )

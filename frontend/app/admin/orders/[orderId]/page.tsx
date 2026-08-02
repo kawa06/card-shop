@@ -25,6 +25,7 @@ import {
 } from '@/components/admin/AdminOrderShippingForm'
 import { AdminSendShippingEmailButton } from '@/components/admin/AdminSendShippingEmailButton'
 import { resolveOrderDisplayStatus } from '@/lib/order-display-status'
+import OrderPriceBreakdown from '@/components/orders/OrderPriceBreakdown'
 
 const paymentStatusLabels: Record<string, string> = {
   awaiting_payment: '入金待ち',
@@ -321,25 +322,12 @@ export default function AdminOrderDetailPage() {
 
             <section className="bg-gray-50 rounded-xl border border-gray-200 p-5">
               <h2 className="text-sm font-bold text-gray-700 mb-3">金額</h2>
-              <dl className="max-w-md ml-auto">
-                <InfoRow label="商品合計" value={formatPrice(subtotal)} />
-                <InfoRow label="送料" value={formatPrice(order.shipping_fee || 0)} />
-                <InfoRow label="梱包料" value={formatPrice(order.packaging_fee || 0)} />
-                <InfoRow label="割引" value={formatPrice(order.discount_amount || 0)} />
-                <InfoRow
-                  label="クーポン"
-                  value={
-                    order.coupon_name || order.coupon_code
-                      ? [order.coupon_name, order.coupon_code].filter(Boolean).join(' / ')
-                      : '—'
-                  }
-                />
-                <InfoRow label="手数料" value={formatPrice(order.payment_fee || 0)} />
-                <div className="flex justify-between py-2 text-base font-bold border-t border-gray-300 mt-2">
-                  <span>支払合計</span>
-                  <span className="text-yellow-600">{formatPrice(order.total_amount)}</span>
-                </div>
-              </dl>
+              <OrderPriceBreakdown
+                order={order}
+                lang="ja"
+                formatPrice={formatPrice}
+                className="max-w-md ml-auto"
+              />
             </section>
 
             <section className="bg-gray-50 rounded-xl border border-gray-200 p-5">

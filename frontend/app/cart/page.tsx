@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 export default function CartPage() {
   const router = useRouter()
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
-  const { items, total, isLoading, fetchCart, updateItem, removeItem } = useCartStore()
+  const { items, total, isLoading, fetchCart, updateItem, removeItem, isLoaded } = useCartStore()
   const { formatPrice, formatCardLineTotal } = usePrice()
   const { lang } = useLangStore()
   const [isMounted, setIsMounted] = useState(false)
@@ -35,9 +35,9 @@ export default function CartPage() {
     }
 
     void requireAuth().then((token) => {
-      if (token) fetchCart()
+      if (token && !isLoaded) fetchCart()
     })
-  }, [isMounted, isReady, isLoggedIn, router, fetchCart, requireAuth])
+  }, [isMounted, isReady, isLoggedIn, router, fetchCart, requireAuth, isLoaded])
 
   const handleUpdateQuantity = async (itemId: number, newQty: number) => {
     if (newQty < 1) return

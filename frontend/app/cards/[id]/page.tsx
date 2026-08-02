@@ -88,7 +88,7 @@ export default async function CardDetailPage({ params }: { params: { id: string 
   return (
     <>
       <JsonLd data={[productJsonLd, breadcrumbJsonLd]} />
-      <CardDetailClient id={params.id} />
+      <CardDetailClient id={params.id} initialCard={card} />
     </>
   )
 }

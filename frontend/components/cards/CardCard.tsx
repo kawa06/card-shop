@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ShoppingCart } from 'lucide-react'
@@ -46,9 +47,9 @@ const conditionLabel: Record<string, string> = {
   e: 'E',
 }
 
-export default function CardCard({ card }: CardCardProps) {
+export default memo(function CardCard({ card }: CardCardProps) {
   const { isLoggedIn, isReady, requireAuth } = useBackendAuth()
-  const { addItem } = useCartStore()
+  const addItem = useCartStore((s) => s.addItem)
   const { lang } = useLangStore()
   const { formatCardPrice } = usePrice()
   const translatedCardName = useTranslation(card.name)
@@ -173,4 +174,4 @@ export default function CardCard({ card }: CardCardProps) {
       </div>
     </div>
   )
-}
+})

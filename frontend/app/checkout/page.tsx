@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -20,12 +20,13 @@ import { ShippingRate, ShippingQuote, User } from '@/lib/types'
 import { Check, ShieldCheck, Truck, ExternalLink, Info, RefreshCw } from 'lucide-react'
 
 import { CHECKOUT_COUNTRIES, countryDisplayName, isDomesticJapan, normalizeCountryCode } from '@/lib/country'
+import { intersectAllowedShippingMethods } from '@/lib/shipping-methods'
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { isLoggedIn, isReady, user, requireAuth } = useBackendAuth()
   const { fetchMe } = useAuthStore()
-  const { items, total, fetchCart, clearCart } = useCartStore()
+  const { items, total, fetchCart, clearCart, isLoaded } = useCartStore()
   const { formatPrice, formatCardLineTotal } = usePrice()
   const { lang } = useLangStore()
   const [isMounted, setIsMounted] = useState(false)
@@ -109,7 +110,6 @@ export default function CheckoutPage() {
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([])
   const [shippingMethod, setShippingMethod] = useState('')
   const [methodQuotes, setMethodQuotes] = useState<Record<string, ShippingQuote>>({})
-  const [dynamicShippingFee, setDynamicShippingFee] = useState<number | null>(null)
   const [agreedToNoCompensation, setAgreedToNoCompensation] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -149,53 +149,37 @@ export default function CheckoutPage() {
     })
   }, [isMounted])
 
-  // Calculate allowed shipping methods intersection
-  const allowedMethodCodes = (() => {
-    if (!items.length) return null
-    let intersection: Set<string> | null = null
-    
-    for (const item of items) {
-      if (item.card.allowed_shipping_methods) {
-        try {
-          const raw = item.card.allowed_shipping_methods
-          if (raw === 'null' || raw === '[]' || raw === '') continue
+  const allowedMethodCodes = useMemo(
+    () => intersectAllowedShippingMethods(items),
+    [items]
+  )
 
-          const methods = JSON.parse(raw)
-          if (Array.isArray(methods) && methods.length > 0) {
-            const methodSet = new Set(methods)
-            if (intersection === null) {
-              intersection = methodSet
-            } else {
-              intersection = new Set(Array.from(intersection).filter(x => methodSet.has(x)))
-            }
-          }
-        } catch (e) {
-          console.error('Failed to parse allowed_shipping_methods', e)
-        }
+  const availableRates = useMemo(() => {
+    return shippingRates.filter((rate) => {
+      if (rate.method_code === 'nekopos') return false
+      if (isInternational) {
+        if (!rate.is_international_available) return false
+        return ['ems', 'yamato_global'].includes(rate.method_code)
       }
-    }
-    return intersection ? Array.from(intersection) : null
-  })()
+      if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
+      const isAlwaysShown = [
+        'takkyubin_compact',
+        'click_post',
+        'teikei_post',
+        'teigai_post',
+        'letter_pack_light',
+        'letter_pack_plus',
+      ].includes(rate.method_code)
+      if (!isAlwaysShown && !rate.is_individual_available) return false
+      if (allowedMethodCodes === null) return true
+      return allowedMethodCodes.includes(rate.method_code)
+    })
+  }, [shippingRates, isInternational, allowedMethodCodes])
 
-  const availableRates = shippingRates.filter(rate => {
-    if (rate.method_code === 'nekopos') return false
-    if (isInternational) {
-      if (!rate.is_international_available) return false
-      return ['ems', 'yamato_global'].includes(rate.method_code)
-    }
-    if (['international', 'ems', 'yamato_global'].includes(rate.method_code)) return false
-    const isAlwaysShown = [
-      'takkyubin_compact',
-      'click_post',
-      'teikei_post',
-      'teigai_post',
-      'letter_pack_light',
-      'letter_pack_plus',
-    ].includes(rate.method_code)
-    if (!isAlwaysShown && !rate.is_individual_available) return false
-    if (allowedMethodCodes === null) return true
-    return allowedMethodCodes.includes(rate.method_code)
-  })
+  const availableRateCodes = useMemo(
+    () => availableRates.map((rate) => rate.method_code).join(','),
+    [availableRates]
+  )
 
   // Auto-select first available shipping method
   useEffect(() => {
@@ -215,16 +199,17 @@ export default function CheckoutPage() {
 
   // Fetch regional/international quotes for every available shipping method
   useEffect(() => {
-    if (!availableRates.length) {
+    if (!availableRateCodes) {
       setMethodQuotes({})
       return
     }
 
+    const rates = availableRates
     const countryLabel = countryDisplayName(debouncedAddress.country, lang)
     let cancelled = false
 
     Promise.all(
-      availableRates.map((rate) =>
+      rates.map((rate) =>
         shippingApi
           .calculateRate({
             method: rate.method_code,
@@ -232,44 +217,27 @@ export default function CheckoutPage() {
             country: countryLabel,
           })
           .then((res) => [rate.method_code, res.data] as const)
-          .catch(() => [rate.method_code, { method_code: rate.method_code, fee_jpy: rate.fee_jpy || 0 }] as const)
+          .catch(() => null)
       )
     ).then((pairs) => {
-      if (!cancelled) {
-        setMethodQuotes(Object.fromEntries(pairs))
+      if (cancelled) return
+      const next: Record<string, ShippingQuote> = {}
+      for (const pair of pairs) {
+        if (pair) next[pair[0]] = pair[1]
       }
+      setMethodQuotes(next)
     })
 
     return () => {
       cancelled = true
     }
-  }, [availableRates, debouncedAddress, lang])
+  }, [availableRateCodes, availableRates, debouncedAddress, lang])
 
-  // Keep selected method fee in sync (fallback if batch above is slow)
-  useEffect(() => {
-    if (!shippingMethod) {
-      setDynamicShippingFee(null)
-      return
-    }
-
-    shippingApi.calculateRate({
-      method: shippingMethod,
-      prefecture: debouncedAddress.region,
-      country: countryDisplayName(debouncedAddress.country, lang),
-    }).then(res => {
-      setDynamicShippingFee(res.data.fee_jpy)
-    }).catch(() => {
-      const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
-      setDynamicShippingFee(selectedRate?.fee_jpy || 0)
-    })
-  }, [shippingMethod, debouncedAddress, shippingRates, lang])
-
-  const selectedRate = shippingRates.find(r => r.method_code === shippingMethod)
+  const selectedRate = shippingRates.find((r) => r.method_code === shippingMethod)
   const selectedQuote = shippingMethod ? methodQuotes[shippingMethod] : undefined
-  const shippingFee =
-    selectedQuote?.fee_jpy ??
-    dynamicShippingFee ??
-    (selectedRate?.fee_jpy || 0)
+  const shippingFee = selectedQuote?.fee_jpy ?? 0
+  const baseShippingFee = selectedQuote?.base_shipping_fee_jpy ?? shippingFee
+  const packagingFee = selectedQuote?.packaging_fee_jpy ?? 0
   const finalTotal = total + shippingFee
 
   const displayDelivery = (rate: ShippingRate) => {
@@ -338,10 +306,10 @@ export default function CheckoutPage() {
     void requireAuth().then((token) => {
       if (token) {
         fetchMe()
-        fetchCart()
+        if (!isLoaded) fetchCart()
       }
     })
-  }, [isMounted, isReady, isLoggedIn, router, fetchCart, fetchMe, requireAuth])
+  }, [isMounted, isReady, isLoggedIn, router, fetchCart, fetchMe, requireAuth, isLoaded])
 
   useEffect(() => {
     if (!isMounted || !isReady || !isLoggedIn) return
@@ -811,8 +779,14 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>{t('送料', lang)}</span>
-                  <span>{formatPrice(shippingFee)}</span>
+                  <span>{selectedQuote ? formatPrice(baseShippingFee) : t('計算中...', lang)}</span>
                 </div>
+                {packagingFee > 0 && (
+                  <div className="flex justify-between text-gray-400">
+                    <span>{t('梱包料', lang)}</span>
+                    <span>{formatPrice(packagingFee)}</span>
+                  </div>
+                )}
               </div>
               <div className="border-t border-gray-200 pt-3 flex justify-between font-bold">
                 <span className="text-gray-400">{t('合計', lang)}</span>

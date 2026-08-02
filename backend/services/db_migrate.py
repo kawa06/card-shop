@@ -40,6 +40,18 @@ def run_schema_upgrades() -> None:
     _migrate_buyback_channel_schema()
     _migrate_announcements_schema()
     _migrate_admin_security_schema()
+    _migrate_order_pricing_snapshots()
+
+
+def _migrate_order_pricing_snapshots() -> None:
+    """Persist checkout price breakdown on orders and line item names."""
+    order_cols = [
+        ("items_subtotal", "INTEGER DEFAULT 0"),
+        ("tax_rate_snapshot", "INTEGER"),
+    ]
+    for col, col_type in order_cols:
+        _add_column_if_missing("orders", col, col_type)
+    _add_column_if_missing("order_items", "product_name", "VARCHAR(200)")
 
 
 def _migrate_admin_security_schema() -> None:

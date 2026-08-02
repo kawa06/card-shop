@@ -14,7 +14,7 @@ from services.order_checkout import (
     fulfill_order_inventory,
     get_user_cart_items,
     reserve_inventory_for_order,
-    resolve_shipping_fee,
+    resolve_shipping_quote,
     validate_shipping_method,
 )
 from services.order_emails import try_auto_bank_transfer_pending_email
@@ -133,7 +133,14 @@ def create_stripe_checkout_session(
 
     cart_items = get_user_cart_items(db, current_user.id)
     validate_shipping_method(cart_items, payload.shipping_method, payload.country)
-    shipping_fee = resolve_shipping_fee(payload.shipping_method, payload.region, payload.country, db)
+    shipping_quote = resolve_shipping_quote(payload.shipping_method, payload.region, payload.country, db)
+    base_shipping_fee = int(shipping_quote.get("base_shipping_fee_jpy") or 0)
+    packaging_fee = int(shipping_quote.get("packaging_fee_jpy") or 0)
+    shipping_fee_total = int(shipping_quote.get("fee_jpy") or 0)
+    items_subtotal = int(round(sum(item.card.price * item.quantity for item in cart_items)))
+
+    from services.invoice_config import get_invoice_config
+    invoice = get_invoice_config(db)
 
     payment_method = "stripe_bank_transfer" if checkout_type == "bank_transfer" else "stripe_card"
 
@@ -151,7 +158,10 @@ def create_stripe_checkout_session(
         address_line2=payload.address_line2,
         shipping_address=payload.shipping_address,
         shipping_method=payload.shipping_method,
-        shipping_fee=shipping_fee,
+        shipping_fee=base_shipping_fee,
+        packaging_fee=packaging_fee,
+        items_subtotal=items_subtotal,
+        tax_rate_snapshot=invoice.default_tax_rate,
         payment_method=payment_method,
         payment_status="awaiting_payment",
         finalize=False,
@@ -160,7 +170,7 @@ def create_stripe_checkout_session(
     )
 
     shipping_label = payload.shipping_method or "送料"
-    line_items = build_line_items(cart_items, shipping_fee, shipping_label)
+    line_items = build_line_items(cart_items, shipping_fee_total, shipping_label)
     try:
         session = create_checkout_session(
             order_id=order.id,

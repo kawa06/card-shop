@@ -131,6 +131,7 @@ export interface OrderItem {
   card_id: number
   quantity: number
   unit_price: number
+  product_name?: string | null
   card: Card
 }
 
@@ -148,6 +149,8 @@ export interface Order {
   shipping_address: string | null
   shipping_method: string | null
   shipping_fee: number
+  items_subtotal?: number
+  tax_rate_snapshot?: number | null
   payment_method: string | null
   payment_status: string | null
   payment_deadline: string | null

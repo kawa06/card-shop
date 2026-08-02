@@ -43,6 +43,9 @@ export function formatDocumentDateTime(iso: string | null | undefined): string {
 }
 
 export function itemSubtotal(order: AdminOrderDetail): number {
+  if (order.items_subtotal != null && order.items_subtotal > 0) {
+    return order.items_subtotal
+  }
   return (order.items || []).reduce(
     (sum, item) => sum + (item.unit_price || 0) * (item.quantity || 0),
     0

@@ -153,6 +153,8 @@ class Order(Base):
     shipping_address = Column(Text, nullable=True)
     shipping_method = Column(String(50), nullable=True)
     shipping_fee = Column(Integer, default=0)
+    items_subtotal = Column(Integer, default=0)
+    tax_rate_snapshot = Column(Integer, nullable=True)
     payment_method = Column(String(50), nullable=True)
     payment_status = Column(String(50), default="pending")
     stripe_checkout_session_id = Column(String(255), nullable=True)
@@ -357,6 +359,7 @@ class OrderItem(Base):
     card_id = Column(Integer, ForeignKey("cards.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
+    product_name = Column(String(200), nullable=True)
 
     order = relationship("Order", back_populates="items")
     card = relationship("Card", back_populates="order_items")

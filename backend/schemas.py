@@ -276,6 +276,7 @@ class OrderItemOut(BaseModel):
     card_id: int
     quantity: int
     unit_price: float
+    product_name: Optional[str] = None
     card: CardOut
 
     class Config:
@@ -334,6 +335,8 @@ class OrderOut(BaseModel):
     shipping_address: Optional[str]
     shipping_method: Optional[str] = None
     shipping_fee: int = 0
+    items_subtotal: int = 0
+    tax_rate_snapshot: Optional[int] = None
     payment_method: Optional[str] = None
     payment_status: Optional[str] = None
     payment_deadline: Optional[datetime] = None
