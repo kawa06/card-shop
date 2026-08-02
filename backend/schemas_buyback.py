@@ -335,6 +335,11 @@ class BuybackApplicationFormOut(BaseModel):
     items: List[BuybackApplicationFormItemOut] = []
     identity_status: Optional[str] = None
     identity_status_label: Optional[str] = None
+    identity_document_type: Optional[str] = None
+    identity_document_type_label: Optional[str] = None
+    has_identity_documents: bool = False
+    buyback_method: Optional[str] = None
+    buyback_method_label: Optional[str] = None
     guardian_status: Optional[str] = None
     guardian_status_label: Optional[str] = None
     requires_guardian_consent: bool = False

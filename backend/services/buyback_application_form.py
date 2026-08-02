@@ -12,24 +12,29 @@ from sqlalchemy.orm import Session
 import models
 import models_buyback
 from config import settings
+from services.buyback_admin import DOCUMENT_TYPE_LABELS
 from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_compliance import (
     GUARDIAN_STATUS_LABELS,
     IDENTITY_STATUS_LABELS,
     get_compliance_status,
 )
+from services.buyback_identity import get_or_create_identity
 from services.buyback_inbound import provision_request_logistics
 from services.buyback_requests import get_user_request
 from services.sensitive_redaction import redact_text
 
 APPLICATION_FORM_NOTICES = [
-    "この申込書を買取品と一緒に箱へ入れてください",
-    "申込書がない場合、確認に時間がかかる可能性があります",
-    "荷物は元払いで発送してください",
-    "着払いで届いた荷物は受取拒否または着払いで返送する場合があります",
-    "状態が著しく悪い商品や買取対象外の商品は、買取できない場合があります",
-    "発送前に申込内容と同梱商品を確認してください",
+    "この申込書を買取品と同梱して発送してください。",
+    "荷物は元払いで発送してください（着払い不可）。",
+    "発送前に申込内容と同梱商品をご確認ください。",
+    "状態不良・買取対象外の商品は買取できない場合があります。",
 ]
+
+BUYBACK_METHOD_LABELS = {
+    "store": "店舗買取",
+    "mail": "郵送買取",
+}
 
 
 def _log_print(
@@ -105,6 +110,7 @@ def build_application_form(
         barcode = active
 
     compliance = get_compliance_status(db, user_id=user.id, requires_guardian=False)
+    identity = get_or_create_identity(db, user.id)
     guardian = compliance.get("guardian_status")
     guardian_label = None
     if guardian:
@@ -142,6 +148,8 @@ def build_application_form(
     ]
 
     planned = request.customer_planned_ship_date
+    buyback_method = (request.buyback_method or "mail").strip().lower()
+    doc_type = identity.document_type
     return {
         "shop_name": settings.SITE_NAME or "KRX TCG",
         "request_id": request.id,
@@ -154,9 +162,16 @@ def build_application_form(
         "customer_planned_ship_date": planned.isoformat() if planned else None,
         "declared_item_count": declared_item_count,
         "items": items,
+        "buyback_method": buyback_method,
+        "buyback_method_label": BUYBACK_METHOD_LABELS.get(buyback_method, buyback_method),
         "identity_status": compliance.get("identity_status"),
         "identity_status_label": compliance.get("identity_status_label")
         or IDENTITY_STATUS_LABELS.get(compliance.get("identity_status"), "—"),
+        "identity_document_type": doc_type,
+        "identity_document_type_label": DOCUMENT_TYPE_LABELS.get(doc_type, doc_type)
+        if doc_type
+        else None,
+        "has_identity_documents": bool(identity.storage_key_front),
         "guardian_status": guardian,
         "guardian_status_label": guardian_label,
         "requires_guardian_consent": bool(compliance.get("requires_guardian_consent")),

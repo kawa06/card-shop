@@ -79,7 +79,7 @@ def test_get_application_form_payload_is_pii_minimized(api_client, db):
     assert body["items"][0]["product_name"] == "印刷テストカード"
     assert "scan_token" not in body
     assert body["identity_status_label"]
-    assert len(body["notices"]) >= 6
+    assert len(body["notices"]) >= 4
 
     # Must not leak sensitive fields
     raw = res.text.lower()
