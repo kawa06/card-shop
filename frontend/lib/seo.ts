@@ -40,7 +40,7 @@ export function buildWebsiteJsonLd() {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${SHOP_SITE_URL}/?q={search_term_string}`,
+        urlTemplate: `${SHOP_SITE_URL}/?search={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -78,14 +78,29 @@ export function buildProductJsonLd(card: {
   }
   const condition = conditionLabel[card.condition || ''] || card.condition || ''
   const productUrl = absoluteUrl(`/cards/${card.id}`)
+  const imageUrl = card.image_url
+    ? (card.image_url.startsWith('http') ? card.image_url : absoluteUrl(card.image_url))
+    : absoluteUrl('/ogp.png')
+  const priceValidUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+
+  const itemConditionMap: Record<string, string> = {
+    a: 'https://schema.org/NewCondition',
+    b: 'https://schema.org/UsedCondition',
+    c: 'https://schema.org/UsedCondition',
+    d: 'https://schema.org/UsedCondition',
+    e: 'https://schema.org/DamagedCondition',
+  }
 
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: card.name,
-    image: card.image_url || undefined,
+    image: imageUrl,
     description: card.description || `${card.name} - 状態${condition}`,
     sku: String(card.id),
+    itemCondition: itemConditionMap[card.condition || ''] || 'https://schema.org/UsedCondition',
     brand: {
       '@type': 'Brand',
       name: SITE_NAME,
@@ -94,6 +109,7 @@ export function buildProductJsonLd(card: {
       '@type': 'Offer',
       price: card.price,
       priceCurrency: 'JPY',
+      priceValidUntil,
       availability:
         card.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       url: productUrl,

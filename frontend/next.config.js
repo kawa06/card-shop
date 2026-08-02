@@ -27,6 +27,20 @@ const nextConfig = {
       ],
     }
   },
+  async redirects() {
+    return [
+      {
+        source: '/cards/detail',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/cards/detail/:path*',
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

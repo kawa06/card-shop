@@ -26,7 +26,7 @@ function buildWebsiteJsonLd() {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${SHOP_SITE_URL}/?q={search_term_string}`,
+        urlTemplate: `${SHOP_SITE_URL}/?search={search_term_string}`,
       },
     },
   }

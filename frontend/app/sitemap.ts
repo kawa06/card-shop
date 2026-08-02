@@ -8,37 +8,44 @@ const API_BASE =
 type CardListResponse = {
   items: Array<{ id: number; updated_at?: string | null }>
   total: number
+  pages?: number
 }
 
 async function fetchAllCardUrls(): Promise<MetadataRoute.Sitemap> {
   const urls: MetadataRoute.Sitemap = []
-  let page = 1
-  let total = 0
 
-  while (page === 1 || urls.length < total) {
-    const res = await fetch(`${API_BASE}/api/cards?per_page=100&page=${page}&sort=created_at_desc`, {
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) {
-      break
+  try {
+    let page = 1
+    let totalPages = 1
+
+    while (page <= totalPages && page <= 100) {
+      const res = await fetch(
+        `${API_BASE}/api/cards?per_page=100&page=${page}&sort=created_at_desc`,
+        { next: { revalidate: 3600 } }
+      )
+      if (!res.ok) {
+        console.error(`sitemap: cards API returned ${res.status} on page ${page}`)
+        break
+      }
+
+      const data = (await res.json()) as CardListResponse
+      totalPages = data.pages || Math.ceil((data.total || 0) / 100) || 1
+
+      for (const card of data.items || []) {
+        if (!card?.id) continue
+        urls.push({
+          url: `${SHOP_SITE_URL}/cards/${card.id}`,
+          lastModified: card.updated_at ? new Date(card.updated_at) : new Date(),
+          changeFrequency: 'daily',
+          priority: 0.8,
+        })
+      }
+
+      if (!data.items?.length) break
+      page += 1
     }
-    const data = (await res.json()) as CardListResponse
-    total = data.total || 0
-    for (const card of data.items || []) {
-      urls.push({
-        url: `${SHOP_SITE_URL}/cards/${card.id}`,
-        lastModified: card.updated_at ? new Date(card.updated_at) : new Date(),
-        changeFrequency: 'daily',
-        priority: 0.8,
-      })
-    }
-    if (!data.items?.length) {
-      break
-    }
-    page += 1
-    if (page > 50) {
-      break
-    }
+  } catch (error) {
+    console.error('sitemap: failed to fetch card URLs', error)
   }
 
   return urls
@@ -76,3 +83,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cardUrls = await fetchAllCardUrls()
   return [...staticPages, ...cardUrls]
 }
+
+export const revalidate = 3600

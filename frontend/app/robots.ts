@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
         '/register',
         '/auth/',
         '/verify/',
+        '/cards/detail',
         '/api/',
       ],
     },
