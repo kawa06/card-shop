@@ -124,13 +124,3 @@ def list_packs(db: Session = Depends(get_db)):
     packs = db.query(models.Pack).order_by(models.Pack.sort_order, models.Pack.name).all()
     backfill_name_en_fields(db, packs)
     return packs
-
-
-@router.get("/announcements", response_model=list[schemas.AnnouncementOut])
-def list_announcements(db: Session = Depends(get_db)):
-    return (
-        db.query(models.Announcement)
-        .filter(models.Announcement.is_active == True)
-        .order_by(models.Announcement.priority.desc(), models.Announcement.created_at.desc())
-        .all()
-    )

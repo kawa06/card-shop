@@ -61,7 +61,7 @@ export default function AdminPage() {
       ordersApi.getAll(),
       categoriesApi.getAll(),
       packsApi.getAll(),
-      announcementsApi.getAll(),
+      announcementsApi.adminGetAll(),
       adminApi.getAllUsers(),
       shippingApi.getRates(),
       adminInquiriesApi.getStats(),

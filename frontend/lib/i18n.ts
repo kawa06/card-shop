@@ -50,6 +50,7 @@ const dict: Record<string, string> = {
   'ユーザー一覧': 'User List',
   '注文一覧': 'Order List',
   'お知らせ一覧': 'Announcement List',
+  '未読': 'Unread',
   'カテゴリー一覧': 'Category List',
   'カード詳細': 'Card Details',
   '戻る': 'Back',

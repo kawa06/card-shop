@@ -1,6 +1,7 @@
 import math
 import csv
 import io
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
@@ -20,6 +21,8 @@ from services.shipping_rates import refresh_all_rates
 from services.order_checkout import cancel_unpaid_order, extend_payment_deadline, fulfill_order_inventory
 from services.order_emails import send_purchase_confirmation_email, send_shipping_completion_email
 from services.invoice_config import get_invoice_config, update_invoice_settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/admin",
@@ -297,59 +300,167 @@ def admin_delete_pack(
 
 # ──────────────────────── Announcements ──────────────────────
 
-@router.get("/announcements", response_model=list[schemas.AnnouncementOut])
-def admin_list_announcements(
-    db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
-):
-    return (
-        db.query(models.Announcement)
-        .order_by(models.Announcement.priority.desc(), models.Announcement.created_at.desc())
-        .all()
+def _normalize_create_payload(payload: schemas.AnnouncementCreate) -> dict:
+    title_ja = (payload.title_ja or payload.title or "").strip()
+    title_en = (payload.title_en or "").strip()
+    content_ja = payload.content_ja or payload.content or ""
+    content_en = payload.content_en or ""
+    status_value = payload.status
+    if status_value is None:
+        status_value = "published" if payload.is_active else "draft"
+    return {
+        "title_ja": title_ja,
+        "title_en": title_en,
+        "content_ja": content_ja,
+        "content_en": content_en,
+        "status_value": status_value,
+        "publish_at": payload.publish_at,
+        "expire_at": payload.expire_at,
+        "thumbnail": payload.thumbnail,
+        "priority": payload.priority,
+        "image_urls": payload.image_urls,
+    }
+
+
+def _serialize_admin(row: models.Announcement) -> schemas.AnnouncementAdminOut:
+    return schemas.AnnouncementAdminOut(
+        id=row.id,
+        title=row.title,
+        content=row.content,
+        title_ja=row.title_ja or row.title,
+        title_en=row.title_en or row.title,
+        content_ja=row.content_ja or row.content,
+        content_en=row.content_en or row.content,
+        status=row.status or ("published" if row.is_active else "draft"),
+        is_active=row.is_active,
+        priority=row.priority or 0,
+        publish_at=row.publish_at,
+        expire_at=row.expire_at,
+        thumbnail=row.thumbnail,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        images=[
+            schemas.AnnouncementImageOut.model_validate(img)
+            for img in sorted(row.images or [], key=lambda item: item.sort_order)
+        ],
     )
 
 
-@router.post("/announcements", response_model=schemas.AnnouncementOut, status_code=status.HTTP_201_CREATED)
-def admin_create_announcement(
-    payload: schemas.AnnouncementCreate,
+@router.get("/announcements", response_model=list[schemas.AnnouncementAdminOut])
+def admin_list_announcements(
+    q: Optional[str] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
-    announcement = models.Announcement(**payload.model_dump())
-    db.add(announcement)
-    safe_commit(db, action="カード作成")
+    from services.announcements import search_admin_announcements
+
+    rows = search_admin_announcements(db, q=q)
+    return [_serialize_admin(row) for row in rows]
+
+
+@router.post("/announcements/upload-image")
+async def admin_upload_announcement_image(
+    file: UploadFile = File(...),
+    _: models.User = Depends(get_current_admin),
+):
+    return {"url": await save_uploaded_image(file)}
+
+
+@router.get("/announcements/{ann_id}", response_model=schemas.AnnouncementAdminOut)
+def admin_get_announcement(
+    ann_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    from sqlalchemy.orm import joinedload
+
+    ann = (
+        db.query(models.Announcement)
+        .options(joinedload(models.Announcement.images))
+        .filter(models.Announcement.id == ann_id)
+        .first()
+    )
+    if not ann:
+        raise HTTPException(status_code=404, detail="お知らせが見つかりません")
+    return _serialize_admin(ann)
+
+
+@router.post("/announcements", response_model=schemas.AnnouncementAdminOut, status_code=status.HTTP_201_CREATED)
+def admin_create_announcement(
+    payload: schemas.AnnouncementCreate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    from services.announcements import create_announcement
+
+    fields = _normalize_create_payload(payload)
+    announcement = create_announcement(db, **fields)
+    safe_commit(db, action="お知らせ作成")
     db.refresh(announcement)
-    return announcement
+    logger.info("admin=%s created announcement id=%s", admin.id, announcement.id)
+    return _serialize_admin(announcement)
 
 
-@router.put("/announcements/{ann_id}", response_model=schemas.AnnouncementOut)
+@router.put("/announcements/{ann_id}", response_model=schemas.AnnouncementAdminOut)
 def admin_update_announcement(
     ann_id: int,
     payload: schemas.AnnouncementUpdate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
+    admin: models.User = Depends(get_current_admin),
 ):
-    ann = db.query(models.Announcement).filter(models.Announcement.id == ann_id).first()
+    from sqlalchemy.orm import joinedload
+    from services.announcements import update_announcement
+
+    ann = (
+        db.query(models.Announcement)
+        .options(joinedload(models.Announcement.images))
+        .filter(models.Announcement.id == ann_id)
+        .first()
+    )
     if not ann:
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(ann, field, value)
-    safe_commit(db, action="カード作成")
+
+    data = payload.model_dump(exclude_unset=True)
+    status_value = data.pop("status", None)
+    if status_value is None and "is_active" in data:
+        status_value = "published" if data.pop("is_active") else "draft"
+    elif "is_active" in data:
+        data.pop("is_active")
+
+    if "title" in data and "title_ja" not in data:
+        data["title_ja"] = data.pop("title")
+    if "content" in data and "content_ja" not in data:
+        data["content_ja"] = data.pop("content")
+    else:
+        data.pop("title", None)
+        data.pop("content", None)
+
+    update_announcement(
+        db,
+        ann,
+        status_value=status_value,
+        **data,
+    )
+    safe_commit(db, action="お知らせ更新")
     db.refresh(ann)
-    return ann
+    logger.info("admin=%s updated announcement id=%s", admin.id, ann.id)
+    return _serialize_admin(ann)
 
 
 @router.delete("/announcements/{ann_id}", status_code=status.HTTP_204_NO_CONTENT)
 def admin_delete_announcement(
     ann_id: int,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
+    admin: models.User = Depends(get_current_admin),
 ):
+    from services.announcements import delete_announcement
+
     ann = db.query(models.Announcement).filter(models.Announcement.id == ann_id).first()
     if not ann:
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
-    db.delete(ann)
-    safe_commit(db, action="カード作成")
+    delete_announcement(db, ann)
+    safe_commit(db, action="お知らせ削除")
+    logger.info("admin=%s deleted announcement id=%s", admin.id, ann_id)
 
 
 # ──────────────────────── Orders ─────────────────────────────

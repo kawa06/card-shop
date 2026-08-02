@@ -368,9 +368,66 @@ class Announcement(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=False)
+    title_ja = Column(String(200), nullable=True)
+    title_en = Column(String(200), nullable=True)
+    content_ja = Column(Text, nullable=True)
+    content_en = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="draft", index=True)
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)
+    publish_at = Column(DateTime, nullable=True, index=True)
+    expire_at = Column(DateTime, nullable=True, index=True)
+    thumbnail = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    images = relationship(
+        "AnnouncementImage",
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+        order_by="AnnouncementImage.sort_order",
+    )
+    reads = relationship(
+        "AnnouncementRead",
+        back_populates="announcement",
+        cascade="all, delete-orphan",
+    )
+
+
+class AnnouncementImage(Base):
+    __tablename__ = "announcement_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    announcement_id = Column(
+        Integer,
+        ForeignKey("announcements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    image_url = Column(String(500), nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+
+    announcement = relationship("Announcement", back_populates="images")
+
+
+class AnnouncementRead(Base):
+    __tablename__ = "announcement_reads"
+    __table_args__ = (
+        UniqueConstraint("announcement_id", "user_id", name="uq_announcement_reads_user"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    announcement_id = Column(
+        Integer,
+        ForeignKey("announcements.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    read_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    announcement = relationship("Announcement", back_populates="reads")
+    user = relationship("User")
 
 
 class TranslationCache(Base):

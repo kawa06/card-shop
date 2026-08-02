@@ -29,6 +29,7 @@ from routes.admin_buyback_logistics import router as admin_buyback_logistics_rou
 from routes.admin_security import router as admin_security_router
 from routes.admin_buyback_settings import router as admin_buyback_settings_router
 from routes.buyback import router as buyback_router
+from routes.announcements import router as announcements_router
 
 from sqlalchemy import text, inspect
 
@@ -202,6 +203,7 @@ app.mount("/api/media/uploads", StaticFiles(directory=str(upload_dir)), name="up
 # Routers (Explicit Import 2026-06-20)
 app.include_router(auth_router)
 app.include_router(cards_router)
+app.include_router(announcements_router)
 app.include_router(cart_router)
 app.include_router(orders_router)
 app.include_router(admin_router)

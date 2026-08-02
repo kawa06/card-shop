@@ -38,6 +38,7 @@ def run_schema_upgrades() -> None:
     _migrate_buyback_schema()
     _migrate_buyback_logistics_schema()
     _migrate_buyback_channel_schema()
+    _migrate_announcements_schema()
     _migrate_admin_security_schema()
 
 
@@ -253,6 +254,85 @@ def _migrate_buyback_channel_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("buyback channel settings seed failed")
+
+
+def _migrate_announcements_schema() -> None:
+    import models as shop_models
+
+    _create_table_if_missing("announcement_images", shop_models.AnnouncementImage)
+    _create_table_if_missing("announcement_reads", shop_models.AnnouncementRead)
+
+    for col, col_type in [
+        ("title_ja", "VARCHAR(200)"),
+        ("title_en", "VARCHAR(200)"),
+        ("content_ja", "TEXT"),
+        ("content_en", "TEXT"),
+        ("status", "VARCHAR(20) DEFAULT 'draft'"),
+        ("publish_at", "DATETIME"),
+        ("expire_at", "DATETIME"),
+        ("thumbnail", "VARCHAR(500)"),
+        ("updated_at", "DATETIME"),
+    ]:
+        _add_column_if_missing("announcements", col, col_type)
+
+    inspector = inspect(engine)
+    if "announcements" not in inspector.get_table_names():
+        return
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE announcements SET title_ja = title "
+                    "WHERE title_ja IS NULL OR title_ja = ''"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET content_ja = content "
+                    "WHERE content_ja IS NULL OR content_ja = ''"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET title_en = title "
+                    "WHERE title_en IS NULL OR title_en = ''"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET content_en = content "
+                    "WHERE content_en IS NULL OR content_en = ''"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET status = 'published' "
+                    "WHERE (status IS NULL OR status = '') AND is_active = 1"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET status = 'draft' "
+                    "WHERE (status IS NULL OR status = '') AND (is_active = 0 OR is_active IS NULL)"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET publish_at = created_at "
+                    "WHERE publish_at IS NULL AND status = 'published'"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE announcements SET updated_at = created_at "
+                    "WHERE updated_at IS NULL"
+                )
+            )
+            conn.commit()
+        logger.info("Backfilled announcement bilingual columns")
+    except Exception:
+        logger.error("Failed to backfill announcement columns")
 
 
 def _create_unique_index_if_missing(table: str, index_name: str, column: str) -> None:

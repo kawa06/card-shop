@@ -144,3 +144,36 @@ a.inline-flex svg {
 .card-glow:hover {
   box-shadow: 0 0 20px rgba(250, 204, 21, 0.1);
 }
+
+.announcement-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 0.75rem 0;
+  cursor: zoom-in;
+}
+
+.announcement-html h1,
+.announcement-html h2,
+.announcement-html h3 {
+  color: #111827;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+
+.announcement-html ul,
+.announcement-html ol {
+  padding-left: 1.25rem;
+  margin: 0.75rem 0;
+}
+
+.announcement-html a {
+  color: #ca8a04;
+  text-decoration: underline;
+}
+
+.announcement-html [contenteditable][data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}

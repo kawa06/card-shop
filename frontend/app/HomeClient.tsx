@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Suspense } from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -8,7 +9,6 @@ import { cardsApi, categoriesApi, announcementsApi, packsApi } from '@/lib/api'
 import { Card, Category, Announcement, Pack } from '@/lib/types'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
-import { useTranslation } from '@/hooks/useTranslation'
 import { useLocalizedNames } from '@/lib/localized'
 import CardGrid from '@/components/cards/CardGrid'
 import CategorySidebar from '@/components/cards/CategorySidebar'
@@ -48,7 +48,7 @@ function HomeContent() {
         cardsApi.getAll(params),
         categoriesApi.getAll(),
         packsApi.getAll(),
-        announcementsApi.getAll(),
+        announcementsApi.getAll(lang),
       ])
 
       const cardsData = cardsRes.data
@@ -71,7 +71,7 @@ function HomeContent() {
     } finally {
       setIsLoading(false)
     }
-  }, [currentPage, searchQuery, categoryId, packId])
+  }, [currentPage, searchQuery, categoryId, packId, lang])
 
   useEffect(() => {
     fetchData()
@@ -115,7 +115,18 @@ function HomeContent() {
             <div className="flex items-center gap-2 overflow-x-auto max-w-full">
               <Bell className="h-4 w-4 text-yellow-400 flex-shrink-0" />
               {announcements.map((announcement, i) => (
-                <TranslatedAnnouncement key={announcement.id} announcement={announcement} i={i} />
+                <Link
+                  key={announcement.id}
+                  href={`/mypage/announcements/${announcement.id}`}
+                  className="flex items-center gap-2 text-sm text-yellow-700 whitespace-nowrap hover:underline"
+                >
+                  {i > 0 && <span className="text-yellow-400/30">|</span>}
+                  <span className="text-yellow-600 font-medium">{announcement.title}</span>
+                  <ChevronRight className="h-3 w-3 text-yellow-400/50" />
+                  <span className="hidden sm:inline truncate max-w-[240px]">
+                    {(announcement.content || '').replace(/<[^>]+>/g, ' ').trim()}
+                  </span>
+                </Link>
               ))}
             </div>
           </div>
@@ -209,19 +220,6 @@ function HomeContent() {
         </div>
       </div>
     </div>
-  )
-}
-
-function TranslatedAnnouncement({ announcement, i }: { announcement: Announcement; i: number }) {
-  const title = useTranslation(announcement.title)
-  const content = useTranslation(announcement.content)
-  return (
-    <span className="flex items-center gap-2 text-sm text-yellow-700 whitespace-nowrap">
-      {i > 0 && <span className="text-yellow-400/30">|</span>}
-      <span className="text-yellow-400 font-medium">{title}</span>
-      <ChevronRight className="h-3 w-3 text-yellow-400/50" />
-      <span>{content}</span>
-    </span>
   )
 }
 

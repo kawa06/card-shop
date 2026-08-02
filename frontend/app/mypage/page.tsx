@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare } from 'lucide-react'
+import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
-import { ordersApi, authApi, favoritesApi, inquiriesApi } from '@/lib/api'
+import { ordersApi, authApi, favoritesApi, inquiriesApi, announcementsApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -62,6 +62,7 @@ export default function MypagePage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [favoriteCount, setFavoriteCount] = useState<number | null>(null)
   const [inquiryUnreadCount, setInquiryUnreadCount] = useState<number | null>(null)
+  const [announcementUnreadCount, setAnnouncementUnreadCount] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   
@@ -146,6 +147,11 @@ export default function MypagePage() {
           if (!cancelled) setInquiryUnreadCount(res.data?.count ?? 0)
         }).catch(() => {
           if (!cancelled) setInquiryUnreadCount(0)
+        })
+        announcementsApi.getUnreadCount().then((res) => {
+          if (!cancelled) setAnnouncementUnreadCount(res.data?.count ?? 0)
+        }).catch(() => {
+          if (!cancelled) setAnnouncementUnreadCount(0)
         }).finally(() => {
           if (!cancelled) setIsLoading(false)
         })
@@ -533,6 +539,32 @@ export default function MypagePage() {
                       : lang === 'ja'
                         ? '履歴を見る'
                         : 'View history'}
+                </p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/announcements">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-amber-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-amber-400/10 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors relative">
+                <Bell className="h-5 w-5" />
+                {announcementUnreadCount != null && announcementUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {announcementUnreadCount > 9 ? '9+' : announcementUnreadCount}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{t('お知らせ', lang)}</p>
+                <p className="text-gray-500 text-[10px]">
+                  {announcementUnreadCount === null
+                    ? t('読み込み中...', lang)
+                    : announcementUnreadCount > 0
+                      ? lang === 'ja'
+                        ? `未読 ${announcementUnreadCount}件`
+                        : `${announcementUnreadCount} unread`
+                      : lang === 'ja'
+                        ? '一覧を見る'
+                        : 'View announcements'}
                 </p>
               </div>
             </div>

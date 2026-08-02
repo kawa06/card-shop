@@ -603,6 +603,15 @@ class InquiryTemplateUpdate(BaseModel):
 
 # ─────────────────────────── Announcement ────────────────────
 
+class AnnouncementImageOut(BaseModel):
+    id: int
+    image_url: str
+    sort_order: int
+
+    class Config:
+        from_attributes = True
+
+
 class AnnouncementBase(BaseModel):
     title: str
     content: str
@@ -611,19 +620,82 @@ class AnnouncementBase(BaseModel):
 
 
 class AnnouncementCreate(AnnouncementBase):
-    pass
+    title_ja: Optional[str] = None
+    title_en: Optional[str] = None
+    content_ja: Optional[str] = None
+    content_en: Optional[str] = None
+    status: Optional[str] = None
+    publish_at: Optional[datetime] = None
+    expire_at: Optional[datetime] = None
+    thumbnail: Optional[str] = None
+    image_urls: List[str] = []
 
 
 class AnnouncementUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
+    title_ja: Optional[str] = None
+    title_en: Optional[str] = None
+    content_ja: Optional[str] = None
+    content_en: Optional[str] = None
+    status: Optional[str] = None
     is_active: Optional[bool] = None
     priority: Optional[int] = None
+    publish_at: Optional[datetime] = None
+    expire_at: Optional[datetime] = None
+    clear_publish_at: Optional[bool] = None
+    clear_expire_at: Optional[bool] = None
+    thumbnail: Optional[str] = None
+    image_urls: Optional[List[str]] = None
 
 
 class AnnouncementOut(AnnouncementBase):
     id: int
     created_at: datetime
+    title_ja: Optional[str] = None
+    title_en: Optional[str] = None
+    content_ja: Optional[str] = None
+    content_en: Optional[str] = None
+    status: Optional[str] = None
+    publish_at: Optional[datetime] = None
+    expire_at: Optional[datetime] = None
+    thumbnail: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    images: List[AnnouncementImageOut] = []
+    is_new: bool = False
+    is_read: Optional[bool] = None
+    content_excerpt: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AnnouncementFeedOut(BaseModel):
+    items: List[AnnouncementOut]
+    unread_count: int = 0
+
+
+class AnnouncementUnreadCountOut(BaseModel):
+    count: int
+
+
+class AnnouncementAdminOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    title_ja: str
+    title_en: str
+    content_ja: str
+    content_en: str
+    status: str
+    is_active: bool
+    priority: int
+    publish_at: Optional[datetime] = None
+    expire_at: Optional[datetime] = None
+    thumbnail: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    images: List[AnnouncementImageOut] = []
 
     class Config:
         from_attributes = True

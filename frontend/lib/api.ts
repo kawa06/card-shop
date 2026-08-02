@@ -1,5 +1,11 @@
 import axios from 'axios'
 import { getClerkSessionToken } from '@/lib/clerk-token'
+import type {
+  Announcement,
+  AnnouncementAdmin,
+  AnnouncementFeedResponse,
+  AnnouncementFormData,
+} from './types'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -174,12 +180,49 @@ export const packsApi = {
 
 // Announcements API
 export const announcementsApi = {
-  getAll: () => apiClient.get('/announcements'),
-  create: (data: { title: string; content: string; is_active: boolean }) =>
-    apiClient.post('/admin/announcements', data),
-  update: (id: number, data: { title: string; content: string; is_active: boolean }) =>
-    apiClient.put(`/admin/announcements/${id}`, data),
+  /** Legacy public banner list (home page) */
+  getAll: (lang?: 'ja' | 'en') =>
+    apiClient.get<Announcement[]>('/announcements', { params: lang ? { lang } : undefined }),
+  getFeed: (params?: { lang?: 'ja' | 'en'; q?: string }) =>
+    apiClient.get<AnnouncementFeedResponse>('/announcements/feed', { params }),
+  getUnreadCount: () =>
+    apiClient.get<{ count: number }>('/announcements/unread-count'),
+  getById: (id: number, lang?: 'ja' | 'en') =>
+    apiClient.get<Announcement>(`/announcements/${id}`, { params: lang ? { lang } : undefined }),
+  create: (data: Partial<AnnouncementFormData> & {
+    title?: string
+    content?: string
+    is_active?: boolean
+    publish_at?: string | null
+    expire_at?: string | null
+    thumbnail?: string | null
+  }) =>
+    apiClient.post<AnnouncementAdmin>('/admin/announcements', data),
+  update: (
+    id: number,
+    data: Partial<AnnouncementFormData> & {
+      title?: string
+      content?: string
+      is_active?: boolean
+      clear_publish_at?: boolean
+      clear_expire_at?: boolean
+      publish_at?: string | null
+      expire_at?: string | null
+      thumbnail?: string | null
+    }
+  ) => apiClient.put<AnnouncementAdmin>(`/admin/announcements/${id}`, data),
   delete: (id: number) => apiClient.delete(`/admin/announcements/${id}`),
+  adminGetAll: (q?: string) =>
+    apiClient.get<AnnouncementAdmin[]>('/admin/announcements', { params: q ? { q } : undefined }),
+  adminGetById: (id: number) =>
+    apiClient.get<AnnouncementAdmin>(`/admin/announcements/${id}`),
+  uploadImage: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<{ url: string }>('/admin/announcements/upload-image', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
 
 // Auth API

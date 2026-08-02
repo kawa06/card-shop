@@ -35,12 +35,58 @@ export interface Pack {
   sort_order: number
 }
 
+export interface AnnouncementImage {
+  id: number
+  image_url: string
+  sort_order: number
+}
+
 export interface Announcement {
   id: number
   title: string
   content: string
   is_active: boolean
+  priority?: number
   created_at: string
+  title_ja?: string
+  title_en?: string
+  content_ja?: string
+  content_en?: string
+  status?: 'draft' | 'published' | 'scheduled'
+  publish_at?: string | null
+  expire_at?: string | null
+  thumbnail?: string | null
+  updated_at?: string | null
+  images?: AnnouncementImage[]
+  is_new?: boolean
+  is_read?: boolean
+  content_excerpt?: string
+}
+
+export interface AnnouncementAdmin extends Announcement {
+  title_ja: string
+  title_en: string
+  content_ja: string
+  content_en: string
+  status: 'draft' | 'published' | 'scheduled'
+}
+
+export interface AnnouncementFeedResponse {
+  items: Announcement[]
+  unread_count: number
+}
+
+export interface AnnouncementFormData {
+  title_ja: string
+  title_en: string
+  content_ja: string
+  content_en: string
+  status: 'draft' | 'published' | 'scheduled'
+  publish_at: string | null
+  expire_at: string | null
+  thumbnail: string | null
+  priority: number
+  image_urls: string[]
 }
 
 export interface User {
