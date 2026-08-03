@@ -8,11 +8,13 @@ import secrets
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import models
 import models_buyback
 from config import settings
+from services.buyback_age import requires_guardian_consent_for_user
 from services.buyback_emails import notify_guardian_consent_requested
 from services.buyback_identity import ALLOWED_DOCUMENT_TYPES
 from services.buyback_kyc_storage import delete_kyc_object, upload_guardian_document
@@ -20,6 +22,31 @@ from services.buyback_kyc_storage import delete_kyc_object, upload_guardian_docu
 logger = logging.getLogger(__name__)
 
 CONSENT_TOKEN_BYTES = 32
+
+
+def _upload_error_detail(
+    *,
+    message: str,
+    error_code: str,
+    technical_detail: str | None = None,
+) -> dict[str, str | None]:
+    detail: dict[str, str | None] = {
+        "message": message,
+        "error_code": error_code,
+    }
+    if technical_detail:
+        detail["technical_detail"] = technical_detail
+    return detail
+
+
+def _safe_technical_detail(exc: BaseException) -> str:
+    name = type(exc).__name__
+    text = str(exc).strip()
+    if not text:
+        return name
+    if len(text) > 300:
+        text = text[:300] + "..."
+    return f"{name}: {text}"
 
 
 def _hash_token(raw: str) -> str:
@@ -114,9 +141,35 @@ def upload_guardian_consent_document(
     if side not in ("front", "back"):
         raise HTTPException(status_code=400, detail="side は front または back を指定してください")
 
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    if not user.birth_date:
+        raise HTTPException(
+            status_code=400,
+            detail="生年月日を登録してから保護者本人確認書類をアップロードしてください",
+        )
+    if not requires_guardian_consent_for_user(user):
+        raise HTTPException(
+            status_code=400,
+            detail="18歳以上の方は保護者本人確認書類の提出は不要です",
+        )
+
     consent = _ensure_editable_consent(db, user_id)
     if consent.status == models_buyback.GuardianConsentStatus.signed.value:
         raise HTTPException(status_code=400, detail="同意済みのため書類を更新できません")
+
+    doc_type = (consent.document_type or "").strip()
+    if not doc_type:
+        raise HTTPException(
+            status_code=400,
+            detail="保護者本人確認書類の種類を選択してからアップロードしてください",
+        )
+    if side == "back" and doc_type == "my_number_card":
+        raise HTTPException(
+            status_code=400,
+            detail="マイナンバーカードの裏面はアップロードできません",
+        )
 
     side_label = "表面" if side == "front" else "裏面"
     previous_key = consent.storage_key_front if side == "front" else consent.storage_key_back
@@ -131,26 +184,33 @@ def upload_guardian_consent_document(
         )
     except ValueError as exc:
         logger.warning(
-            "guardian_upload_rejected user_id=%s consent_id=%s side=%s size=%s mime=%s",
+            "guardian_upload_rejected user_id=%s consent_id=%s side=%s size=%s mime=%s detail=%s",
             user_id,
             consent.id,
             side,
             len(data or b""),
             (content_type or "")[:64],
+            exc,
         )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         logger.error(
-            "guardian_upload_failed user_id=%s consent_id=%s side=%s size=%s mime=%s",
+            "guardian_upload_storage_failed user_id=%s consent_id=%s side=%s size=%s mime=%s detail=%s",
             user_id,
             consent.id,
             side,
             len(data or b""),
             (content_type or "")[:64],
+            exc,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=503,
-            detail=f"保護者本人確認書類の{side_label}をアップロードできませんでした。時間をおいて再度お試しください。",
+            detail=_upload_error_detail(
+                message=f"保護者本人確認書類の{side_label}を保存できませんでした。時間をおいて再度お試しください。",
+                error_code="kyc_storage_unavailable",
+                technical_detail=_safe_technical_detail(exc),
+            ),
         ) from exc
     except Exception as exc:
         logger.error(
@@ -158,22 +218,56 @@ def upload_guardian_consent_document(
             user_id,
             consent.id,
             side,
-            type(exc).__name__,
+            exc,
+            exc_info=True,
         )
         raise HTTPException(
             status_code=500,
-            detail=f"保護者本人確認書類の{side_label}をアップロードできませんでした。時間をおいて再度お試しください。",
+            detail=_upload_error_detail(
+                message=f"保護者本人確認書類の{side_label}をアップロードできませんでした。",
+                error_code="guardian_upload_failed",
+                technical_detail=_safe_technical_detail(exc),
+            ),
         ) from exc
 
     if side == "front":
         consent.storage_key_front = key
     else:
         consent.storage_key_back = key
-    db.commit()
-    db.refresh(consent)
+
+    try:
+        db.commit()
+        db.refresh(consent)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "guardian_upload_db_failed user_id=%s consent_id=%s side=%s err=%s",
+            user_id,
+            consent.id,
+            side,
+            exc,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=_upload_error_detail(
+                message=f"保護者本人確認書類の{side_label}を保存できませんでした（DBエラー）。",
+                error_code="guardian_upload_db_failed",
+                technical_detail=_safe_technical_detail(exc),
+            ),
+        ) from exc
 
     if previous_key and previous_key != key:
-        delete_kyc_object(previous_key)
+        try:
+            delete_kyc_object(previous_key)
+        except Exception as exc:
+            logger.warning(
+                "guardian_upload_delete_previous_failed user_id=%s consent_id=%s key=%s err=%s",
+                user_id,
+                consent.id,
+                previous_key,
+                exc,
+            )
 
     return consent
 
