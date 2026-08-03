@@ -329,6 +329,7 @@ def _migrate_buyback_channel_schema() -> None:
     _add_column_if_missing("buyback_requests", "buyback_method", "VARCHAR(16)")
     _add_column_if_missing("buyback_requests", "store_visit_at", "DATETIME")
     _add_column_if_missing("buyback_promo_banners", "linked_product_ids_json", "TEXT")
+    _add_column_if_missing("buyback_channel_settings", "email_auto_send_json", "TEXT")
 
     from sqlalchemy.orm import sessionmaker
 
@@ -852,3 +853,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("shipping email template upgrade failed")
+        try:
+            from services.buyback_email_templates_seed import upgrade_buyback_email_templates
+
+            buyback_upgraded = upgrade_buyback_email_templates(db)
+            if buyback_upgraded:
+                db.commit()
+                logger.info("Upgraded %s buyback email templates", buyback_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("buyback email template upgrade failed")

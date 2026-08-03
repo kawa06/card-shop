@@ -56,6 +56,43 @@ SHIPPING_EMAIL_BODY_SKELETON = """
 """.strip()
 
 
+BUYBACK_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{buybackInfoBlock}}
+
+{{buybackSummaryBlock}}
+
+{{itemsTable}}
+
+{{assessmentDetail}}
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+BUYBACK_VARIABLES_HINT = (
+    "{{name}} / {{ユーザー名}}, {{buyNo}} / {{買取番号}}, {{receivedAt}} / {{受付日時}}, "
+    "{{buybackMethod}} / {{買取方法}}, {{storeName}} / {{店舗名}}, {{visitAt}} / {{来店日時}}, "
+    "{{assessmentStartedAt}} / {{査定開始日時}}, {{assessmentCompletedAt}} / {{査定完了日時}}, "
+    "{{assessedAmount}} / {{査定金額}}, {{approvalDeadline}} / {{承認期限}}, "
+    "{{payoutAmount}} / {{振込金額}}, {{paidAt}} / {{振込日時}}, {{returnReason}} / {{返送理由}}, "
+    "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{trackingUrl}} / {{追跡URL}}, "
+    "{{contactUrl}} / {{お問い合わせURL}}, {{bodyTitle}}, {{bodyDescription}}, "
+    "{{buybackInfoBlock}}, {{itemsTable}}, {{assessmentDetail}}, {{buttonsBlock}}, "
+    "{{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -171,6 +208,14 @@ def build_signature_block(signature_html: str) -> str:
 
 def build_shipping_info_block(rows: list[tuple[str, str]]) -> str:
     """Dynamic shipping info table — only non-empty rows are included."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_buyback_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic buyback info table — only non-empty rows are included."""
     visible = [(label, value) for label, value in rows if value and str(value).strip()]
     if not visible:
         return ""

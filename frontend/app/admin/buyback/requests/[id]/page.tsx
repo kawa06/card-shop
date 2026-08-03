@@ -87,6 +87,8 @@ export default function AdminBuybackRequestDetailPage() {
   const [assessedTotal, setAssessedTotal] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [sendEmail, setSendEmail] = useState(true)
+  const [forceEmail, setForceEmail] = useState(false)
   const [isSavingItems, setIsSavingItems] = useState(false)
   const [error, setError] = useState('')
   const [isMounted, setIsMounted] = useState(false)
@@ -236,7 +238,15 @@ export default function AdminBuybackRequestDetailPage() {
         admin_note?: string
         tracking_number?: string
         assessed_total?: number
-      } = { status: nextStatus, admin_note: adminNote, tracking_number: trackingNumber }
+        send_email?: boolean
+        force_email?: boolean
+      } = {
+        status: nextStatus,
+        admin_note: adminNote,
+        tracking_number: trackingNumber,
+        send_email: sendEmail,
+        force_email: forceEmail,
+      }
       if (assessedTotal.trim()) payload.assessed_total = Number(assessedTotal)
       const res = await adminBuybackApi.updateRequest(detail.id, payload)
       setDetail(res.data)
@@ -622,6 +632,22 @@ export default function AdminBuybackRequestDetailPage() {
                   value={adminNote}
                   onChange={(e) => setAdminNote(e.target.value)}
                 />
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sendEmail}
+                    onChange={(e) => setSendEmail(e.target.checked)}
+                  />
+                  通知メールを送信する
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={forceEmail}
+                    onChange={(e) => setForceEmail(e.target.checked)}
+                  />
+                  再送信（既送信でも送る）
+                </label>
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <Button onClick={handleUpdate} disabled={isSaving || !nextStatus}>
                   更新する

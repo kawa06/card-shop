@@ -25,7 +25,7 @@ from services.buyback_emails import (
     notify_buyback_assessment_ready,
     notify_buyback_decision,
     notify_buyback_payout_completed,
-    notify_buyback_status_changed,
+    send_buyback_status_change_email,
     notify_identity_approved,
     notify_identity_rejected,
     notify_identity_resubmit_requested,
@@ -557,6 +557,8 @@ def update_request_status(
     assessed_total: Optional[int] = None,
     payout_total: Optional[int] = None,
     allow_payout_completion: bool = False,
+    send_email: bool | None = None,
+    force_email: bool = False,
 ) -> models_buyback.BuybackRequest:
     request = get_admin_request(db, request_id)
     current = request.status
@@ -659,14 +661,26 @@ def update_request_status(
                 models_buyback.BuybackRequestStatus.assessed.value,
                 models_buyback.BuybackRequestStatus.awaiting_customer.value,
             }:
-                notify_buyback_assessment_ready(db, request, user)
+                notify_buyback_assessment_ready(
+                    db, request, user, force=force_email, send_email=send_email
+                )
             elif new_status in {
                 models_buyback.BuybackRequestStatus.accepted.value,
                 models_buyback.BuybackRequestStatus.rejected.value,
             }:
-                notify_buyback_decision(db, request, user)
+                notify_buyback_decision(
+                    db, request, user, force=force_email, send_email=send_email
+                )
             else:
-                notify_buyback_status_changed(db, request, user, previous_status=current)
+                send_buyback_status_change_email(
+                    db,
+                    request,
+                    user,
+                    to_status=new_status,
+                    previous_status=current,
+                    send_email=send_email,
+                    force=force_email,
+                )
     except Exception:
         logger.warning(
             "Status-change notification failed",

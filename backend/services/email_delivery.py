@@ -18,7 +18,8 @@ from config import settings
 from services.email_events import normalize_variable_key, sample_variables_for_template
 from services.email_html import wrap_with_brand
 from services.email_order_layout import build_preheader_html
-from services.shipping_email_registry import normalize_template_key
+from services.shipping_email_registry import normalize_template_key as normalize_shipping_template_key
+from services.buyback_email_registry import normalize_template_key as normalize_buyback_template_key
 from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
@@ -181,8 +182,11 @@ def get_brand_settings(db: Session) -> models_email.EmailBrandSettings:
 
 def _find_active_template(db: Session, template_key: str) -> models_email.EmailTemplate | None:
     keys: list[str] = []
-    normalized = normalize_template_key(template_key)
-    for key in (normalized, template_key):
+    for key in (
+        template_key,
+        normalize_shipping_template_key(template_key),
+        normalize_buyback_template_key(template_key),
+    ):
         if key and key not in keys:
             keys.append(key)
     for key in keys:

@@ -32,6 +32,39 @@ export default function AdminEmailPage() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
 
+  const handleCreateBuybackTemplate = async () => {
+    const key = window.prompt('テンプレートキー（例: buyback_custom_notice）')
+    if (!key) return
+    const name = window.prompt('テンプレート名') || key
+    setCreating(true)
+    try {
+      await adminEmailApi.createTemplate({
+        template_key: key,
+        category: 'buyback',
+        name,
+        subject: '【{{shopName}}】（件名を入力）（{{buyNo}}）',
+        preheader: '（プリヘッダーを入力）',
+        html_body: `<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;">{{bodyTitle}}</h1>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+{{buybackInfoBlock}}
+{{itemsTable}}
+{{buttonsBlock}}
+{{notesBlock}}
+{{contactBlock}}
+{{signatureBlock}}`,
+        text_body: '{{name}} 様\\n\\n{{bodyTitle}}\\n\\n{{bodyDescription}}',
+        is_active: false,
+      })
+      toast({ title: 'テンプレートを作成しました' })
+      void load()
+    } catch {
+      toast({ title: 'テンプレートの作成に失敗しました', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const handleCreateShippingTemplate = async () => {
     const key = window.prompt('テンプレートキー（例: shipping_custom_notice）')
     if (!key) return
@@ -103,6 +136,21 @@ export default function AdminEmailPage() {
             >
               <Plus className="h-4 w-4" /> 新規テンプレート
             </button>
+          )}
+          {category === 'buyback' && (
+            <>
+              <Link href="/admin/settings/email/buyback-notifications" className="text-purple-600 hover:underline">
+                自動送信設定
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleCreateBuybackTemplate()}
+                disabled={creating}
+                className="inline-flex items-center gap-1 text-emerald-600 hover:underline disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" /> 新規テンプレート
+              </button>
+            </>
           )}
           <Link href="/admin/settings/email/brand" className="text-cyan-600 hover:underline">
             ブランド設定

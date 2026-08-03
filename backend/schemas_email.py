@@ -165,6 +165,14 @@ class EmailTestSendIn(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
 
 
+class BuybackEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class BuybackEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
 class EmailSendLogOut(BaseModel):
     id: int
     template_key: Optional[str] = None

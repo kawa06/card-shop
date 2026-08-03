@@ -849,6 +849,13 @@ class AdminBuybackRequestUpdateIn(BaseModel):
     tracking_number: Optional[str] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
+    send_email: Optional[bool] = None
+    force_email: bool = False
+
+
+class AdminBuybackResendEmailIn(BaseModel):
+    event_key: str
+    force: bool = True
 
 
 class AdminBuybackScanIn(BaseModel):

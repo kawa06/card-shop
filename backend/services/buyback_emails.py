@@ -11,8 +11,19 @@ from sqlalchemy.orm import Session
 import models
 import models_buyback
 from config import settings
-from services.email_delivery import send_templated_email
+from services.buyback_email_auto_send import should_auto_send
+from services.buyback_email_registry import (
+    get_buyback_email_event,
+    resolve_buyback_template_key,
+    resolve_status_change_event,
+)
+from services.buyback_email_variables import (
+    RAW_BUYBACK_VARIABLE_KEYS,
+    build_buyback_email_variables,
+)
 from services.buyback_request_status import STATUS_DESCRIPTIONS, STATUS_LABELS
+from services.email_delivery import render_template_string, send_templated_email
+from services.email_order_layout import BUYBACK_EMAIL_BODY_SKELETON
 from services.verification import email_configured
 
 logger = logging.getLogger(__name__)
@@ -119,7 +130,127 @@ def _buyback_template_variables(
     return variables
 
 
-_RAW_BUYBACK_KEYS = {"content", "itemsTable", "assessmentDetail"}
+_RAW_BUYBACK_KEYS = RAW_BUYBACK_VARIABLE_KEYS
+
+
+def send_buyback_event_email(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    event_key: str,
+    *,
+    force: bool = False,
+    send_email: bool | None = None,
+    reference_type: str = "buyback_request",
+    reference_id: str | None = None,
+    include_assessment_detail: bool = False,
+    package_tracking: str | None = None,
+    package_carrier: str | None = None,
+    return_reason: str | None = None,
+    fallback_subject: str | None = None,
+    to_email: str | None = None,
+) -> tuple[bool, str | None]:
+    """Central buyback email dispatcher with dedupe, auto-send prefs, and templated fallback."""
+    if not should_auto_send(db, event_key, explicit=send_email):
+        return True, None
+
+    event = get_buyback_email_event(event_key)
+    template_key = resolve_buyback_template_key(event_key, request.buyback_method)
+    ref_id = reference_id or str(request.id)
+    if event and event.dedupe_reference_suffix and reference_id is None:
+        ref_id = f"{request.id}{event.dedupe_reference_suffix}"
+
+    if notification_already_sent(db, template_key, ref_id, reference_type=reference_type) and not force:
+        return True, None
+
+    recipient = to_email or user.email
+    if not recipient:
+        return False, "recipient_missing"
+
+    include_detail = include_assessment_detail or event_key in {
+        "buyback_assessment_ready",
+        "buyback_assessment_result",
+        "buyback_awaiting_approval",
+    }
+    variables = build_buyback_email_variables(
+        db,
+        user,
+        request,
+        event_key,
+        include_assessment_detail=include_detail,
+        package_tracking=package_tracking,
+        package_carrier=package_carrier,
+        return_reason=return_reason,
+    )
+    subject = fallback_subject or f"【{variables.get('shopName', 'KRX TCG')}】{event.description if event else event_key}（{variables.get('buyNo', '')}）"
+    fallback_html = render_template_string(
+        BUYBACK_EMAIL_BODY_SKELETON,
+        variables,
+        raw_keys=RAW_BUYBACK_VARIABLE_KEYS,
+    )
+
+    if not email_configured():
+        if settings.DEBUG:
+            logger.info("[BUYBACK EMAIL MOCK] to=%s event=%s", recipient, event_key)
+            _record_delivery(
+                db,
+                user_id=user.id,
+                template_key=template_key,
+                reference_id=ref_id,
+                ok=True,
+                reference_type=reference_type,
+            )
+        return True, None
+
+    result = send_templated_email(
+        db,
+        template_key=template_key,
+        to_email=recipient,
+        variables=variables,
+        fallback_subject=subject,
+        fallback_html=fallback_html,
+        fallback_text=variables.get("_text_body"),
+        reference_type=reference_type,
+        reference_id=ref_id,
+        raw_variable_keys=RAW_BUYBACK_VARIABLE_KEYS,
+    )
+    _record_delivery(
+        db,
+        user_id=user.id,
+        template_key=template_key,
+        reference_id=ref_id,
+        ok=result.ok,
+        error=result.error,
+        reference_type=reference_type,
+    )
+    return result.ok, result.error
+
+
+def send_buyback_status_change_email(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    to_status: str,
+    previous_status: str | None = None,
+    send_email: bool | None = None,
+    force: bool = False,
+) -> tuple[bool, str | None]:
+    event_key = resolve_status_change_event(
+        to_status=to_status,
+        buyback_method=request.buyback_method,
+    )
+    if not event_key:
+        event_key = "buyback_request_updated"
+    return send_buyback_event_email(
+        db,
+        request,
+        user,
+        event_key,
+        send_email=send_email,
+        force=force,
+        reference_id=f"{request.id}:{to_status}" if force else None,
+    )
 
 
 def _wrap_email(inner_html: str) -> str:
@@ -206,16 +337,21 @@ def notify_buyback_request_submitted(
             )
         return
 
-    variables = _buyback_template_variables(
-        user, request, body_html=customer_body, extra={"itemsTable": _items_table_html(request)}
+    variables = build_buyback_email_variables(
+        db, user, request, "buyback_request_submitted",
+        include_assessment_detail=False,
     )
+    variables["itemsTable"] = _items_table_html(request)
     result = send_templated_email(
         db,
         template_key="buyback_request_submitted",
         to_email=user.email,
         variables=variables,
         fallback_subject=customer_subject,
-        fallback_html=customer_html,
+        fallback_html=render_template_string(
+            BUYBACK_EMAIL_BODY_SKELETON, variables, raw_keys=RAW_BUYBACK_VARIABLE_KEYS
+        ),
+        fallback_text=variables.get("_text_body"),
         reference_type="buyback_request",
         reference_id=str(request.id),
         raw_variable_keys=_RAW_BUYBACK_KEYS,
@@ -494,48 +630,21 @@ def _send_customer_template(
     force: bool = False,
     reference_type: str = "buyback_request",
     reference_id: str | None = None,
+    send_email: bool | None = None,
+    include_assessment_detail: bool = False,
 ) -> tuple[bool, str | None]:
-    ref_id = reference_id or str(request.id)
-    if notification_already_sent(db, template_key, ref_id, reference_type=reference_type) and not force:
-        return True, None
-
-    html_wrapped = _wrap_email(body_html)
-    if not email_configured():
-        if settings.DEBUG:
-            logger.info("[BUYBACK EMAIL MOCK] to=%s subject=%s key=%s", user.email, subject, template_key)
-            _record_delivery(
-                db,
-                user_id=user.id,
-                template_key=template_key,
-                reference_id=ref_id,
-                ok=True,
-                reference_type=reference_type,
-            )
-        return True, None
-
-    variables = _buyback_template_variables(user, request, body_html=body_html)
-    result = send_templated_email(
+    return send_buyback_event_email(
         db,
-        template_key=template_key,
-        to_email=user.email,
-        variables=variables,
+        request,
+        user,
+        template_key,
+        force=force,
+        send_email=send_email,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        include_assessment_detail=include_assessment_detail,
         fallback_subject=subject,
-        fallback_html=html_wrapped,
-        reference_type=reference_type,
-        reference_id=ref_id,
-        raw_variable_keys=_RAW_BUYBACK_KEYS,
     )
-    ok, err = result.ok, result.error
-    _record_delivery(
-        db,
-        user_id=user.id,
-        template_key=template_key,
-        reference_id=ref_id,
-        ok=ok,
-        error=err,
-        reference_type=reference_type,
-    )
-    return ok, err
 
 
 def notify_buyback_inbound_received(
@@ -576,6 +685,7 @@ def notify_buyback_assessment_ready(
     user: models.User,
     *,
     force: bool = False,
+    send_email: bool | None = None,
 ) -> tuple[bool, str | None]:
     """Notify customer that assessment is ready / awaiting confirmation."""
     request_number = request.request_number or str(request.id)
@@ -596,14 +706,15 @@ def notify_buyback_assessment_ready(
       <p><a href="{link}">査定結果を確認</a></p>
     """
     subject = f"【KRX TCG】査定結果のご案内（{request_number}）"
-    return _send_customer_template(
+    return send_buyback_event_email(
         db,
-        user=user,
-        request=request,
-        template_key="buyback_assessment_ready",
-        subject=subject,
-        body_html=body,
+        request,
+        user,
+        "buyback_assessment_ready",
         force=force,
+        send_email=send_email,
+        include_assessment_detail=True,
+        fallback_subject=subject,
     )
 
 
@@ -613,6 +724,7 @@ def notify_buyback_decision(
     user: models.User,
     *,
     force: bool = False,
+    send_email: bool | None = None,
 ) -> tuple[bool, str | None]:
     """Notify customer of accept / reject decision."""
     request_number = request.request_number or str(request.id)
@@ -640,14 +752,14 @@ def notify_buyback_decision(
       </ul>
       <p><a href="{link}">申込詳細を確認</a></p>
     """
-    return _send_customer_template(
+    return send_buyback_event_email(
         db,
-        user=user,
-        request=request,
-        template_key=template_key,
-        subject=subject,
-        body_html=body,
+        request,
+        user,
+        template_key,
         force=force,
+        send_email=send_email,
+        fallback_subject=subject,
     )
 
 
@@ -676,16 +788,16 @@ def notify_buyback_package_shipped(
       <p><a href="{link}">申込詳細を確認</a></p>
     """
     subject = f"【KRX TCG】お荷物を発送しました（{request_number}）"
-    return _send_customer_template(
+    return send_buyback_event_email(
         db,
-        user=user,
-        request=request,
-        template_key="buyback_package_shipped",
-        subject=subject,
-        body_html=body,
+        request,
+        user,
+        "buyback_return_shipped",
         force=force,
-        reference_type="buyback_request",
         reference_id=f"{request.id}:pkg:{package.id}",
+        package_tracking=package.tracking_number,
+        package_carrier=package.shipping_method,
+        fallback_subject=subject,
     )
 
 
@@ -701,57 +813,15 @@ def notify_buyback_payout_completed(
         return True, None
 
     request_number = request.request_number or str(request.id)
-    link = _request_link(request.id)
-    payout_amount = request.payout_total or request.assessed_total or request.estimated_total
-
-    customer_body = f"""
-      <p>{user.name or 'お客'} 様</p>
-      <p>買取代金の振込が完了しました。</p>
-      <ul>
-        <li>申込番号：{request_number}</li>
-        <li>振込金額：{_format_jpy(payout_amount)}</li>
-        <li>振込日時：{request.paid_at.strftime('%Y/%m/%d %H:%M') if request.paid_at else '—'}</li>
-      </ul>
-      <p>金融機関の反映までお時間をいただく場合があります。</p>
-      <p><a href="{link}">申込詳細を確認</a></p>
-    """
-    customer_html = _wrap_email(customer_body)
     customer_subject = f"【KRX TCG】買取代金の振込が完了しました（{request_number}）"
-
-    if not email_configured():
-        if settings.DEBUG:
-            logger.info("[BUYBACK EMAIL MOCK] to=%s subject=%s", user.email, customer_subject)
-            _record_delivery(
-                db,
-                user_id=user.id,
-                template_key="buyback_payout_completed",
-                reference_id=str(request.id),
-                ok=True,
-            )
-        return True, None
-
-    variables = _buyback_template_variables(user, request, body_html=customer_body)
-    result = send_templated_email(
+    return send_buyback_event_email(
         db,
-        template_key="buyback_payout_completed",
-        to_email=user.email,
-        variables=variables,
+        request,
+        user,
+        "buyback_payout_completed",
+        force=force,
         fallback_subject=customer_subject,
-        fallback_html=customer_html,
-        reference_type="buyback_request",
-        reference_id=str(request.id),
-        raw_variable_keys=_RAW_BUYBACK_KEYS,
     )
-    ok, err = result.ok, result.error
-    _record_delivery(
-        db,
-        user_id=user.id,
-        template_key="buyback_payout_completed",
-        reference_id=str(request.id),
-        ok=ok,
-        error=err,
-    )
-    return ok, err
 
 
 def notify_buyback_status_changed(
@@ -760,36 +830,18 @@ def notify_buyback_status_changed(
     user: models.User,
     *,
     previous_status: str | None = None,
+    send_email: bool | None = None,
+    force: bool = False,
 ) -> tuple[bool, str | None]:
-    """Generic customer email when request status changes."""
-    request_number = request.request_number or str(request.id)
-    status_label = STATUS_LABELS.get(request.status, request.status)
-    desc = STATUS_DESCRIPTIONS.get(request.status, "")
-    link = _request_link(request.id)
-    note_html = ""
-    if request.customer_status_note:
-        note_html = f"<p>{html.escape(request.customer_status_note)}</p>"
-    body = f"""
-      <p>{html.escape(user.name or 'お客')} 様</p>
-      <p>買取申請のステータスが更新されました。</p>
-      <ul>
-        {_public_codes(request)}
-        <li>ステータス：{html.escape(status_label)}</li>
-        {f'<li>{html.escape(desc)}</li>' if desc else ''}
-      </ul>
-      {note_html}
-      <p><a href="{link}">申請詳細を確認</a></p>
-    """
-    subject = f"【KRX TCG】買取申請ステータス更新（{request_number}）"
-    return _send_customer_template(
+    """Customer email when request status changes — uses registry mapping."""
+    return send_buyback_status_change_email(
         db,
-        user=user,
-        request=request,
-        template_key="buyback_status_changed",
-        subject=subject,
-        body_html=body,
-        reference_type="buyback_request",
-        reference_id=str(request.id),
+        request,
+        user,
+        to_status=request.status,
+        previous_status=previous_status,
+        send_email=send_email,
+        force=force,
     )
 
 

@@ -607,8 +607,12 @@ export const adminBuybackApi = {
       tracking_number?: string
       assessed_total?: number
       payout_total?: number
+      send_email?: boolean
+      force_email?: boolean
     }
   ) => apiClient.patch<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`, data),
+  resendRequestEmail: (id: number, event_key: string, force = true) =>
+    apiClient.post(`/admin/buyback/requests/${id}/resend-email`, { event_key, force }),
   updateRequestItems: (
     id: number,
     data: {
@@ -822,6 +826,10 @@ export const adminEmailApi = {
   listTemplates: (category?: string) =>
     apiClient.get('/admin/email/templates', { params: category ? { category } : {} }),
   createTemplate: (data: Record<string, unknown>) => apiClient.post('/admin/email/templates', data),
+  getBuybackAutoSend: () =>
+    apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/buyback/auto-send'),
+  updateBuybackAutoSend: (settings: Record<string, boolean>) =>
+    apiClient.put('/admin/email/buyback/auto-send', { settings }),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
   getTemplateVariables: (key: string) =>
     apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(

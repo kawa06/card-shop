@@ -1009,10 +1009,40 @@ def patch_request(
         tracking_number=body.tracking_number,
         assessed_total=body.assessed_total,
         payout_total=body.payout_total,
+        send_email=body.send_email,
+        force_email=body.force_email,
     )
     request = get_admin_request(db, request_id)
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post("/requests/{request_id}/resend-email")
+def resend_request_email(
+    request_id: int,
+    body: schemas_buyback.AdminBuybackResendEmailIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(get_current_admin_context),
+):
+    _enforce_permission(db, ctx, "buyback.request.status.write")
+    from services.buyback_admin import get_admin_request
+    from services.buyback_emails import send_buyback_event_email
+
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    ok, err = send_buyback_event_email(
+        db,
+        request,
+        user,
+        body.event_key,
+        force=body.force,
+        send_email=True,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    return {"message": "メールを再送しました", "event_key": body.event_key}
 
 
 @router.patch(

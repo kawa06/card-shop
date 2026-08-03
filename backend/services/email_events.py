@@ -54,6 +54,18 @@ VARIABLE_ALIASES: dict[str, str] = {
     "お問い合わせ番号": "inquiryNo",
     "お問い合わせURL": "contactUrl",
     "署名": "signatureBlock",
+    "買取番号": "buyNo",
+    "受付日時": "receivedAt",
+    "買取方法": "buybackMethod",
+    "店舗名": "storeName",
+    "来店日時": "visitAt",
+    "査定開始日時": "assessmentStartedAt",
+    "査定完了日時": "assessmentCompletedAt",
+    "査定金額": "assessedAmount",
+    "承認期限": "approvalDeadline",
+    "振込金額": "payoutAmount",
+    "振込日時": "paidAt",
+    "返送理由": "returnReason",
     "認証コード": "otpCode",
     "確認URL": "verifyUrl",
     "同意URL": "consentUrl",
@@ -255,11 +267,19 @@ def sample_variables_for_template(template_key: str) -> dict[str, str]:
 
     from config import settings
     from services.shipping_email_registry import normalize_template_key
+    from services.buyback_email_registry import normalize_template_key as normalize_buyback_template_key
     from services.shipping_email_variables import build_shipping_sample_variables
 
-    normalized = normalize_template_key(template_key)
+    normalized = normalize_shipping_template_key(template_key)
     if normalized.startswith("shipping_") or template_key.startswith("shipping_"):
         sample = build_shipping_sample_variables(normalized)
+        return {k: v for k, v in sample.items() if not str(k).startswith("_")}
+
+    from services.buyback_email_variables import build_buyback_sample_variables
+
+    buyback_normalized = normalize_buyback_template_key(template_key)
+    if buyback_normalized.startswith("buyback_") or template_key.startswith("buyback_"):
+        sample = build_buyback_sample_variables(buyback_normalized)
         return {k: v for k, v in sample.items() if not str(k).startswith("_")}
 
     base = {

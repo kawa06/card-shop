@@ -18,6 +18,8 @@ from services.email_events import EMAIL_EVENTS, VARIABLE_ALIASES, get_event_by_t
 from services.email_broadcast import retry_failed_sends
 from services.email_rate_limit import check_rate_limit
 from services.shipping_email_variables import shipping_variables_for_template
+from services.buyback_email_variables import buyback_variables_for_template
+from services.buyback_email_auto_send import get_auto_send_settings, update_auto_send_settings
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -144,6 +146,8 @@ def get_template_variables(
         variables = event.variables
     elif template_key.startswith("shipping_"):
         variables = shipping_variables_for_template(template_key)
+    elif template_key.startswith("buyback_"):
+        variables = buyback_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -192,6 +196,25 @@ def toggle_template_active(
     safe_commit(db)
     db.refresh(tpl)
     return tpl
+
+
+@router.get("/buyback/auto-send", response_model=schemas_email.BuybackEmailAutoSendOut)
+def get_buyback_auto_send(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.BuybackEmailAutoSendOut(settings=get_auto_send_settings(db))
+
+
+@router.put("/buyback/auto-send", response_model=schemas_email.BuybackEmailAutoSendOut)
+def update_buyback_auto_send(
+    payload: schemas_email.BuybackEmailAutoSendUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_auto_send_settings(db, payload.settings)
+    safe_commit(db)
+    return schemas_email.BuybackEmailAutoSendOut(settings=updated)
 
 
 @router.get("/carriers")
