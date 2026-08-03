@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import time
 from functools import lru_cache
 from typing import Any, Optional
 
@@ -16,6 +17,9 @@ from services.user_linking import LinkResult, resolve_clerk_user
 import models
 
 logger = logging.getLogger(__name__)
+
+_jwks_cache: tuple[float, list[dict[str, Any]]] | None = None
+JWKS_CACHE_TTL_SECONDS = 3600
 
 CLERK_SECRET_KEY = (__import__("os").getenv("CLERK_SECRET_KEY") or "").strip()
 CLERK_PUBLISHABLE_KEY = (
@@ -52,17 +56,26 @@ def _clerk_issuer(publishable_key: str) -> Optional[str]:
 
 
 def _fetch_clerk_jwks() -> list[dict[str, Any]]:
+    global _jwks_cache
+    now = time.time()
+    if _jwks_cache and now - _jwks_cache[0] < JWKS_CACHE_TTL_SECONDS:
+        return _jwks_cache[1]
+
     if not CLERK_PUBLISHABLE_KEY:
         return []
     url = _clerk_jwks_url(CLERK_PUBLISHABLE_KEY)
     if not url:
         return []
     try:
-        res = httpx.get(url, timeout=10.0)
+        res = httpx.get(url, timeout=5.0)
         res.raise_for_status()
-        return res.json().get("keys", [])
+        keys = res.json().get("keys", [])
+        _jwks_cache = (now, keys)
+        return keys
     except httpx.HTTPError:
         logger.warning("Failed to fetch Clerk JWKS")
+        if _jwks_cache:
+            return _jwks_cache[1]
         return []
 
 
