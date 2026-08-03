@@ -50,11 +50,12 @@ def _send_smtp(*, to: str, subject: str, html_body: str) -> tuple[bool, str | No
         msg["Reply-To"] = reply_to
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
+    smtp_timeout = 5 if not settings.DEBUG else 30
     try:
         if settings.MAIL_SSL:
-            server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=30)
+            server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
         else:
-            server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=30)
+            server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
             if settings.MAIL_TLS:
                 server.starttls()
         server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
@@ -262,22 +263,28 @@ def _send_resend(
 def _send_email(
     *, to: str, subject: str, html_body: str
 ) -> tuple[bool, str | None, str | None, str | None, str | None]:
-    """Prefer Gmail SMTP; fall back to Resend when SMTP is unavailable."""
+    """Prefer Resend on cloud hosts; SMTP is often blocked (e.g. Railway port 465)."""
+    if settings.RESEND_API_KEY:
+        ok, err, msg_id, error_code, user_message = _send_resend(
+            to=to, subject=subject, html_body=html_body
+        )
+        if ok:
+            return ok, err, msg_id, error_code, user_message
+        if smtp_configured() and error_code in {"mail_domain_unverified", "mail_forbidden"}:
+            smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+            if smtp_ok:
+                return True, None, smtp_id, None, None
+            err = f"{err}; SMTP fallback failed: {smtp_err}"
+        return False, err, msg_id, error_code, user_message
+
     if smtp_configured():
         smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
         if smtp_ok:
             return True, None, smtp_id, None, None
-        logger.warning("SMTP send failed to=%s; trying Resend if configured: %s", to, smtp_err)
-        if settings.RESEND_API_KEY:
-            ok, err, msg_id, error_code, user_message = _send_resend(
-                to=to, subject=subject, html_body=html_body
-            )
-            if ok:
-                return ok, err, msg_id, error_code, user_message
-            return False, f"SMTP: {smtp_err}; Resend: {err}", msg_id, error_code, user_message
         return False, smtp_err, None, "mail_send_failed", (
             "メールの送信に失敗しました。Gmail の設定を確認してください。"
         )
+
     return _send_resend(to=to, subject=subject, html_body=html_body)
 
 
