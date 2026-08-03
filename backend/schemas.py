@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 from models import OrderStatus, CARD_RARITIES
@@ -41,6 +41,11 @@ class UserOut(UserBase):
     id: int
     is_admin: bool
     is_verified: bool
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
+    birth_date: Optional[date] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
     region: Optional[str] = None
@@ -58,6 +63,11 @@ class UserOut(UserBase):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
+    birth_date: Optional[date] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
     region: Optional[str] = None

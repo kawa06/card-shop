@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell } from 'lucide-react'
+import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ordersApi, authApi, favoritesApi, inquiriesApi, announcementsApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
@@ -498,6 +498,19 @@ export default function MypagePage() {
                     : lang === 'ja'
                       ? `${favoriteCount}件`
                       : `${favoriteCount} items`}
+                </p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/profile">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-violet-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-violet-400/10 text-violet-500 group-hover:bg-violet-500 group-hover:text-white transition-colors">
+                <UserRound className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">{lang === 'ja' ? 'お客様情報' : 'Customer info'}</p>
+                <p className="text-gray-500 text-[10px]">
+                  {user?.family_name && user?.given_name ? t('登録済み', lang) : t('未登録', lang)}
                 </p>
               </div>
             </div>

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from auth import hash_password
@@ -24,8 +26,15 @@ def _user(db) -> models.User:
     user = models.User(
         email="kyc@example.com",
         name="KYC User",
+        family_name="山田",
+        given_name="太郎",
         password_hash=hash_password("secret123"),
         is_verified=True,
+        birth_date=date(1990, 1, 1),
+        postal_code="1000001",
+        region="東京都",
+        city="千代田区",
+        address_line1="1-1",
     )
     db.add(user)
     db.commit()

@@ -48,7 +48,7 @@ from services.buyback_guardian import (
     sign_guardian_consent,
     upload_guardian_consent_document,
 )
-from services.buyback_profile import update_user_birth_date
+from services.buyback_profile import update_buyback_customer_profile
 from services.buyback_age import age_profile_for_user
 from services.buyback_identity import (
     get_or_create_identity,
@@ -310,7 +310,23 @@ def update_buyback_profile(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user = update_user_birth_date(db, user=current_user, birth_date=payload.birth_date)
+    user = update_buyback_customer_profile(
+        db,
+        user=current_user,
+        family_name=payload.family_name,
+        given_name=payload.given_name,
+        family_name_kana=payload.family_name_kana,
+        given_name_kana=payload.given_name_kana,
+        name=payload.name,
+        birth_date=payload.birth_date,
+        phone_number=payload.phone_number,
+        postal_code=payload.postal_code,
+        region=payload.region,
+        city=payload.city,
+        address_line1=payload.address_line1,
+        address_line2=payload.address_line2,
+        country=payload.country,
+    )
     return _serialize_user(user)
 
 
@@ -686,6 +702,8 @@ def _serialize_guardian(row: models_buyback.GuardianConsent | None) -> schemas_b
         status_label=GUARDIAN_STATUS_LABELS.get(row.status, row.status),
         guardian_name=row.guardian_name,
         guardian_email=row.guardian_email,
+        guardian_relationship=row.guardian_relationship,
+        guardian_phone=row.guardian_phone,
         document_type=row.document_type,
         has_front=bool(row.storage_key_front),
         has_back=bool(row.storage_key_back),
@@ -768,6 +786,8 @@ def create_buyback_guardian_consent_request(
         user=current_user,
         guardian_name=payload.guardian_name,
         guardian_email=payload.guardian_email,
+        guardian_relationship=payload.guardian_relationship,
+        guardian_phone=payload.guardian_phone,
         resend=payload.resend,
     )
     return _serialize_guardian(consent)

@@ -8,6 +8,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+import models
 import models_buyback
 from services.buyback_kyc_storage import delete_kyc_object, upload_kyc_document
 
@@ -136,7 +137,21 @@ def submit_identity_verification(
     if doc_type != "my_number_card" and not identity.storage_key_back:
         raise HTTPException(status_code=400, detail="本人確認書類（裏面）をアップロードしてください")
 
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    if not user.birth_date:
+        raise HTTPException(status_code=400, detail="生年月日を登録してから本人確認を提出してください")
+    legal_name = (user.family_name or "") + (user.given_name or "")
+    if not legal_name.strip() and not (user.name or "").strip():
+        raise HTTPException(status_code=400, detail="氏名を登録してから本人確認を提出してください")
+    if not user.postal_code or not user.region or not user.city or not user.address_line1:
+        raise HTTPException(status_code=400, detail="住所を登録してから本人確認を提出してください")
+
+    from services.buyback_identity_compare import snapshot_identity_profile
+
     now = datetime.utcnow()
+    snapshot_identity_profile(identity, user)
     identity.document_type = doc_type
     identity.status = models_buyback.IdentityVerificationStatus.pending.value
     identity.submitted_at = now

@@ -235,15 +235,20 @@ export const authApi = {
 
   me: () => apiClient.get('/auth/me'),
 
-  updateProfile: (data: { 
-    name?: string; 
-    postal_code?: string; 
-    country?: string;
-    region?: string;
-    city?: string;
-    address_line1?: string;
-    address_line2?: string;
-    phone_number?: string;
+  updateProfile: (data: {
+    name?: string
+    family_name?: string
+    given_name?: string
+    family_name_kana?: string
+    given_name_kana?: string
+    birth_date?: string
+    postal_code?: string
+    country?: string
+    region?: string
+    city?: string
+    address_line1?: string
+    address_line2?: string
+    phone_number?: string
   }) => apiClient.put('/auth/me', data),
 
   deleteAccount: () => apiClient.delete('/auth/me'),

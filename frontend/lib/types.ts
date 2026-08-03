@@ -93,6 +93,11 @@ export interface User {
   id: number
   email: string
   name: string
+  family_name: string | null
+  given_name: string | null
+  family_name_kana: string | null
+  given_name_kana: string | null
+  birth_date: string | null
   is_admin: boolean
   is_verified: boolean
   postal_code: string | null

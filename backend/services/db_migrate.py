@@ -213,6 +213,32 @@ def _migrate_buyback_request_columns() -> None:
     ]
     for col, col_type in guardian_doc_cols:
         _add_column_if_missing("guardian_consents", col, col_type)
+    user_profile_cols = [
+        ("family_name", "VARCHAR(50)"),
+        ("given_name", "VARCHAR(50)"),
+        ("family_name_kana", "VARCHAR(50)"),
+        ("given_name_kana", "VARCHAR(50)"),
+    ]
+    for col, col_type in user_profile_cols:
+        _add_column_if_missing("users", col, col_type)
+    guardian_profile_cols = [
+        ("guardian_relationship", "VARCHAR(50)"),
+        ("guardian_phone", "VARCHAR(20)"),
+    ]
+    for col, col_type in guardian_profile_cols:
+        _add_column_if_missing("guardian_consents", col, col_type)
+    identity_snapshot_cols = [
+        ("submitted_full_name", "VARCHAR(200)"),
+        ("submitted_name_kana", "VARCHAR(200)"),
+        ("submitted_birth_date", "DATE"),
+        ("submitted_postal_code", "VARCHAR(20)"),
+        ("submitted_prefecture", "VARCHAR(100)"),
+        ("submitted_city", "VARCHAR(100)"),
+        ("submitted_address_line1", "VARCHAR(255)"),
+        ("submitted_address_line2", "VARCHAR(255)"),
+    ]
+    for col, col_type in identity_snapshot_cols:
+        _add_column_if_missing("identity_verifications", col, col_type)
 
 
 def _migrate_buyback_logistics_schema() -> None:

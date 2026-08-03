@@ -28,6 +28,16 @@ class BuybackUserOut(BaseModel):
     id: int
     email: str
     name: str
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
+    phone_number: Optional[str] = None
+    postal_code: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
     clerk_user_id: Optional[str] = None
     is_admin: bool
     is_verified: bool
@@ -40,7 +50,19 @@ class BuybackUserOut(BaseModel):
 
 
 class BuybackProfileUpdateIn(BaseModel):
-    birth_date: date
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
+    name: Optional[str] = None
+    birth_date: Optional[date] = None
+    phone_number: Optional[str] = None
+    postal_code: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    country: Optional[str] = None
 
 
 class BuybackSyncResponse(BaseModel):
@@ -444,6 +466,8 @@ class GuardianConsentOut(BaseModel):
     status_label: str
     guardian_name: Optional[str] = None
     guardian_email: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    guardian_phone: Optional[str] = None
     document_type: Optional[str] = None
     has_front: bool = False
     has_back: bool = False
@@ -459,6 +483,8 @@ class GuardianDocumentTypeIn(BaseModel):
 class GuardianConsentRequestIn(BaseModel):
     guardian_name: str
     guardian_email: str
+    guardian_relationship: Optional[str] = None
+    guardian_phone: Optional[str] = None
     resend: bool = False
 
 
@@ -567,16 +593,61 @@ class AdminIdentityListOut(BaseModel):
     reviewer_name: Optional[str] = None
 
 
+class AdminIdentityComparisonFieldOut(BaseModel):
+    key: str
+    label: str
+    registered: str
+    submitted: str
+    status: str
+    status_label: str
+
+
+class AdminIdentityComparisonOut(BaseModel):
+    overall_status: str
+    overall_label: str
+    fields: list[AdminIdentityComparisonFieldOut] = []
+    document_note: Optional[str] = None
+
+
+class AdminGuardianDetailOut(BaseModel):
+    id: Optional[int] = None
+    status: str
+    status_label: str
+    guardian_name: Optional[str] = None
+    guardian_email: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    document_type: Optional[str] = None
+    document_type_label: Optional[str] = None
+    has_front: bool = False
+    has_back: bool = False
+    signed_at: Optional[datetime] = None
+    missing_items: list[str] = []
+
+
 class AdminIdentityDetailOut(AdminIdentityListOut):
     rejection_reason: Optional[str] = None
     admin_memo: Optional[str] = None
     reviewed_at: Optional[datetime] = None
+    legal_full_name: Optional[str] = None
+    family_name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name_kana: Optional[str] = None
+    given_name_kana: Optional[str] = None
+    display_name: Optional[str] = None
+    phone_number: Optional[str] = None
     birth_date: Optional[str] = None
+    age: Optional[int] = None
+    is_minor: bool = False
     postal_code: Optional[str] = None
     prefecture: Optional[str] = None
     city: Optional[str] = None
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
+    profile_comparison: Optional[AdminIdentityComparisonOut] = None
+    guardian: Optional[AdminGuardianDetailOut] = None
+    can_approve: bool = False
+    approval_blockers: list[str] = []
 
 
 class AdminIdentityRejectIn(BaseModel):

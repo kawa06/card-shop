@@ -52,6 +52,8 @@ def _ensure_editable_consent(
     *,
     guardian_name: str | None = None,
     guardian_email: str | None = None,
+    guardian_relationship: str | None = None,
+    guardian_phone: str | None = None,
 ) -> models_buyback.GuardianConsent:
     latest = get_latest_guardian_consent(db, user_id)
     if latest and latest.status == models_buyback.GuardianConsentStatus.signed.value:
@@ -61,6 +63,10 @@ def _ensure_editable_consent(
             latest.guardian_name = guardian_name.strip()
         if guardian_email:
             latest.guardian_email = guardian_email.strip().lower()
+        if guardian_relationship is not None:
+            latest.guardian_relationship = guardian_relationship.strip() or None
+        if guardian_phone is not None:
+            latest.guardian_phone = guardian_phone.strip() or None
         db.commit()
         db.refresh(latest)
         return latest
@@ -75,6 +81,10 @@ def _ensure_editable_consent(
             latest.guardian_name = guardian_name.strip()
         if guardian_email:
             latest.guardian_email = guardian_email.strip().lower()
+        if guardian_relationship is not None:
+            latest.guardian_relationship = guardian_relationship.strip() or None
+        if guardian_phone is not None:
+            latest.guardian_phone = guardian_phone.strip() or None
         db.commit()
         db.refresh(latest)
         return latest
@@ -83,6 +93,8 @@ def _ensure_editable_consent(
         user_id=user_id,
         guardian_name=(guardian_name or "").strip() or None,
         guardian_email=(guardian_email or "").strip().lower() or None,
+        guardian_relationship=(guardian_relationship or "").strip() or None,
+        guardian_phone=(guardian_phone or "").strip() or None,
         status=models_buyback.GuardianConsentStatus.pending.value,
     )
     db.add(consent)
@@ -194,6 +206,8 @@ def request_guardian_consent(
     user: models.User,
     guardian_name: str,
     guardian_email: str,
+    guardian_relationship: str | None = None,
+    guardian_phone: str | None = None,
     resend: bool = False,
 ) -> tuple[models_buyback.GuardianConsent, str]:
     name = (guardian_name or "").strip()
@@ -208,7 +222,12 @@ def request_guardian_consent(
         raise HTTPException(status_code=400, detail="保護者同意は既に完了しています")
 
     consent = _ensure_editable_consent(
-        db, user.id, guardian_name=name, guardian_email=email
+        db,
+        user.id,
+        guardian_name=name,
+        guardian_email=email,
+        guardian_relationship=guardian_relationship,
+        guardian_phone=guardian_phone,
     )
     if not guardian_documents_complete(consent):
         raise HTTPException(

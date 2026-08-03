@@ -247,28 +247,25 @@ def update_profile(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if payload.name is not None:
-        current_user.name = payload.name
-    if payload.postal_code is not None:
-        current_user.postal_code = payload.postal_code
-    if payload.country is not None:
-        current_user.country = payload.country
-    if payload.region is not None:
-        current_user.region = payload.region
-    if payload.city is not None:
-        current_user.city = payload.city
-    if payload.address_line1 is not None:
-        current_user.address_line1 = payload.address_line1
-    if payload.address_line2 is not None:
-        current_user.address_line2 = payload.address_line2
-    if payload.address is not None:
-        current_user.address = payload.address
-    if payload.phone_number is not None:
-        current_user.phone_number = payload.phone_number
+    from services.user_profile import update_customer_profile
 
-    db.commit()
-    db.refresh(current_user)
-    return current_user
+    return update_customer_profile(
+        db,
+        user=current_user,
+        name=payload.name,
+        family_name=payload.family_name,
+        given_name=payload.given_name,
+        family_name_kana=payload.family_name_kana,
+        given_name_kana=payload.given_name_kana,
+        birth_date=payload.birth_date,
+        postal_code=payload.postal_code,
+        country=payload.country,
+        region=payload.region,
+        city=payload.city,
+        address_line1=payload.address_line1,
+        address_line2=payload.address_line2,
+        phone_number=payload.phone_number,
+    )
 
 
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)

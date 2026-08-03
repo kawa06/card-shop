@@ -17,10 +17,12 @@ from services.admin_auth import AdminAccessError, AdminContext, require_permissi
 from services.buyback_admin import (
     DOCUMENT_TYPE_LABELS,
     approve_identity,
+    build_admin_guardian_detail,
     complete_request_payout,
     get_admin_request,
     get_identity_verification,
     get_request_payout_context,
+    identity_approval_blockers,
     identity_stats,
     list_admin_requests,
     list_identity_verifications,
@@ -33,6 +35,11 @@ from services.buyback_admin import (
     update_request_items,
     update_request_status,
 )
+from services.buyback_age import age_profile_for_user, requires_guardian_consent_for_user
+from services.buyback_guardian import get_latest_guardian_consent
+from services.buyback_identity_compare import build_profile_comparison
+from services.buyback_kyc_storage import fetch_kyc_document
+from services.user_profile import legal_full_name, legal_name_kana
 from services.buyback_serializers import (
     rejection_reason_options,
     rejected_item_handling_label,
@@ -58,7 +65,6 @@ from services.buyback_request_status import (
     status_color,
     status_description,
 )
-from services.buyback_kyc_storage import fetch_kyc_document
 from services.buyback_admin_permissions import (
     can_complete_payout,
     can_view_bank_account,
@@ -195,19 +201,38 @@ def _identity_detail_out(
     row: models_buyback.IdentityVerification,
     user: models.User | None,
     reviewer: models.User | None = None,
+    db: Session | None = None,
 ) -> schemas_buyback.AdminIdentityDetailOut:
     base = _identity_list_out(row, user, reviewer)
+    age, _ = age_profile_for_user(user)
+    is_minor = bool(user and requires_guardian_consent_for_user(user))
+    comparison = build_profile_comparison(user, row)
+    guardian = build_admin_guardian_detail(db, user=user) if db and user else None
+    blockers = identity_approval_blockers(db, row=row, user=user) if db else []
     return schemas_buyback.AdminIdentityDetailOut(
         **base.model_dump(),
         rejection_reason=row.rejection_reason,
         admin_memo=row.admin_memo,
         reviewed_at=row.reviewed_at,
+        legal_full_name=legal_full_name(user) or None,
+        family_name=user.family_name if user else None,
+        given_name=user.given_name if user else None,
+        family_name_kana=user.family_name_kana if user else None,
+        given_name_kana=user.given_name_kana if user else None,
+        display_name=user.name if user else None,
+        phone_number=user.phone_number if user else None,
         birth_date=user.birth_date.isoformat() if user and user.birth_date else None,
+        age=age,
+        is_minor=is_minor,
         postal_code=user.postal_code if user else None,
         prefecture=user.region if user else None,
         city=user.city if user else None,
         address_line1=user.address_line1 if user else None,
         address_line2=user.address_line2 if user else None,
+        profile_comparison=schemas_buyback.AdminIdentityComparisonOut(**comparison),
+        guardian=schemas_buyback.AdminGuardianDetailOut(**guardian) if guardian else None,
+        can_approve=not blockers and row.status == models_buyback.IdentityVerificationStatus.pending.value,
+        approval_blockers=blockers,
     )
 
 
@@ -283,7 +308,7 @@ def get_identity(
             db.query(models.User).filter(models.User.id == row.reviewed_by_user_id).first()
         )
     result = schemas_buyback.AdminIdentityDetailOut(
-        **_identity_detail_out(row, user, reviewer).model_dump(),
+        **_identity_detail_out(row, user, reviewer, db=db).model_dump(),
     )
     _audit_access(
         db,
@@ -332,6 +357,50 @@ def get_identity_document(
     return Response(content=data, media_type=content_type, headers=headers)
 
 
+@router.get("/identity/{verification_id}/guardian/documents/{side}")
+def get_guardian_document(
+    verification_id: int,
+    side: str,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perms("guardian_consent.view", "kyc.document.view")),
+):
+    if side not in ("front", "back"):
+        raise HTTPException(status_code=400, detail="side は front または back を指定してください")
+
+    row = get_identity_verification(db, verification_id)
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    if not user or not requires_guardian_consent_for_user(user):
+        raise HTTPException(status_code=404, detail="保護者情報はありません")
+
+    guardian = get_latest_guardian_consent(db, row.user_id)
+    if not guardian:
+        raise HTTPException(status_code=404, detail="保護者情報が見つかりません")
+    if side == "back" and (guardian.document_type or "").lower() in ("my_number_card", "my_number"):
+        raise HTTPException(status_code=404, detail="マイナンバーカードの裏面は保存・表示されません")
+
+    key = guardian.storage_key_front if side == "front" else guardian.storage_key_back
+    if not key:
+        raise HTTPException(status_code=404, detail="保護者書類画像が見つかりません")
+
+    try:
+        data, content_type = fetch_kyc_document(key=key)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="保護者書類画像が見つかりません") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail="保護者書類画像を取得できません") from exc
+
+    _audit_access(
+        db,
+        ctx,
+        action="pii_guardian_document_viewed",
+        entity_type="guardian_consent",
+        entity_id=guardian.id,
+        includes_pii=True,
+    )
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate, private"}
+    return Response(content=data, media_type=content_type, headers=headers)
+
+
 @router.post("/identity/{verification_id}/approve", response_model=schemas_buyback.AdminIdentityDetailOut)
 def approve_identity_route(
     verification_id: int,
@@ -342,7 +411,7 @@ def approve_identity_route(
 ):
     row = approve_identity(db, verification_id=verification_id, admin_user=ctx.user)
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    return _identity_detail_out(row, user)
+    return _identity_detail_out(row, user, db=db)
 
 
 @router.post("/identity/{verification_id}/reject", response_model=schemas_buyback.AdminIdentityDetailOut)
@@ -361,7 +430,7 @@ def reject_identity_route(
         rejection_reason=body.rejection_reason,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    return _identity_detail_out(row, user)
+    return _identity_detail_out(row, user, db=db)
 
 
 @router.post(
@@ -384,7 +453,7 @@ def request_resubmit_identity_route(
         admin_memo=body.admin_memo,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    return _identity_detail_out(row, user)
+    return _identity_detail_out(row, user, db=db)
 
 
 @router.patch(
@@ -406,7 +475,7 @@ def update_identity_memo_route(
         admin_memo=body.admin_memo,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    return _identity_detail_out(row, user)
+    return _identity_detail_out(row, user, db=db)
 
 
 def _request_list_out(

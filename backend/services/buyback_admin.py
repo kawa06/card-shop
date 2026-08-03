@@ -14,6 +14,13 @@ from sqlalchemy.orm import Session, joinedload
 import models
 import models_buyback
 from services.buyback_compliance import PAYOUT_TRANSFER_STATUS_LABELS, get_compliance_status
+from services.buyback_age import age_profile_for_user, requires_guardian_consent_for_user
+from services.buyback_guardian import (
+    get_latest_guardian_consent,
+    guardian_documents_complete,
+)
+from services.buyback_identity_compare import build_profile_comparison
+from services.user_profile import legal_full_name, legal_name_kana
 from services.buyback_emails import (
     notify_buyback_assessment_ready,
     notify_buyback_decision,
@@ -155,6 +162,103 @@ def get_identity_verification(
     return row
 
 
+GUARDIAN_STATUS_LABELS = {
+    "pending": "同意待ち",
+    "signed": "同意済み",
+    "expired": "期限切れ",
+    "revoked": "取り消し",
+}
+
+
+def identity_approval_blockers(
+    db: Session,
+    *,
+    row: models_buyback.IdentityVerification,
+    user: models.User | None,
+) -> list[str]:
+    blockers: list[str] = []
+    if not row.storage_key_front:
+        blockers.append("本人確認書類（表面）")
+    doc_type = (row.document_type or "").lower()
+    if doc_type != "my_number_card" and not row.storage_key_back:
+        blockers.append("本人確認書類（裏面）")
+
+    if user and requires_guardian_consent_for_user(user):
+        guardian = get_latest_guardian_consent(db, row.user_id)
+        if not guardian or not (guardian.guardian_name or "").strip():
+            blockers.append("保護者情報")
+        if not guardian or not (guardian.guardian_email or "").strip():
+            blockers.append("保護者メールアドレス")
+        if not guardian or guardian.status != models_buyback.GuardianConsentStatus.signed.value:
+            blockers.append("保護者同意")
+        if not guardian or not guardian_documents_complete(guardian):
+            blockers.append("保護者本人確認書類")
+    return blockers
+
+
+def build_admin_guardian_detail(
+    db: Session,
+    *,
+    user: models.User | None,
+) -> dict | None:
+    if not user or not requires_guardian_consent_for_user(user):
+        return None
+    guardian = get_latest_guardian_consent(db, user.id)
+    missing: list[str] = []
+    if not guardian:
+        return {
+            "id": None,
+            "status": "not_requested",
+            "status_label": "保護者情報未提出",
+            "guardian_name": None,
+            "guardian_email": None,
+            "guardian_relationship": None,
+            "guardian_phone": None,
+            "document_type": None,
+            "document_type_label": None,
+            "has_front": False,
+            "has_back": False,
+            "signed_at": None,
+            "missing_items": [
+                "保護者情報未提出",
+                "保護者本人確認書類未提出",
+                "保護者同意待ち",
+            ],
+        }
+
+    status = guardian.status or "pending"
+    status_label = GUARDIAN_STATUS_LABELS.get(status, status)
+    if status != models_buyback.GuardianConsentStatus.signed.value:
+        missing.append("保護者同意待ち")
+    if not (guardian.guardian_name or "").strip():
+        missing.append("保護者氏名未入力")
+    if not (guardian.guardian_email or "").strip():
+        missing.append("保護者メール未入力")
+    if not guardian.storage_key_front:
+        missing.append("保護者本人確認書類（表面）未提出")
+    doc_type = (guardian.document_type or "").lower()
+    if doc_type != "my_number_card" and not guardian.storage_key_back:
+        missing.append("保護者本人確認書類（裏面）未提出")
+
+    return {
+        "id": guardian.id,
+        "status": status,
+        "status_label": status_label,
+        "guardian_name": guardian.guardian_name,
+        "guardian_email": guardian.guardian_email,
+        "guardian_relationship": guardian.guardian_relationship,
+        "guardian_phone": guardian.guardian_phone,
+        "document_type": guardian.document_type,
+        "document_type_label": DOCUMENT_TYPE_LABELS.get(guardian.document_type, guardian.document_type)
+        if guardian.document_type
+        else None,
+        "has_front": bool(guardian.storage_key_front),
+        "has_back": bool(guardian.storage_key_back),
+        "signed_at": guardian.signed_at,
+        "missing_items": missing,
+    }
+
+
 def approve_identity(
     db: Session,
     *,
@@ -164,6 +268,17 @@ def approve_identity(
     row = get_identity_verification(db, verification_id)
     if row.status != models_buyback.IdentityVerificationStatus.pending.value:
         raise HTTPException(status_code=400, detail="審査中の本人確認のみ承認できます")
+
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    blockers = identity_approval_blockers(db, row=row, user=user)
+    if blockers:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "承認できません",
+                "missing_items": blockers,
+            },
+        )
 
     now = datetime.utcnow()
     row.status = models_buyback.IdentityVerificationStatus.approved.value

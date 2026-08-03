@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from unittest.mock import patch
 
 import pytest
@@ -45,8 +46,15 @@ def _customer(db) -> models.User:
     user = models.User(
         email="customer@example.com",
         name="Customer",
+        family_name="佐藤",
+        given_name="花子",
         password_hash=hash_password("secret123"),
         is_verified=True,
+        birth_date=date(1990, 1, 1),
+        postal_code="1000001",
+        region="東京都",
+        city="千代田区",
+        address_line1="1-1",
     )
     db.add(user)
     db.commit()
@@ -81,6 +89,23 @@ def test_approve_identity(db):
     assert approved.status == models_buyback.IdentityVerificationStatus.approved.value
     assert approved.reviewed_by_user_id == admin.id
     assert approved.rejection_reason is None
+
+
+def test_approve_identity_blocked_for_minor_without_guardian(db):
+    admin = _admin(db)
+    customer = _customer(db)
+    customer.birth_date = date(2012, 1, 1)
+    db.commit()
+    db.refresh(customer)
+    identity = _pending_identity(db, customer)
+
+    with pytest.raises(HTTPException) as exc:
+        approve_identity(db, verification_id=identity.id, admin_user=admin)
+    assert exc.value.status_code == 400
+    detail = exc.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("message") == "承認できません"
+    assert "保護者同意" in detail.get("missing_items", [])
 
 
 def test_reject_identity_requires_reason(db):
