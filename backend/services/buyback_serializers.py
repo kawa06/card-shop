@@ -5,16 +5,22 @@ from __future__ import annotations
 import models_buyback
 import schemas_buyback
 from services.buyback_item_labels import (
+    CUSTOMER_DECISION_LABELS,
     ITEM_RETURN_STATUS_LABELS,
     LINE_STATUS_LABELS,
     REJECTED_ITEM_HANDLING_LABELS,
     format_rejection_reason,
+    parse_assessment_lines,
 )
 
 
 def serialize_request_item(item: models_buyback.BuybackRequestItem) -> schemas_buyback.BuybackRequestItemOut:
     line_status = item.line_status
     return_status = item.return_status
+    assessment_lines = [
+        schemas_buyback.AssessmentLineOut(**row)
+        for row in parse_assessment_lines(item)
+    ]
     return schemas_buyback.BuybackRequestItemOut(
         id=item.id,
         product_id=item.product_id,
@@ -24,6 +30,7 @@ def serialize_request_item(item: models_buyback.BuybackRequestItem) -> schemas_b
         listed_unit_price=item.listed_unit_price,
         assessed_unit_price=item.assessed_unit_price,
         accepted_unit_price=item.accepted_unit_price,
+        assessment_lines=assessment_lines,
         line_status=line_status,
         line_status_label=LINE_STATUS_LABELS.get(line_status, line_status) if line_status else None,
         rejection_reason_code=item.rejection_reason_code,
@@ -40,6 +47,12 @@ def serialize_request_item(item: models_buyback.BuybackRequestItem) -> schemas_b
         else None,
         return_tracking_number=item.return_tracking_number,
         return_shipping_cost=item.return_shipping_cost,
+        customer_decision=item.customer_decision,
+        customer_decision_label=CUSTOMER_DECISION_LABELS.get(
+            item.customer_decision, item.customer_decision
+        )
+        if item.customer_decision
+        else None,
     )
 
 

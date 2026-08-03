@@ -288,6 +288,7 @@ class BuybackRequestItem(Base):
     return_status = Column(String(32), nullable=True)
     return_tracking_number = Column(String(128), nullable=True)
     return_shipping_cost = Column(Integer, nullable=True)
+    customer_decision = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     request = relationship("BuybackRequest", back_populates="items")
@@ -320,6 +321,9 @@ class GuardianConsent(Base):
     guardian_email = Column(String(255), nullable=True)
     consent_token_hash = Column(String(128), nullable=True, index=True)
     status = Column(String(32), nullable=False, default=GuardianConsentStatus.pending.value, index=True)
+    document_type = Column(String(64), nullable=True)
+    storage_key_front = Column(String(512), nullable=True)
+    storage_key_back = Column(String(512), nullable=True)
     signed_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

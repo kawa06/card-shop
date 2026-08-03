@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, Float,
+    Column, Integer, String, Boolean, DateTime, Date, Float,
     ForeignKey, Text, Enum as SAEnum, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
@@ -46,6 +46,7 @@ class User(Base):
     phone_verified = Column(Boolean, default=False)
     clerk_user_id = Column(String(255), unique=True, nullable=True, index=True)
     public_member_id = Column(String(32), unique=True, nullable=True, index=True)
+    birth_date = Column(Date, nullable=True)
     failed_login_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime, nullable=True)
     two_factor_enabled = Column(Boolean, default=False, nullable=False)

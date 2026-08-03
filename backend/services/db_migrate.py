@@ -165,6 +165,15 @@ def _migrate_buyback_request_columns() -> None:
         _add_column_if_missing("buyback_request_items", col, col_type)
 
     _add_column_if_missing("buyback_requests", "customer_status_note", "TEXT")
+    _add_column_if_missing("buyback_request_items", "customer_decision", "VARCHAR(32)")
+    _add_column_if_missing("users", "birth_date", "DATE")
+    guardian_doc_cols = [
+        ("document_type", "VARCHAR(64)"),
+        ("storage_key_front", "VARCHAR(512)"),
+        ("storage_key_back", "VARCHAR(512)"),
+    ]
+    for col, col_type in guardian_doc_cols:
+        _add_column_if_missing("guardian_consents", col, col_type)
 
 
 def _migrate_buyback_logistics_schema() -> None:

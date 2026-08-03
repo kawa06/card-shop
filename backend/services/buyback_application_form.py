@@ -19,6 +19,7 @@ from services.buyback_compliance import (
     IDENTITY_STATUS_LABELS,
     get_compliance_status,
 )
+from services.buyback_age import requires_guardian_consent_for_user
 from services.buyback_identity import get_or_create_identity
 from services.buyback_inbound import provision_request_logistics
 from services.buyback_requests import get_user_request
@@ -30,6 +31,18 @@ APPLICATION_FORM_NOTICES = [
     "発送前に申込内容と同梱商品をご確認ください。",
     "状態不良・買取対象外の商品は買取できない場合があります。",
 ]
+
+APPLICATION_FORM_NOTICES_SKIP_ID_COPY = [
+    "本人確認はオンライン登録済みのため、身分証のコピー同封は不要です。",
+]
+
+PRINTABLE_REQUEST_STATUSES = frozenset(
+    {
+        "submitted",
+        "identity_pending",
+        "awaiting_shipment",
+    }
+)
 
 BUYBACK_METHOD_LABELS = {
     "store": "店舗買取",
@@ -90,6 +103,11 @@ def build_application_form(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="下書きの申込書は印刷できません",
         )
+    if request.status not in PRINTABLE_REQUEST_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="このステータスでは申込書を印刷できません",
+        )
 
     declared_item_count = sum(item.quantity for item in (request.items or []))
     inbound, barcode = provision_request_logistics(
@@ -109,8 +127,13 @@ def build_application_form(
     if active:
         barcode = active
 
-    compliance = get_compliance_status(db, user_id=user.id, requires_guardian=False)
+    compliance = get_compliance_status(db, user_id=user.id, user=user)
     identity = get_or_create_identity(db, user.id)
+    requires_guardian = requires_guardian_consent_for_user(user)
+    if requires_guardian:
+        compliance = get_compliance_status(
+            db, user_id=user.id, user=user, requires_guardian=True
+        )
     guardian = compliance.get("guardian_status")
     guardian_label = None
     if guardian:
@@ -150,6 +173,12 @@ def build_application_form(
     planned = request.customer_planned_ship_date
     buyback_method = (request.buyback_method or "mail").strip().lower()
     doc_type = identity.document_type
+    identity_ready = bool(compliance.get("identity_ready"))
+    skip_mail_id_copy = identity_ready and buyback_method == "mail"
+    notices = list(APPLICATION_FORM_NOTICES)
+    if skip_mail_id_copy:
+        notices = list(APPLICATION_FORM_NOTICES_SKIP_ID_COPY) + notices
+    birth_date_str = user.birth_date.isoformat() if user.birth_date else None
     return {
         "shop_name": settings.SITE_NAME or "KRX TCG",
         "request_id": request.id,
@@ -158,6 +187,7 @@ def build_application_form(
         "inbound_mgmt_id": request.inbound_mgmt_id or inbound.inbound_mgmt_id,
         "public_member_id": user.public_member_id,
         "applicant_name": user.name,
+        "birth_date": birth_date_str,
         "submitted_at": request.submitted_at or request.created_at,
         "customer_planned_ship_date": planned.isoformat() if planned else None,
         "declared_item_count": declared_item_count,
@@ -172,11 +202,13 @@ def build_application_form(
         if doc_type
         else None,
         "has_identity_documents": bool(identity.storage_key_front),
+        "identity_ready": identity_ready,
+        "skip_mail_id_copy": skip_mail_id_copy,
         "guardian_status": guardian,
         "guardian_status_label": guardian_label,
         "requires_guardian_consent": bool(compliance.get("requires_guardian_consent")),
         "barcode_human_readable": barcode.human_readable or request.inbound_mgmt_id,
         "application_form_issued_at": request.application_form_issued_at,
         "is_reprint": is_reprint and mark_issued,
-        "notices": list(APPLICATION_FORM_NOTICES),
+        "notices": notices,
     }

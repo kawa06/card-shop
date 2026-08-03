@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+import models
 import models_buyback
-from services.buyback_guardian import get_latest_guardian_consent
+from services.buyback_age import requires_guardian_consent_for_user
+from services.buyback_guardian import get_latest_guardian_consent, guardian_documents_complete
 from services.buyback_identity import get_or_create_identity
 from services.buyback_payout_accounts import list_payout_accounts
 
@@ -25,7 +27,20 @@ GUARDIAN_STATUS_LABELS = {
 }
 
 
-def get_compliance_status(db: Session, *, user_id: int, requires_guardian: bool = False) -> dict:
+def get_compliance_status(
+    db: Session,
+    *,
+    user_id: int,
+    user: models.User | None = None,
+    requires_guardian: bool | None = None,
+) -> dict:
+    if user is None:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+    needs_guardian = (
+        requires_guardian_consent_for_user(user)
+        if requires_guardian is None
+        else bool(requires_guardian)
+    )
     identity = get_or_create_identity(db, user_id)
     guardian = get_latest_guardian_consent(db, user_id)
     accounts = list_payout_accounts(db, user_id)
@@ -35,7 +50,7 @@ def get_compliance_status(db: Session, *, user_id: int, requires_guardian: bool 
     guardian_ready = True
     guardian_status = None
     guardian_status_label = None
-    if requires_guardian:
+    if needs_guardian:
         guardian_status = guardian.status if guardian else None
         guardian_status_label = (
             GUARDIAN_STATUS_LABELS.get(guardian_status, guardian_status)
@@ -43,20 +58,24 @@ def get_compliance_status(db: Session, *, user_id: int, requires_guardian: bool 
             else "未申請"
         )
         guardian_ready = bool(
-            guardian and guardian.status == models_buyback.GuardianConsentStatus.signed.value
+            guardian
+            and guardian.status == models_buyback.GuardianConsentStatus.signed.value
+            and guardian_documents_complete(guardian)
         )
 
     payout_ready = default_account is not None
 
     return {
+        "birth_date": user.birth_date.isoformat() if user and user.birth_date else None,
+        "requires_guardian_consent": needs_guardian,
         "identity_status": identity.status,
         "identity_status_label": IDENTITY_STATUS_LABELS.get(identity.status, identity.status),
         "identity_ready": identity_ready,
         "has_identity_documents": bool(identity.storage_key_front),
-        "requires_guardian_consent": requires_guardian,
         "guardian_status": guardian_status,
         "guardian_status_label": guardian_status_label,
         "guardian_ready": guardian_ready,
+        "guardian_has_documents": guardian_documents_complete(guardian),
         "payout_account_count": len(accounts),
         "payout_account_ready": payout_ready,
         "ready_for_payout": identity_ready and guardian_ready and payout_ready,

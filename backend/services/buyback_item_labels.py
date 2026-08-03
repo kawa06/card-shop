@@ -27,6 +27,12 @@ ITEM_RETURN_STATUS_LABELS: dict[str, str] = {
 }
 
 
+CUSTOMER_DECISION_LABELS: dict[str, str] = {
+    "accepted": "買取承認",
+    "rejected": "買取辞退",
+}
+
+
 def format_rejection_reason(
     code: str | None,
     text: str | None,

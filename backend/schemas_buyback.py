@@ -31,9 +31,14 @@ class BuybackUserOut(BaseModel):
     clerk_user_id: Optional[str] = None
     is_admin: bool
     is_verified: bool
+    birth_date: Optional[date] = None
 
     class Config:
         from_attributes = True
+
+
+class BuybackProfileUpdateIn(BaseModel):
+    birth_date: date
 
 
 class BuybackSyncResponse(BaseModel):
@@ -272,6 +277,8 @@ class BuybackRequestItemOut(BaseModel):
     return_status_label: Optional[str] = None
     return_tracking_number: Optional[str] = None
     return_shipping_cost: Optional[int] = None
+    customer_decision: Optional[str] = None
+    customer_decision_label: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -285,6 +292,8 @@ class BuybackRequestSummaryOut(BaseModel):
     status: str
     status_label: str
     status_color: Optional[str] = None
+    buyback_method: Optional[str] = None
+    buyback_method_label: Optional[str] = None
     estimated_total: Optional[int] = None
     item_count: int = 0
     submitted_at: Optional[datetime] = None
@@ -325,6 +334,7 @@ class BuybackRequestDetailOut(BaseModel):
     rejected_item_handling: Optional[str] = None
     rejected_item_handling_label: Optional[str] = None
     buyback_method: Optional[str] = None
+    buyback_method_label: Optional[str] = None
     store_visit_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     application_form_issued_at: Optional[datetime] = None
@@ -352,6 +362,7 @@ class BuybackApplicationFormOut(BaseModel):
     inbound_mgmt_id: Optional[str] = None
     public_member_id: Optional[str] = None
     applicant_name: str
+    birth_date: Optional[str] = None
     submitted_at: Optional[datetime] = None
     customer_planned_ship_date: Optional[str] = None
     declared_item_count: int = 0
@@ -361,6 +372,8 @@ class BuybackApplicationFormOut(BaseModel):
     identity_document_type: Optional[str] = None
     identity_document_type_label: Optional[str] = None
     has_identity_documents: bool = False
+    identity_ready: bool = False
+    skip_mail_id_copy: bool = False
     buyback_method: Optional[str] = None
     buyback_method_label: Optional[str] = None
     guardian_status: Optional[str] = None
@@ -397,9 +410,16 @@ class GuardianConsentOut(BaseModel):
     status_label: str
     guardian_name: Optional[str] = None
     guardian_email: Optional[str] = None
+    document_type: Optional[str] = None
+    has_front: bool = False
+    has_back: bool = False
     signed_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+
+
+class GuardianDocumentTypeIn(BaseModel):
+    document_type: str
 
 
 class GuardianConsentRequestIn(BaseModel):
@@ -440,6 +460,7 @@ class PayoutAccountOut(BaseModel):
 
 
 class ComplianceStatusOut(BaseModel):
+    birth_date: Optional[str] = None
     identity_status: str
     identity_status_label: str
     identity_ready: bool
@@ -448,9 +469,19 @@ class ComplianceStatusOut(BaseModel):
     guardian_status: Optional[str] = None
     guardian_status_label: Optional[str] = None
     guardian_ready: bool
+    guardian_has_documents: bool = False
     payout_account_count: int
     payout_account_ready: bool
     ready_for_payout: bool
+
+
+class AssessmentDecisionIn(BaseModel):
+    item_id: int
+    accepted: bool
+
+
+class AssessmentResponseIn(BaseModel):
+    decisions: List[AssessmentDecisionIn] = Field(min_length=1)
 
 
 class AdminBuybackStatsOut(BaseModel):

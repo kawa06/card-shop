@@ -45,6 +45,11 @@ def build_storage_key(*, user_id: int, verification_id: int, side: str, ext: str
     return f"kyc/{user_id}/{verification_id}/{safe_side}{ext}"
 
 
+def build_guardian_storage_key(*, user_id: int, consent_id: int, side: str, ext: str) -> str:
+    safe_side = "front" if side == "front" else "back"
+    return f"kyc/guardian/{user_id}/{consent_id}/{safe_side}{ext}"
+
+
 def upload_kyc_document(
     *,
     user_id: int,
@@ -67,6 +72,33 @@ def upload_kyc_document(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         logger.info("[KYC LOCAL] stored %s", path)
+        return key
+
+    raise RuntimeError("KYC storage is not configured (R2 env vars required in production)")
+
+
+def upload_guardian_document(
+    *,
+    user_id: int,
+    consent_id: int,
+    side: str,
+    content_type: str | None,
+    data: bytes,
+) -> str:
+    ext = _validate_upload(content_type, data)
+    key = build_guardian_storage_key(
+        user_id=user_id, consent_id=consent_id, side=side, ext=ext
+    )
+
+    if kyc_storage_configured():
+        _upload_r2(key=key, data=data, content_type=content_type or "application/octet-stream")
+        return key
+
+    if settings.DEBUG:
+        path = _LOCAL_KYC_ROOT / key
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        logger.info("[KYC LOCAL] guardian stored %s", path)
         return key
 
     raise RuntimeError("KYC storage is not configured (R2 env vars required in production)")

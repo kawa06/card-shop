@@ -21,6 +21,7 @@ from services.buyback_request_status import (
     status_color,
     status_description,
 )
+from services.buyback_application_form import BUYBACK_METHOD_LABELS
 from services.buyback_serializers import (
     rejected_item_handling_label,
     serialize_request_item,
@@ -30,12 +31,16 @@ from services.buyback_compliance import (
     IDENTITY_STATUS_LABELS,
     get_compliance_status,
 )
+from services.buyback_assessment_response import submit_assessment_response
 from services.buyback_guardian import (
     get_latest_guardian_consent,
     preview_guardian_consent_by_token,
     request_guardian_consent,
+    set_guardian_document_type,
     sign_guardian_consent,
+    upload_guardian_consent_document,
 )
+from services.buyback_profile import update_user_birth_date
 from services.buyback_identity import (
     get_or_create_identity,
     submit_identity_verification,
@@ -276,6 +281,35 @@ def buyback_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.put("/profile", response_model=schemas_buyback.BuybackUserOut)
+def update_buyback_profile(
+    payload: schemas_buyback.BuybackProfileUpdateIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = update_user_birth_date(db, user=current_user, birth_date=payload.birth_date)
+    return user
+
+
+@router.post(
+    "/requests/{request_id}/assessment-response",
+    response_model=schemas_buyback.BuybackRequestDetailOut,
+)
+def submit_buyback_assessment_response(
+    request_id: int,
+    payload: schemas_buyback.AssessmentResponseIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    request = submit_assessment_response(
+        db,
+        user=current_user,
+        request_id=request_id,
+        decisions=[row.model_dump() for row in payload.decisions],
+    )
+    return _serialize_request_detail(db, request, user=current_user)
+
+
 @router.get("/shop", response_model=schemas_buyback.BuybackShopSettingsOut)
 def get_public_shop_settings(db: Session = Depends(get_db)):
     settings = get_or_create_shop_settings(db)
@@ -377,6 +411,12 @@ def delete_buyback_cart_item(
     return None
 
 
+def _buyback_method_label(method: str | None) -> str | None:
+    if not method:
+        return None
+    return BUYBACK_METHOD_LABELS.get(method, method)
+
+
 def _serialize_request_summary(
     request: models_buyback.BuybackRequest,
 ) -> schemas_buyback.BuybackRequestSummaryOut:
@@ -389,6 +429,8 @@ def _serialize_request_summary(
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
         status_color=status_color(request.status),
+        buyback_method=request.buyback_method,
+        buyback_method_label=_buyback_method_label(request.buyback_method),
         estimated_total=request.estimated_total,
         item_count=item_count,
         submitted_at=request.submitted_at,
@@ -434,6 +476,7 @@ def _serialize_request_detail(
         rejected_item_handling=handling,
         rejected_item_handling_label=rejected_item_handling_label(handling),
         buyback_method=request.buyback_method,
+        buyback_method_label=_buyback_method_label(request.buyback_method),
         store_visit_at=request.store_visit_at,
         submitted_at=request.submitted_at,
         application_form_issued_at=request.application_form_issued_at,
@@ -589,6 +632,9 @@ def _serialize_guardian(row: models_buyback.GuardianConsent | None) -> schemas_b
         status_label=GUARDIAN_STATUS_LABELS.get(row.status, row.status),
         guardian_name=row.guardian_name,
         guardian_email=row.guardian_email,
+        document_type=row.document_type,
+        has_front=bool(row.storage_key_front),
+        has_back=bool(row.storage_key_back),
         signed_at=row.signed_at,
         expires_at=row.expires_at,
         created_at=row.created_at,
@@ -597,12 +643,15 @@ def _serialize_guardian(row: models_buyback.GuardianConsent | None) -> schemas_b
 
 @router.get("/compliance", response_model=schemas_buyback.ComplianceStatusOut)
 def buyback_compliance(
-    requires_guardian: bool = Query(False),
+    requires_guardian: bool | None = Query(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return get_compliance_status(
-        db, user_id=current_user.id, requires_guardian=requires_guardian
+        db,
+        user_id=current_user.id,
+        user=current_user,
+        requires_guardian=requires_guardian,
     )
 
 
@@ -667,6 +716,38 @@ def create_buyback_guardian_consent_request(
         guardian_email=payload.guardian_email,
     )
     return _serialize_guardian(consent)
+
+
+@router.post("/guardian-consent/documents", response_model=schemas_buyback.GuardianConsentOut)
+async def upload_buyback_guardian_document(
+    side: str = Query(..., pattern="^(front|back)$"),
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    data = await file.read()
+    row = upload_guardian_consent_document(
+        db,
+        user_id=current_user.id,
+        side=side,
+        content_type=file.content_type,
+        data=data,
+    )
+    return _serialize_guardian(row)
+
+
+@router.post("/guardian-consent/document-type", response_model=schemas_buyback.GuardianConsentOut)
+def set_buyback_guardian_document_type(
+    payload: schemas_buyback.GuardianDocumentTypeIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = set_guardian_document_type(
+        db,
+        user_id=current_user.id,
+        document_type=payload.document_type,
+    )
+    return _serialize_guardian(row)
 
 
 @router.get("/guardian-consent/preview", response_model=schemas_buyback.GuardianConsentPreviewOut)
