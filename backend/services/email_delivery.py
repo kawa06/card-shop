@@ -20,6 +20,7 @@ from services.email_html import wrap_with_brand
 from services.email_order_layout import build_preheader_html
 from services.shipping_email_registry import normalize_template_key as normalize_shipping_template_key
 from services.buyback_email_registry import normalize_template_key as normalize_buyback_template_key
+from services.kyc_email_registry import normalize_template_key as normalize_kyc_template_key
 from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
@@ -186,6 +187,7 @@ def _find_active_template(db: Session, template_key: str) -> models_email.EmailT
         template_key,
         normalize_shipping_template_key(template_key),
         normalize_buyback_template_key(template_key),
+        normalize_kyc_template_key(template_key),
     ):
         if key and key not in keys:
             keys.append(key)

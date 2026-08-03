@@ -93,6 +93,39 @@ BUYBACK_VARIABLES_HINT = (
     "{{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
 )
 
+KYC_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{kycInfoBlock}}
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+KYC_VARIABLES_HINT = (
+    "{{name}} / {{ユーザー名}}, {{authNo}} / {{認証番号}}, {{receivedAt}} / {{受付日時}}, "
+    "{{submittedAt}} / {{申請日時}}, {{reviewStartedAt}} / {{審査開始日時}}, "
+    "{{approvedAt}} / {{承認日時}}, {{expiresAt}} / {{有効期限}}, "
+    "{{resubmitDeadline}} / {{再提出期限}}, {{consentExpiresAt}} / {{同意期限}}, "
+    "{{statusLabel}} / {{ステータス}}, {{verificationType}} / {{認証種別}}, "
+    "{{settingsUrl}} / {{認証URL}}, {{consentUrl}}, {{contactUrl}} / {{お問い合わせURL}}, "
+    "{{guardianName}} / {{保護者氏名}}, {{minorName}}, "
+    "{{returnReason}} / {{差し戻し理由}}, {{rejectionReason}} / {{却下理由}}, "
+    "{{bodyTitle}}, {{bodyDescription}}, {{kycInfoBlock}}, {{buttonsBlock}}, "
+    "{{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -216,6 +249,14 @@ def build_shipping_info_block(rows: list[tuple[str, str]]) -> str:
 
 def build_buyback_info_block(rows: list[tuple[str, str]]) -> str:
     """Dynamic buyback info table — only non-empty rows are included."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_kyc_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic KYC info table — only non-empty rows; no document URLs or PII."""
     visible = [(label, value) for label, value in rows if value and str(value).strip()]
     if not visible:
         return ""

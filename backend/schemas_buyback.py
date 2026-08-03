@@ -652,11 +652,21 @@ class AdminIdentityDetailOut(AdminIdentityListOut):
 
 class AdminIdentityRejectIn(BaseModel):
     rejection_reason: str
+    send_email: bool | None = None
+    force_email: bool = False
+
+
+class AdminIdentityApproveIn(BaseModel):
+    send_email: bool | None = None
+    force_email: bool = False
 
 
 class AdminIdentityResubmitIn(BaseModel):
     reason: str
     admin_memo: Optional[str] = None
+    send_email: bool | None = None
+    force_email: bool = False
+    notify_returned: bool = False
 
 
 class AdminIdentityMemoIn(BaseModel):

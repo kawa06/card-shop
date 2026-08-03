@@ -830,6 +830,10 @@ export const adminEmailApi = {
     apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/buyback/auto-send'),
   updateBuybackAutoSend: (settings: Record<string, boolean>) =>
     apiClient.put('/admin/email/buyback/auto-send', { settings }),
+  getKycAutoSend: () =>
+    apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/kyc/auto-send'),
+  updateKycAutoSend: (settings: Record<string, boolean>) =>
+    apiClient.put('/admin/email/kyc/auto-send', { settings }),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
   getTemplateVariables: (key: string) =>
     apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(

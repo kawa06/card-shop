@@ -330,6 +330,7 @@ def _migrate_buyback_channel_schema() -> None:
     _add_column_if_missing("buyback_requests", "store_visit_at", "DATETIME")
     _add_column_if_missing("buyback_promo_banners", "linked_product_ids_json", "TEXT")
     _add_column_if_missing("buyback_channel_settings", "email_auto_send_json", "TEXT")
+    _add_column_if_missing("buyback_channel_settings", "kyc_email_auto_send_json", "TEXT")
 
     from sqlalchemy.orm import sessionmaker
 
@@ -863,3 +864,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("buyback email template upgrade failed")
+        try:
+            from services.kyc_email_templates_seed import upgrade_kyc_email_templates
+
+            kyc_upgraded = upgrade_kyc_email_templates(db)
+            if kyc_upgraded:
+                db.commit()
+                logger.info("Upgraded %s KYC email templates", kyc_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("KYC email template upgrade failed")

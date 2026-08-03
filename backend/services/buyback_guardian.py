@@ -15,7 +15,7 @@ import models
 import models_buyback
 from config import settings
 from services.buyback_age import requires_guardian_consent_for_user
-from services.buyback_emails import notify_guardian_consent_requested
+from services.kyc_emails import notify_guardian_consent_requested, notify_guardian_consent_received
 from services.buyback_identity import ALLOWED_DOCUMENT_TYPES
 from services.buyback_kyc_storage import (
     KYC_STORAGE_USER_MESSAGE,
@@ -273,6 +273,12 @@ def upload_guardian_consent_document(
                 exc,
             )
 
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user and guardian_documents_complete(consent):
+        from services.kyc_emails import notify_guardian_identity_upload_completed
+
+        notify_guardian_identity_upload_completed(db, user=user, consent=consent)
+
     return consent
 
 
@@ -351,6 +357,7 @@ def request_guardian_consent(
     consent.expires_at = expires_at
     db.commit()
     db.refresh(consent)
+    notify_guardian_consent_received(db, user=user, consent=consent)
     email_ok, email_err, error_code, user_message = notify_guardian_consent_requested(
         db, consent, user, raw_token
     )
@@ -394,6 +401,13 @@ def sign_guardian_consent(db: Session, *, token: str) -> models_buyback.Guardian
     consent.consent_token_hash = None
     db.commit()
     db.refresh(consent)
+
+    user = db.query(models.User).filter(models.User.id == consent.user_id).first()
+    if user:
+        from services.kyc_emails import notify_guardian_consent_completed
+
+        notify_guardian_consent_completed(db, user=user, consent=consent)
+
     return consent
 
 

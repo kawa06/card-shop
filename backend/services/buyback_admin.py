@@ -26,10 +26,13 @@ from services.buyback_emails import (
     notify_buyback_decision,
     notify_buyback_payout_completed,
     send_buyback_status_change_email,
+    payout_email_already_sent,
+)
+from services.kyc_emails import (
     notify_identity_approved,
     notify_identity_rejected,
     notify_identity_resubmit_requested,
-    payout_email_already_sent,
+    notify_identity_returned,
 )
 from services.buyback_item_labels import (
     apply_rejected_item_handling,
@@ -264,6 +267,8 @@ def approve_identity(
     *,
     verification_id: int,
     admin_user: models.User,
+    send_email: bool | None = None,
+    force_email: bool = False,
 ) -> models_buyback.IdentityVerification:
     row = get_identity_verification(db, verification_id)
     if row.status != models_buyback.IdentityVerificationStatus.pending.value:
@@ -299,7 +304,9 @@ def approve_identity(
 
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     if user:
-        email_ok, email_err = notify_identity_approved(db, user=user, verification=row)
+        email_ok, email_err = notify_identity_approved(
+            db, user=user, verification=row, send_email=send_email, force=force_email
+        )
         if not email_ok and email_err:
             logger.warning(
                 "Identity approved email failed verification_id=%s error=%s",
@@ -315,6 +322,8 @@ def reject_identity(
     verification_id: int,
     admin_user: models.User,
     rejection_reason: str,
+    send_email: bool | None = None,
+    force_email: bool = False,
 ) -> models_buyback.IdentityVerification:
     reason = (rejection_reason or "").strip()
     if not reason:
@@ -344,7 +353,12 @@ def reject_identity(
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     if user:
         email_ok, email_err = notify_identity_rejected(
-            db, user=user, verification=row, reason=reason
+            db,
+            user=user,
+            verification=row,
+            reason=reason,
+            send_email=send_email,
+            force=force_email,
         )
         if not email_ok and email_err:
             logger.warning(
@@ -362,6 +376,9 @@ def request_resubmit_identity(
     admin_user: models.User,
     reason: str,
     admin_memo: str | None = None,
+    send_email: bool | None = None,
+    force_email: bool = False,
+    notify_returned: bool = False,
 ) -> models_buyback.IdentityVerification:
     note = (reason or "").strip()
     if not note:
@@ -396,9 +413,24 @@ def request_resubmit_identity(
 
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     if user:
-        email_ok, email_err = notify_identity_resubmit_requested(
-            db, user=user, verification=row, reason=note
-        )
+        if notify_returned:
+            email_ok, email_err = notify_identity_returned(
+                db,
+                user=user,
+                verification=row,
+                reason=note,
+                send_email=send_email,
+                force=force_email,
+            )
+        else:
+            email_ok, email_err = notify_identity_resubmit_requested(
+                db,
+                user=user,
+                verification=row,
+                reason=note,
+                send_email=send_email,
+                force=force_email,
+            )
         if not email_ok and email_err:
             logger.warning(
                 "Identity resubmit email failed verification_id=%s error=%s",

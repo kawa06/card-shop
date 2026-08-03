@@ -20,6 +20,11 @@ from services.email_rate_limit import check_rate_limit
 from services.shipping_email_variables import shipping_variables_for_template
 from services.buyback_email_variables import buyback_variables_for_template
 from services.buyback_email_auto_send import get_auto_send_settings, update_auto_send_settings
+from services.kyc_email_auto_send import (
+    get_auto_send_settings as get_kyc_auto_send_settings,
+    update_auto_send_settings as update_kyc_auto_send_settings,
+)
+from services.kyc_email_variables import kyc_variables_for_template
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -148,6 +153,8 @@ def get_template_variables(
         variables = shipping_variables_for_template(template_key)
     elif template_key.startswith("buyback_"):
         variables = buyback_variables_for_template(template_key)
+    elif template_key.startswith("kyc_") or template_key.startswith("buyback_identity_") or template_key == "buyback_guardian_consent":
+        variables = kyc_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -217,6 +224,25 @@ def update_buyback_auto_send(
     return schemas_email.BuybackEmailAutoSendOut(settings=updated)
 
 
+@router.get("/kyc/auto-send", response_model=schemas_email.KycEmailAutoSendOut)
+def get_kyc_auto_send(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.KycEmailAutoSendOut(settings=get_kyc_auto_send_settings(db))
+
+
+@router.put("/kyc/auto-send", response_model=schemas_email.KycEmailAutoSendOut)
+def update_kyc_auto_send(
+    payload: schemas_email.KycEmailAutoSendUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_kyc_auto_send_settings(db, payload.settings)
+    safe_commit(db)
+    return schemas_email.KycEmailAutoSendOut(settings=updated)
+
+
 @router.get("/carriers")
 def list_carriers(
     ctx: AdminContext = Depends(_require_perm("admin.email.read")),
@@ -281,7 +307,11 @@ def test_send(
         sent_by_user_id=ctx.user.id,
         fallback_subject="テスト送信",
         fallback_html="<p>{{bodyTitle}}</p><p>{{bodyDescription}}</p>",
-        raw_variable_keys={"shippingInfoBlock", "orderSummaryBlock", "itemsTable", "buttonsBlock", "notesBlock", "contactBlock", "signatureBlock"},
+        raw_variable_keys={
+            "shippingInfoBlock", "orderSummaryBlock", "itemsTable", "buttonsBlock",
+            "notesBlock", "contactBlock", "signatureBlock",
+            "kycInfoBlock", "buybackInfoBlock", "assessmentDetail",
+        },
     )
     safe_commit(db)
     if not result.ok:

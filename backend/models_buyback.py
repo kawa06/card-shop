@@ -645,6 +645,7 @@ class BuybackChannelSettings(Base):
     business_hours_json = Column(Text, nullable=True)
     closed_dates_json = Column(Text, nullable=True)
     email_auto_send_json = Column(Text, nullable=True)
+    kyc_email_auto_send_json = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

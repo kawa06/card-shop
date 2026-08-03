@@ -193,7 +193,22 @@ def upload_identity_document(
     if previous_key and previous_key != key:
         delete_kyc_object(previous_key)
 
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user and _identity_documents_complete(identity):
+        from services.kyc_emails import notify_identity_upload_completed
+
+        notify_identity_upload_completed(db, user=user, verification=identity)
+
     return identity
+
+
+def _identity_documents_complete(identity: models_buyback.IdentityVerification) -> bool:
+    if not identity.storage_key_front:
+        return False
+    doc_type = identity.document_type or ""
+    if doc_type == "my_number_card":
+        return True
+    return bool(identity.storage_key_back)
 
 
 def submit_identity_verification(
@@ -235,4 +250,10 @@ def submit_identity_verification(
     identity.rejection_reason = None
     db.commit()
     db.refresh(identity)
+
+    from services.kyc_emails import notify_identity_received, notify_identity_review_started
+
+    notify_identity_received(db, user=user, verification=identity)
+    notify_identity_review_started(db, user=user, verification=identity)
+
     return identity

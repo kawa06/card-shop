@@ -173,6 +173,19 @@ class BuybackEmailAutoSendUpdateIn(BaseModel):
     settings: dict[str, bool] = Field(default_factory=dict)
 
 
+class KycEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class KycEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
+class AdminIdentityResendEmailIn(BaseModel):
+    event_key: str
+    force: bool = True
+
+
 class EmailSendLogOut(BaseModel):
     id: int
     template_key: Optional[str] = None

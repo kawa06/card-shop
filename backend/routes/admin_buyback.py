@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 import models
 import models_buyback
 import schemas_buyback
+import schemas_email
 from auth import get_current_admin_context
 from database import get_db
 from services.admin_auth import AdminAccessError, AdminContext, require_permission
@@ -404,12 +405,20 @@ def get_guardian_document(
 @router.post("/identity/{verification_id}/approve", response_model=schemas_buyback.AdminIdentityDetailOut)
 def approve_identity_route(
     verification_id: int,
+    body: schemas_buyback.AdminIdentityApproveIn | None = None,
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
         _require_perms("kyc.review")
     ),
 ):
-    row = approve_identity(db, verification_id=verification_id, admin_user=ctx.user)
+    opts = body or schemas_buyback.AdminIdentityApproveIn()
+    row = approve_identity(
+        db,
+        verification_id=verification_id,
+        admin_user=ctx.user,
+        send_email=opts.send_email,
+        force_email=opts.force_email,
+    )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     return _identity_detail_out(row, user, db=db)
 
@@ -428,6 +437,8 @@ def reject_identity_route(
         verification_id=verification_id,
         admin_user=ctx.user,
         rejection_reason=body.rejection_reason,
+        send_email=body.send_email,
+        force_email=body.force_email,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     return _identity_detail_out(row, user, db=db)
@@ -451,9 +462,37 @@ def request_resubmit_identity_route(
         admin_user=ctx.user,
         reason=body.reason,
         admin_memo=body.admin_memo,
+        send_email=body.send_email,
+        force_email=body.force_email,
+        notify_returned=body.notify_returned,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
     return _identity_detail_out(row, user, db=db)
+
+
+@router.post("/identity/{verification_id}/resend-email")
+def resend_identity_email_route(
+    verification_id: int,
+    body: schemas_email.AdminIdentityResendEmailIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perms("kyc.review")),
+):
+    from services.kyc_emails import resend_kyc_email
+
+    row = get_identity_verification(db, verification_id)
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    ok, err = resend_kyc_email(
+        db,
+        event_key=body.event_key,
+        user=user,
+        verification=row,
+        reason=row.rejection_reason,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    return {"message": "メールを再送しました", "event_key": body.event_key}
 
 
 @router.patch(
