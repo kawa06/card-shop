@@ -31,7 +31,7 @@ def _user(db) -> models.User:
 
 
 @patch("services.buyback_guardian.guardian_documents_complete", return_value=True)
-@patch("services.buyback_guardian.notify_guardian_consent_requested")
+@patch("services.buyback_guardian.notify_guardian_consent_requested", return_value=(True, None, None, None))
 def test_guardian_consent_request_and_sign(mock_notify, mock_docs, db):
     user = _user(db)
     consent, token = request_guardian_consent(

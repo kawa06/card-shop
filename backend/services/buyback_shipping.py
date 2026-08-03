@@ -166,7 +166,7 @@ def build_ship_preview(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
 
     dest = db.query(models.User).filter(models.User.id == package.destination_user_id).first()
     applicant = db.query(models.User).filter(models.User.id == request.user_id).first()
@@ -409,7 +409,7 @@ def confirm_shipment(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
     db.refresh(package)
     existing = (
         db.query(models_buyback.BuybackShipmentConfirmation)

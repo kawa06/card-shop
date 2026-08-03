@@ -169,6 +169,31 @@ def test_update_and_soft_delete(api_client, db):
     assert any(item["id"] == created["id"] for item in visible.json())
 
 
+def test_create_after_soft_delete_allows_same_name(api_client, db):
+    admin = create_admin_user(db, email="catalog-reuse@test.com", role_code="buyback_manager")
+    headers = auth_headers(admin)
+    created = api_client.post(
+        "/api/admin/buyback/catalog/products",
+        headers=headers,
+        json=_catalog_payload(name="再利用テスト"),
+    )
+    assert created.status_code == 201
+
+    deleted = api_client.delete(
+        f"/api/admin/buyback/catalog/products/{created.json()['id']}",
+        headers=headers,
+    )
+    assert deleted.status_code == 204
+
+    recreated = api_client.post(
+        "/api/admin/buyback/catalog/products",
+        headers=headers,
+        json=_catalog_payload(name="再利用テスト"),
+    )
+    assert recreated.status_code == 201
+    assert recreated.json()["id"] != created.json()["id"]
+
+
 def test_list_reflects_created_product(api_client, db):
     admin = create_admin_user(db, email="catalog-list@test.com", role_code="admin")
     headers = auth_headers(admin)

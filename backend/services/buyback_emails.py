@@ -276,7 +276,8 @@ def notify_guardian_consent_requested(
     consent: models_buyback.GuardianConsent,
     user: models.User,
     raw_token: str,
-) -> None:
+) -> tuple[bool, str | None, str | None, str | None]:
+    """Returns ok, technical_error, error_code, user_message."""
     link = f"{BUYLIST_BASE}/guardian-consent.html?token={raw_token}"
     body = f"""
       <p>{consent.guardian_name} 様</p>
@@ -289,19 +290,163 @@ def notify_guardian_consent_requested(
     html_wrapped = _wrap_email(body)
 
     if not email_configured():
-        if settings.DEBUG:
-            logger.info("[GUARDIAN EMAIL MOCK] to=%s link=%s", consent.guardian_email, link)
-        return
+        logger.error(
+            "Guardian consent email skipped: Resend is not configured to=%s",
+            consent.guardian_email,
+        )
+        return False, "RESEND_API_KEY is not configured", "mail_not_configured", (
+            "メール送信が設定されていません。ショップ管理者へお問い合わせください。"
+        )
 
-    send_templated_email(
+    try:
+        result = send_templated_email(
+            db,
+            template_key="buyback_guardian_consent",
+            to_email=consent.guardian_email,
+            variables={"name": consent.guardian_name or "保護者", "content": body, "url": link},
+            fallback_subject=subject,
+            fallback_html=html_wrapped,
+            raw_variable_keys={"content"},
+            reference_type="guardian_consent",
+            reference_id=str(consent.id),
+            force=True,
+        )
+        _record_delivery(
+            db,
+            user_id=user.id,
+            template_key="buyback_guardian_consent",
+            reference_id=str(consent.id),
+            ok=result.ok,
+            error=result.error,
+            reference_type="guardian_consent",
+        )
+        if not result.ok:
+            logger.error(
+                "Guardian consent email failed to=%s from=%s error_code=%s error=%s",
+                consent.guardian_email,
+                settings.MAIL_FROM,
+                result.error_code,
+                result.error,
+            )
+        return result.ok, result.error, result.error_code, result.user_message
+    except Exception as exc:
+        db.rollback()
+        logger.exception(
+            "Guardian consent email error to=%s from=%s",
+            consent.guardian_email,
+            settings.MAIL_FROM,
+        )
+        _record_delivery(
+            db,
+            user_id=user.id,
+            template_key="buyback_guardian_consent",
+            reference_id=str(consent.id),
+            ok=False,
+            error=str(exc),
+            reference_type="guardian_consent",
+        )
+        return False, str(exc), "mail_send_failed", (
+            "メールの送信に失敗しました。メールアドレスを確認して再度お試しください。"
+        )
+
+
+def _identity_settings_link() -> str:
+    return f"{BUYLIST_BASE}/settings.html"
+
+
+def notify_identity_approved(
+    db: Session,
+    *,
+    user: models.User,
+    verification: models_buyback.IdentityVerification,
+) -> tuple[bool, str | None]:
+    link = _identity_settings_link()
+    body = f"""
+      <p>{html.escape(user.name or 'お客')} 様</p>
+      <p>本人確認書類の審査が完了し、<strong>承認</strong>されました。</p>
+      <p>買取申込を続けていただけます。</p>
+      <p><a href="{link}">買取設定を確認</a></p>
+    """
+    subject = "【KRX TCG】本人確認が承認されました"
+    return _send_customer_template(
         db,
-        template_key="member_email_verify",
-        to_email=consent.guardian_email,
-        variables={"name": consent.guardian_name or "保護者", "content": body, "url": link},
-        fallback_subject=subject,
-        fallback_html=html_wrapped,
-        raw_variable_keys={"content"},
+        user=user,
+        request=_identity_notification_request_stub(user.id),
+        template_key="buyback_identity_approved",
+        subject=subject,
+        body_html=body,
+        reference_type="identity_verification",
+        reference_id=str(verification.id),
     )
+
+
+def notify_identity_rejected(
+    db: Session,
+    *,
+    user: models.User,
+    verification: models_buyback.IdentityVerification,
+    reason: str,
+) -> tuple[bool, str | None]:
+    link = _identity_settings_link()
+    safe_reason = html.escape(reason)
+    body = f"""
+      <p>{html.escape(user.name or 'お客')} 様</p>
+      <p>本人確認書類の審査結果、<strong>否認</strong>となりました。</p>
+      <p>理由：{safe_reason}</p>
+      <p>内容をご確認のうえ、再度お手続きください。</p>
+      <p><a href="{link}">買取設定を開く</a></p>
+    """
+    subject = "【KRX TCG】本人確認の審査結果（否認）"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=_identity_notification_request_stub(user.id),
+        template_key="buyback_identity_rejected",
+        subject=subject,
+        body_html=body,
+        reference_type="identity_verification",
+        reference_id=str(verification.id),
+    )
+
+
+def notify_identity_resubmit_requested(
+    db: Session,
+    *,
+    user: models.User,
+    verification: models_buyback.IdentityVerification,
+    reason: str,
+) -> tuple[bool, str | None]:
+    link = _identity_settings_link()
+    safe_reason = html.escape(reason)
+    body = f"""
+      <p>{html.escape(user.name or 'お客')} 様</p>
+      <p>本人確認書類について、<strong>再提出</strong>をお願いしております。</p>
+      <p>理由：{safe_reason}</p>
+      <p>マイページの買取設定から、書類を再度アップロードしてください。</p>
+      <p><a href="{link}">買取設定を開く</a></p>
+    """
+    subject = "【KRX TCG】本人確認書類の再提出のお願い"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=_identity_notification_request_stub(user.id),
+        template_key="buyback_identity_resubmit_requested",
+        subject=subject,
+        body_html=body,
+        reference_type="identity_verification",
+        reference_id=str(verification.id),
+    )
+
+
+def _identity_notification_request_stub(user_id: int) -> models_buyback.BuybackRequest:
+    """Minimal stub so _send_customer_template can build variables."""
+    stub = models_buyback.BuybackRequest(
+        id=0,
+        user_id=user_id,
+        status=models_buyback.BuybackRequestStatus.draft.value,
+    )
+    stub.items = []
+    return stub
 
 
 def payout_email_already_sent(db: Session, request_id: int) -> bool:
@@ -639,15 +784,39 @@ def notify_buyback_status_changed(
     return _send_customer_template(
         db,
         user=user,
+        request=request,
         template_key="buyback_status_changed",
-        variables={
-            "name": user.name or "お客",
-            "buyNo": request_number,
-            "statusLabel": status_label,
-            "content": body,
-        },
-        fallback_subject=subject,
-        fallback_html=body,
+        subject=subject,
+        body_html=body,
         reference_type="buyback_request",
         reference_id=str(request.id),
+    )
+
+
+def notify_store_appraisal_estimate(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    estimated_minutes: int,
+    message: str | None = None,
+) -> tuple[bool, str | None]:
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    if not user:
+        return False, "user_not_found"
+    request_number = request.public_buyback_code or request.request_number or str(request.id)
+    link = _request_link(request.id)
+    custom = html.escape((message or "").strip()) if message else ""
+    body = f"""
+      <p>{html.escape(user.name or 'お客')} 様</p>
+      <p>買取番号 {html.escape(request_number)} の査定完了まで、約{estimated_minutes}分かかる見込みです。</p>
+      {f'<p>{custom}</p>' if custom else ''}
+      <p><a href="{link}">申請詳細を確認</a></p>
+    """
+    subject = "【KRX TCG】店舗買取の査定時間について"
+    return _send_customer_template(
+        db,
+        user=user,
+        request=request,
+        template_key="buyback_store_appraisal_estimate",
+        subject=subject,
+        body_html=body,
     )

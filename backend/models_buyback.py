@@ -51,7 +51,14 @@ class IdentityVerificationStatus(str, enum.Enum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
+    resubmit_requested = "resubmit_requested"
     expired = "expired"
+
+
+class PayoutTransferStatus(str, enum.Enum):
+    unpaid = "unpaid"
+    scheduled = "scheduled"
+    completed = "completed"
 
 
 class GuardianConsentStatus(str, enum.Enum):
@@ -253,7 +260,23 @@ class BuybackRequest(Base):
     received_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     received_at = Column(DateTime, nullable=True)
     assessed_at = Column(DateTime, nullable=True)
+    customer_confirmed_at = Column(DateTime, nullable=True)
+    customer_confirmed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    store_checked_in_at = Column(DateTime, nullable=True)
+    store_checked_in_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    assessment_started_at = Column(DateTime, nullable=True)
+    assessment_started_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    assessment_presented_at = Column(DateTime, nullable=True)
+    assessment_presented_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    assessment_result_version = Column(Integer, nullable=False, default=0)
+    store_payment_method = Column(String(32), nullable=True)
+    store_payment_amount = Column(Integer, nullable=True)
+    store_payment_note = Column(Text, nullable=True)
+    transaction_completed_at = Column(DateTime, nullable=True)
+    transaction_completed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     paid_at = Column(DateTime, nullable=True)
+    payout_transfer_status = Column(String(32), nullable=True, index=True)
+    payout_scheduled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -289,9 +312,31 @@ class BuybackRequestItem(Base):
     return_tracking_number = Column(String(128), nullable=True)
     return_shipping_cost = Column(Integer, nullable=True)
     customer_decision = Column(String(32), nullable=True)
+    customer_decision_lines_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     request = relationship("BuybackRequest", back_populates="items")
+
+
+class BuybackAppraisalEstimate(Base):
+    __tablename__ = "buyback_appraisal_estimates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    request_id = Column(
+        Integer,
+        ForeignKey("buyback_requests.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    estimated_minutes = Column(Integer, nullable=False)
+    message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, nullable=False)
+    sent_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    revision_count = Column(Integer, nullable=False, default=1)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    request = relationship("BuybackRequest", backref="appraisal_estimate")
 
 
 class IdentityVerification(Base):
@@ -306,6 +351,7 @@ class IdentityVerification(Base):
     reviewed_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reviewed_at = Column(DateTime, nullable=True)
     rejection_reason = Column(Text, nullable=True)
+    admin_memo = Column(Text, nullable=True)
     submitted_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

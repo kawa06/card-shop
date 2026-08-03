@@ -14,6 +14,18 @@ logger = logging.getLogger(__name__)
 
 _DEV_FALLBACK_SECRET = "dev-only-buyback-payout-key-change-me"
 
+PAYOUT_USER_MESSAGE = (
+    "現在、振込口座を登録できません。時間をおいて再度お試しいただくか、ショップへお問い合わせください。"
+)
+
+
+class PayoutEncryptionUnavailable(Exception):
+    """Raised when payout encryption key is missing in production."""
+
+
+def is_payout_encryption_configured() -> bool:
+    return bool((settings.BUYBACK_PAYOUT_ENCRYPTION_KEY or "").strip()) or bool(settings.DEBUG)
+
 
 def _fernet() -> Fernet:
     secret = (settings.BUYBACK_PAYOUT_ENCRYPTION_KEY or "").strip()
@@ -22,7 +34,8 @@ def _fernet() -> Fernet:
             secret = _DEV_FALLBACK_SECRET
             logger.warning("BUYBACK_PAYOUT_ENCRYPTION_KEY not set; using DEBUG fallback")
         else:
-            raise RuntimeError("BUYBACK_PAYOUT_ENCRYPTION_KEY is not configured")
+            logger.error("payout_encryption_unconfigured")
+            raise PayoutEncryptionUnavailable()
     digest = hashlib.sha256(secret.encode("utf-8")).digest()
     key = base64.urlsafe_b64encode(digest)
     return Fernet(key)

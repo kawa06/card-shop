@@ -455,6 +455,7 @@ export interface AdminBuybackCatalogProductInput {
 export interface AdminIdentityListItem {
   id: number
   user_id: number
+  public_member_id: string | null
   user_email: string
   user_name: string
   status: string
@@ -469,6 +470,7 @@ export interface AdminIdentityListItem {
 
 export interface AdminIdentityDetail extends AdminIdentityListItem {
   rejection_reason: string | null
+  admin_memo: string | null
   reviewed_at: string | null
   reviewer_name: string | null
 }
@@ -478,12 +480,20 @@ export interface AdminBuybackRequestListItem {
   request_number: string | null
   status: string
   status_label: string
+  buyback_method?: string | null
+  buyback_method_label?: string | null
   user_id: number
   user_email: string
   user_name: string
   item_count: number
   estimated_total: number | null
   payout_total: number | null
+  identity_status: string | null
+  identity_status_label: string | null
+  payout_transfer_status: string | null
+  payout_transfer_status_label: string | null
+  payout_scheduled_at: string | null
+  paid_at: string | null
   submitted_at: string | null
   created_at: string
 }
@@ -559,6 +569,11 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   ready_for_payout: boolean
   payout_email_sent: boolean
   paid_at: string | null
+  payout_scheduled_at: string | null
+  payout_transfer_status: string | null
+  payout_transfer_status_label: string | null
+  identity_approved_at: string | null
+  assessment_approved_at: string | null
   rejection_reason_options?: AdminBuybackRejectionReasonOption[]
 }
 

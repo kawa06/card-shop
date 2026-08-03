@@ -25,7 +25,7 @@ def test_send_templated_email_uses_fallback_when_template_inactive(db):
     tpl.is_active = False
     db.commit()
 
-    with patch("services.email_delivery._send_resend", return_value=(True, None, "msg-1")):
+    with patch("services.email_delivery._send_email", return_value=(True, None, "msg-1", None, None)):
         result = send_templated_email(
             db,
             template_key="order_payment_confirmed",
@@ -45,7 +45,7 @@ def test_send_templated_email_uses_fallback_when_template_inactive(db):
 
 def test_send_templated_email_logs_failure(db):
     seed_email_templates(db)
-    with patch("services.email_delivery._send_resend", return_value=(False, "network error", None)):
+    with patch("services.email_delivery._send_email", return_value=(False, "network error", None, None, None)):
         result = send_templated_email(
             db,
             template_key="member_login_notify",

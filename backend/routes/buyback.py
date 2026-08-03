@@ -21,11 +21,19 @@ from services.buyback_request_status import (
     status_color,
     status_description,
 )
-from services.buyback_application_form import BUYBACK_METHOD_LABELS
+from services.buyback_application_form import (
+    BUYBACK_METHOD_LABELS,
+    build_application_form,
+    can_print_application_form,
+)
 from services.buyback_serializers import (
     rejected_item_handling_label,
+    serialize_appraisal_estimate,
     serialize_request_item,
+    store_payment_method_label,
 )
+from services.buyback_customer_review import can_review_appraisal, sync_item_line_statuses_from_assessment
+from services.buyback_method import buyback_method_label, normalize_buyback_method
 from services.buyback_compliance import (
     GUARDIAN_STATUS_LABELS,
     IDENTITY_STATUS_LABELS,
@@ -41,6 +49,7 @@ from services.buyback_guardian import (
     upload_guardian_consent_document,
 )
 from services.buyback_profile import update_user_birth_date
+from services.buyback_age import age_profile_for_user
 from services.buyback_identity import (
     get_or_create_identity,
     submit_identity_verification,
@@ -52,7 +61,6 @@ from services.buyback_payout_accounts import (
     list_payout_accounts_masked,
     set_default_payout_account,
 )
-from services.buyback_application_form import build_application_form
 from services.barcode_render import render_code128_svg
 from services.buyback_barcodes import get_active_barcode_for_entity
 from services.buyback_logistics_logs import write_package_print_log
@@ -271,14 +279,29 @@ def buyback_auth_sync(
     access_token = create_access_token({"sub": str(outcome.user.id)})
     return schemas_buyback.BuybackSyncResponse(
         access_token=access_token,
-        user=outcome.user,
+        user=_serialize_user(outcome.user),
         link_result=outcome.result.value,
+    )
+
+
+def _serialize_user(user: models.User) -> schemas_buyback.BuybackUserOut:
+    age, age_as_of = age_profile_for_user(user)
+    return schemas_buyback.BuybackUserOut(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        clerk_user_id=user.clerk_user_id,
+        is_admin=user.is_admin,
+        is_verified=user.is_verified,
+        birth_date=user.birth_date,
+        age=age,
+        age_as_of=age_as_of,
     )
 
 
 @router.get("/me", response_model=schemas_buyback.BuybackUserOut)
 def buyback_me(current_user: models.User = Depends(get_current_user)):
-    return current_user
+    return _serialize_user(current_user)
 
 
 @router.put("/profile", response_model=schemas_buyback.BuybackUserOut)
@@ -288,7 +311,7 @@ def update_buyback_profile(
     db: Session = Depends(get_db),
 ):
     user = update_user_birth_date(db, user=current_user, birth_date=payload.birth_date)
-    return user
+    return _serialize_user(user)
 
 
 @router.post(
@@ -444,9 +467,33 @@ def _serialize_request_detail(
     *,
     user: models.User | None = None,
 ) -> schemas_buyback.BuybackRequestDetailOut:
+    from services.buyback_item_labels import CUSTOMER_REVIEW_REQUEST_STATUSES, compute_assessed_total
+
+    if (request.status or "") in CUSTOMER_REVIEW_REQUEST_STATUSES:
+        before_states = {item.id: item.line_status for item in (request.items or [])}
+        before_total = request.assessed_total
+        sync_item_line_statuses_from_assessment(request)
+        new_total = compute_assessed_total(request.items or [], request)
+        changed = any(
+            (item.line_status or "") != before_states.get(item.id)
+            for item in (request.items or [])
+        ) or new_total != (before_total or 0)
+        if changed:
+            request.assessed_total = new_total
+            db.commit()
+            db.refresh(request)
+
     handling = request.rejected_item_handling
     inbound = _load_inbound_for_request(db, request.id)
     inbound_status = inbound.status if inbound else None
+    method = normalize_buyback_method(request.buyback_method)
+    estimate_row = getattr(request, "appraisal_estimate", None)
+    if estimate_row is None:
+        estimate_row = (
+            db.query(models_buyback.BuybackAppraisalEstimate)
+            .filter(models_buyback.BuybackAppraisalEstimate.request_id == request.id)
+            .first()
+        )
     return schemas_buyback.BuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
@@ -475,14 +522,21 @@ def _serialize_request_detail(
         payout_total=request.payout_total,
         rejected_item_handling=handling,
         rejected_item_handling_label=rejected_item_handling_label(handling),
-        buyback_method=request.buyback_method,
-        buyback_method_label=_buyback_method_label(request.buyback_method),
+        buyback_method=method,
+        buyback_method_label=buyback_method_label(method),
         store_visit_at=request.store_visit_at,
         submitted_at=request.submitted_at,
         application_form_issued_at=request.application_form_issued_at,
         assessed_at=request.assessed_at,
+        customer_confirmed_at=request.customer_confirmed_at,
+        can_print_application_form=False,
+        can_review_appraisal=can_review_appraisal(request, user_id=user.id if user else None),
+        assessment_result_version=request.assessment_result_version or 0,
+        latest_appraisal_estimate=serialize_appraisal_estimate(estimate_row),
+        store_payment_method=request.store_payment_method,
+        store_payment_method_label=store_payment_method_label(request.store_payment_method),
         created_at=request.created_at,
-        items=[serialize_request_item(item) for item in request.items],
+        items=[serialize_request_item(item, request) for item in request.items],
     )
 
 
@@ -714,6 +768,7 @@ def create_buyback_guardian_consent_request(
         user=current_user,
         guardian_name=payload.guardian_name,
         guardian_email=payload.guardian_email,
+        resend=payload.resend,
     )
     return _serialize_guardian(consent)
 

@@ -28,9 +28,113 @@ ITEM_RETURN_STATUS_LABELS: dict[str, str] = {
 
 
 CUSTOMER_DECISION_LABELS: dict[str, str] = {
-    "accepted": "買取承認",
-    "rejected": "買取辞退",
+    "accepted": "買取する",
+    "rejected": "買取をやめる",
+    "partial": "一部買取",
 }
+
+CONDITION_CODE_LABELS: dict[str, str] = {
+    "default": "標準",
+    "A": "極美品",
+    "B": "美品",
+    "C": "軽い傷あり",
+    "D": "傷あり",
+    "E": "大きな傷あり",
+    "ジャンク": "ジャンク",
+}
+
+
+CUSTOMER_LINE_STATUS_LABELS: dict[str, str] = {
+    **LINE_STATUS_LABELS,
+    "customer_review": "査定済み・選択してください",
+}
+
+CUSTOMER_REVIEW_REQUEST_STATUSES = frozenset(
+    {
+        "assessed",
+        "awaiting_customer",
+    }
+)
+
+CHOOSABLE_LINE_STATUSES = frozenset(
+    {
+        models_buyback.BuybackItemLineStatus.buyable.value,
+        models_buyback.BuybackItemLineStatus.reduced.value,
+    }
+)
+
+
+def item_has_assessment_data(item: models_buyback.BuybackRequestItem) -> bool:
+    if parse_assessment_lines(item):
+        return True
+    if item.assessed_unit_price is not None:
+        return True
+    status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
+    return status in CHOOSABLE_LINE_STATUSES
+
+
+def infer_line_status_from_assessment(
+    item: models_buyback.BuybackRequestItem,
+) -> str | None:
+    status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
+    if status != models_buyback.BuybackItemLineStatus.pending.value:
+        return None
+    if item.rejection_reason_code or (item.rejection_reason_text or "").strip():
+        return models_buyback.BuybackItemLineStatus.rejected.value
+    lines = parse_assessment_lines(item)
+    if lines:
+        avg = sum(row["quantity"] * row["unit_price"] for row in lines) // max(item.quantity, 1)
+        if avg <= 0:
+            return models_buyback.BuybackItemLineStatus.rejected.value
+        if avg < item.listed_unit_price:
+            return models_buyback.BuybackItemLineStatus.reduced.value
+        return models_buyback.BuybackItemLineStatus.buyable.value
+    if item.assessed_unit_price is not None:
+        price = int(item.assessed_unit_price)
+        if price <= 0:
+            return models_buyback.BuybackItemLineStatus.rejected.value
+        if price < item.listed_unit_price:
+            return models_buyback.BuybackItemLineStatus.reduced.value
+        return models_buyback.BuybackItemLineStatus.buyable.value
+    return None
+
+
+def effective_line_status(
+    item: models_buyback.BuybackRequestItem,
+    request: models_buyback.BuybackRequest | None = None,
+) -> str:
+    status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
+    if status != models_buyback.BuybackItemLineStatus.pending.value:
+        return status
+    inferred = infer_line_status_from_assessment(item)
+    if inferred:
+        return inferred
+    req_status = request.status if request else None
+    if req_status in CUSTOMER_REVIEW_REQUEST_STATUSES and item_has_assessment_data(item):
+        return "customer_review"
+    return status
+
+
+def is_customer_choosable_item(
+    item: models_buyback.BuybackRequestItem,
+    request: models_buyback.BuybackRequest | None = None,
+) -> bool:
+    effective = effective_line_status(item, request)
+    return effective in CHOOSABLE_LINE_STATUSES
+
+
+def customer_line_status_label(
+    item: models_buyback.BuybackRequestItem,
+    request: models_buyback.BuybackRequest | None = None,
+) -> str | None:
+    effective = effective_line_status(item, request)
+    return CUSTOMER_LINE_STATUS_LABELS.get(effective, LINE_STATUS_LABELS.get(effective, effective))
+
+
+def condition_code_label(code: str | None) -> str | None:
+    if not code:
+        return None
+    return CONDITION_CODE_LABELS.get(code, code)
 
 
 def format_rejection_reason(
@@ -74,28 +178,120 @@ def parse_assessment_lines(item: models_buyback.BuybackRequestItem) -> list[dict
     return lines
 
 
-def item_assessed_subtotal(item: models_buyback.BuybackRequestItem) -> int:
-    status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
-    if status == models_buyback.BuybackItemLineStatus.rejected.value:
-        return 0
+def expand_assessment_units(item: models_buyback.BuybackRequestItem) -> list[dict[str, int]]:
+    """Expand item assessment into per-unit rows for customer selection."""
+    lines = parse_assessment_lines(item)
+    units: list[dict[str, int]] = []
+    if lines:
+        for line_index, line in enumerate(lines):
+            for unit_index in range(line["quantity"]):
+                units.append(
+                    {
+                        "line_index": line_index,
+                        "unit_index": unit_index,
+                        "unit_price": line["unit_price"],
+                    }
+                )
+        return units
 
+    qty = max(int(item.quantity or 0), 0)
+    if qty <= 0:
+        return []
+    unit_price = item.assessed_unit_price
+    if unit_price is None:
+        if item.line_status == models_buyback.BuybackItemLineStatus.buyable.value:
+            unit_price = item.listed_unit_price
+        else:
+            unit_price = 0
+    unit_price = max(int(unit_price), 0)
+    for unit_index in range(qty):
+        units.append(
+            {
+                "line_index": 0,
+                "unit_index": unit_index,
+                "unit_price": unit_price,
+            }
+        )
+    return units
+
+
+def parse_customer_decision_lines(item: models_buyback.BuybackRequestItem) -> list[dict[str, object]]:
+    raw = getattr(item, "customer_decision_lines_json", None)
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for row in parsed:
+        if not isinstance(row, dict):
+            continue
+        try:
+            rows.append(
+                {
+                    "line_index": int(row.get("line_index", 0)),
+                    "unit_index": int(row.get("unit_index", 0)),
+                    "unit_price": int(row.get("unit_price", 0)),
+                    "accepted": bool(row.get("accepted")),
+                }
+            )
+        except (TypeError, ValueError):
+            continue
+    return rows
+
+
+def item_accepted_subtotal(item: models_buyback.BuybackRequestItem) -> int:
+    decision_lines = parse_customer_decision_lines(item)
+    if decision_lines:
+        return sum(
+            int(row["unit_price"])
+            for row in decision_lines
+            if row.get("accepted")
+        )
+    if item.customer_decision != "accepted":
+        return 0
+    unit = item.accepted_unit_price
+    if unit is None:
+        lines = parse_assessment_lines(item)
+        if lines:
+            return sum(row["quantity"] * row["unit_price"] for row in lines)
+        if item.assessed_unit_price is not None:
+            return max(int(item.assessed_unit_price), 0) * item.quantity
+        return 0
+    return max(int(unit), 0) * item.quantity
+
+
+def item_assessed_subtotal(
+    item: models_buyback.BuybackRequestItem,
+    request: models_buyback.BuybackRequest | None = None,
+) -> int:
     lines = parse_assessment_lines(item)
     if lines:
         return sum(row["quantity"] * row["unit_price"] for row in lines)
 
+    status = effective_line_status(item, request)
+    if status == models_buyback.BuybackItemLineStatus.rejected.value:
+        return 0
+
     unit = item.assessed_unit_price
     if unit is None:
-        if status == models_buyback.BuybackItemLineStatus.buyable.value:
+        if status in CHOOSABLE_LINE_STATUSES:
             unit = item.listed_unit_price
         else:
             unit = 0
     return max(int(unit), 0) * item.quantity
 
 
-def compute_assessed_total(items: list[models_buyback.BuybackRequestItem]) -> int:
+def compute_assessed_total(
+    items: list[models_buyback.BuybackRequestItem],
+    request: models_buyback.BuybackRequest | None = None,
+) -> int:
     total = 0
     for item in items:
-        total += item_assessed_subtotal(item)
+        total += item_assessed_subtotal(item, request)
     return total
 
 

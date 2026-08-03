@@ -23,6 +23,26 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     @model_validator(mode="after")
+    def normalize_email_env_aliases(self):
+        """Railway may use EMAIL_FROM / EMAIL_FROM_NAME instead of MAIL_*."""
+        email_from = os.environ.get("EMAIL_FROM", "").strip()
+        if email_from and self.MAIL_FROM == "oripakawa@gmail.com":
+            self.MAIL_FROM = email_from
+        email_from_name = os.environ.get("EMAIL_FROM_NAME", "").strip()
+        if email_from_name and self.MAIL_FROM_NAME == "KRX TCG":
+            self.MAIL_FROM_NAME = email_from_name
+        email_reply = os.environ.get("EMAIL_REPLY_TO", "").strip()
+        if email_reply and self.MAIL_REPLY_TO == "oripakawa@gmail.com":
+            self.MAIL_REPLY_TO = email_reply
+        username = (self.MAIL_USERNAME or "").strip()
+        if username.endswith("@gmail.com"):
+            if not self.MAIL_FROM or self.MAIL_FROM.endswith("@oripa-kawa.com"):
+                self.MAIL_FROM = username
+        elif (self.MAIL_FROM or "").endswith("@gmail.com") and not username:
+            self.MAIL_USERNAME = self.MAIL_FROM
+        return self
+
+    @model_validator(mode="after")
     def ensure_secret_key(self):
         if not self.SECRET_KEY.strip():
             if self.DEBUG:
@@ -45,6 +65,7 @@ class Settings(BaseSettings):
         "https://taupe-marshmallow-224b52.netlify.app",
         "https://frontend-one-topaz-20.vercel.app",
         "https://oripa-kawa.vercel.app",
+        "https://card-vault-public.vercel.app",
     ]
 
     @field_validator("CORS_ORIGINS", mode="before")
@@ -68,9 +89,9 @@ class Settings(BaseSettings):
 
     # Email Settings (to be set in Railway environment variables)
     RESEND_API_KEY: Optional[str] = None
-    MAIL_USERNAME: Optional[str] = None
+    MAIL_USERNAME: Optional[str] = "oripakawa@gmail.com"
     MAIL_PASSWORD: Optional[str] = None
-    MAIL_FROM: str = "noreply@oripa-kawa.com"
+    MAIL_FROM: str = "oripakawa@gmail.com"
     MAIL_REPLY_TO: str = "oripakawa@gmail.com"
     MAIL_PORT: int = 465
     MAIL_SERVER: str = "smtp.gmail.com"
@@ -91,6 +112,7 @@ class Settings(BaseSettings):
     R2_ACCESS_KEY_ID: Optional[str] = None
     R2_SECRET_ACCESS_KEY: Optional[str] = None
     R2_BUCKET_NAME: Optional[str] = None
+    R2_API_TOKEN: Optional[str] = None
 
     # Payout account field encryption (32+ chars recommended)
     BUYBACK_PAYOUT_ENCRYPTION_KEY: str = ""
@@ -130,6 +152,13 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             # Railway copy/paste sometimes inserts line breaks into long secrets.
             return v.strip().replace("\n", "").replace("\r", "").replace(" ", "")
+        return v
+
+    @field_validator("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ACCOUNT_ID", "R2_BUCKET_NAME", "R2_API_TOKEN", mode="before")
+    @classmethod
+    def normalize_r2_secret(cls, v: object) -> object:
+        if isinstance(v, str):
+            return v.strip().replace("\n", "").replace("\r", "")
         return v
 
 

@@ -31,10 +31,41 @@
 - **Account numbers:** Fernet encryption via `BUYBACK_PAYOUT_ENCRYPTION_KEY` (required in production)
 - API never returns full account numbers (masked only)
 
-## Env (Railway)
+### R2 credentials (important)
+
+Create tokens at **Cloudflare Dashboard → R2 → Manage R2 API Tokens** (not general API tokens).
+
+- `R2_ACCESS_KEY_ID` must be **32 characters** (UUID-style tokens may include dashes — strip before use)
+- `R2_SECRET_ACCESS_KEY` is shown once when the token is created
+- Set on **Railway backend** only; never expose to the buylist frontend
+
+Validate after setting:
+
+```bash
+cd backend && railway run python scripts/validate_r2_storage.py
+```
+
+## Env (Railway — backend service)
+
+**必須（本番）:** 振込口座の口座番号を暗号化するサーバー専用キー。フロントエンドや `NEXT_PUBLIC_*` には設定しないこと。
+
+```bash
+# 32バイト以上のランダム値を生成（Node.js）
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Railway の **backend** サービスに設定:
 
 ```
-BUYBACK_PAYOUT_ENCRYPTION_KEY=<32+ char secret>
+BUYBACK_PAYOUT_ENCRYPTION_KEY=<上記で生成した値>
+```
+
+- 既存本番でキーが設定済みの場合、**変更しない**（既存口座が復号不能になります）
+- 未設定時は口座登録 API が 503 を返し、利用者には内部エラー名を表示しません
+
+その他:
+
+```
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=

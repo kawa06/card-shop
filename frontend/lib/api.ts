@@ -554,7 +554,24 @@ export const adminBuybackApi = {
     apiClient.post<import('./types').AdminIdentityDetail>(`/admin/buyback/identity/${id}/reject`, {
       rejection_reason,
     }),
-  listRequests: (params?: { status?: string; q?: string }) =>
+  requestResubmitIdentity: (id: number, reason: string, admin_memo?: string) =>
+    apiClient.post<import('./types').AdminIdentityDetail>(
+      `/admin/buyback/identity/${id}/request-resubmit`,
+      { reason, admin_memo }
+    ),
+  updateIdentityMemo: (id: number, admin_memo: string) =>
+    apiClient.patch<import('./types').AdminIdentityDetail>(`/admin/buyback/identity/${id}/memo`, {
+      admin_memo,
+    }),
+  listRequests: (params?: {
+    status?: string
+    q?: string
+    buyback_method?: string
+    payout_transfer_status?: string
+    identity_not_approved?: boolean
+    date_from?: string
+    date_to?: string
+  }) =>
     apiClient.get<import('./types').AdminBuybackRequestListItem[]>('/admin/buyback/requests', {
       params,
     }),
@@ -605,6 +622,14 @@ export const adminBuybackApi = {
   ) =>
     apiClient.post<import('./types').AdminBuybackRequestDetail>(
       `/admin/buyback/requests/${id}/complete-payout`,
+      data
+    ),
+  schedulePayout: (
+    id: number,
+    data: { payout_scheduled_at: string; admin_note?: string }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/schedule-payout`,
       data
     ),
   listCatalogProducts: (params?: { include_inactive?: boolean }) =>

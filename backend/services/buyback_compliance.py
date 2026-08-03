@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 import models
 import models_buyback
-from services.buyback_age import requires_guardian_consent_for_user
+from services.buyback_age import age_profile_for_user, requires_guardian_consent_for_user
 from services.buyback_guardian import get_latest_guardian_consent, guardian_documents_complete
 from services.buyback_identity import get_or_create_identity
 from services.buyback_payout_accounts import list_payout_accounts
@@ -15,8 +15,15 @@ IDENTITY_STATUS_LABELS = {
     "not_submitted": "未提出",
     "pending": "審査中",
     "approved": "承認済み",
-    "rejected": "差戻し",
+    "rejected": "否認",
+    "resubmit_requested": "再提出依頼",
     "expired": "期限切れ",
+}
+
+PAYOUT_TRANSFER_STATUS_LABELS = {
+    "unpaid": "未振込",
+    "scheduled": "振込予定",
+    "completed": "振込済み",
 }
 
 GUARDIAN_STATUS_LABELS = {
@@ -64,9 +71,12 @@ def get_compliance_status(
         )
 
     payout_ready = default_account is not None
+    age, age_as_of = age_profile_for_user(user)
 
     return {
         "birth_date": user.birth_date.isoformat() if user and user.birth_date else None,
+        "age": age,
+        "age_as_of": age_as_of.isoformat() if age_as_of else None,
         "requires_guardian_consent": needs_guardian,
         "identity_status": identity.status,
         "identity_status_label": IDENTITY_STATUS_LABELS.get(identity.status, identity.status),

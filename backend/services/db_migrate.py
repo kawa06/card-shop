@@ -117,7 +117,19 @@ def _migrate_buyback_schema() -> None:
         "buyback_products", "ix_buyback_products_firestore_item_id", "firestore_item_id"
     )
     _migrate_buyback_catalog_columns()
+    _migrate_buyback_payout_columns()
     _migrate_buyback_request_columns()
+
+
+def _migrate_buyback_payout_columns() -> None:
+    """Payout transfer tracking and KYC admin memo."""
+    payout_cols = [
+        ("payout_transfer_status", "VARCHAR(32)"),
+        ("payout_scheduled_at", "DATETIME"),
+    ]
+    for col, col_type in payout_cols:
+        _add_column_if_missing("buyback_requests", col, col_type)
+    _add_column_if_missing("identity_verifications", "admin_memo", "TEXT")
 
 
 def _migrate_buyback_catalog_columns() -> None:
@@ -142,6 +154,8 @@ def _migrate_buyback_catalog_columns() -> None:
 
 
 def _migrate_buyback_request_columns() -> None:
+    import models_buyback  # noqa: F401
+
     request_cols = [
         ("rejected_item_handling", "VARCHAR(64)"),
         ("agreed_prepaid_shipping", "BOOLEAN DEFAULT 0"),
@@ -166,6 +180,31 @@ def _migrate_buyback_request_columns() -> None:
 
     _add_column_if_missing("buyback_requests", "customer_status_note", "TEXT")
     _add_column_if_missing("buyback_request_items", "customer_decision", "VARCHAR(32)")
+    _add_column_if_missing("buyback_request_items", "customer_decision_lines_json", "TEXT")
+    _add_column_if_missing("buyback_requests", "customer_confirmed_at", "DATETIME")
+    _add_column_if_missing("buyback_requests", "customer_confirmed_by_user_id", "INTEGER")
+    store_workflow_cols = [
+        ("store_checked_in_at", "DATETIME"),
+        ("store_checked_in_by_user_id", "INTEGER"),
+        ("assessment_started_at", "DATETIME"),
+        ("assessment_started_by_user_id", "INTEGER"),
+        ("assessment_presented_at", "DATETIME"),
+        ("assessment_presented_by_user_id", "INTEGER"),
+        ("assessment_result_version", "INTEGER DEFAULT 0"),
+        ("store_payment_method", "VARCHAR(32)"),
+        ("store_payment_amount", "INTEGER"),
+        ("store_payment_note", "TEXT"),
+        ("transaction_completed_at", "DATETIME"),
+        ("transaction_completed_by_user_id", "INTEGER"),
+    ]
+    for col, col_type in store_workflow_cols:
+        _add_column_if_missing("buyback_requests", col, col_type)
+
+    _create_table_if_missing("buyback_appraisal_estimates", models_buyback.BuybackAppraisalEstimate)
+
+    from services.buyback_data_repair import repair_legacy_assessment_item_statuses
+
+    repair_legacy_assessment_item_statuses()
     _add_column_if_missing("users", "birth_date", "DATE")
     guardian_doc_cols = [
         ("document_type", "VARCHAR(64)"),

@@ -18,7 +18,6 @@ import {
   Banknote,
   Shield,
   Lock,
-  UserCheck,
   Mail,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
@@ -131,9 +130,6 @@ export default function AdminPage() {
     ...(hasPermission('buyback.reservation.read')
       ? [{ href: buybackAdminUrl('reservations'), external: true, icon: Package, label: '店舗買取予約', count: 0, color: 'text-indigo-600', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
       : []),
-    ...(hasPermission('buyback.identity.read')
-      ? [{ href: buybackAdminUrl('ops-kyc'), external: true, icon: UserCheck, label: '買取 KYC 審査', count: stats.buybackPendingKyc, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' }]
-      : []),
     ...(hasPermission('buyback.receive')
       ? [{ href: buybackAdminUrl('ops-receiving'), external: true, icon: Package, label: '買取荷物受付', count: stats.buybackSubmittedRequests, color: 'text-yellow-600', bg: 'bg-yellow-500/10 border-yellow-500/20' }]
       : []),
@@ -147,10 +143,7 @@ export default function AdminPage() {
       ? [{ href: buybackAdminUrl('ops-logs'), external: true, icon: Shield, label: '買取物流ログ', count: 0, color: 'text-slate-600', bg: 'bg-slate-500/10 border-slate-500/20' }]
       : []),
     ...(hasPermission('buyback.request.read')
-      ? [{ href: buybackAdminUrl('requests'), external: true, icon: Package, label: '買取申込管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
-      : []),
-    ...(hasPermission('buyback.payout.complete')
-      ? [{ href: buybackAdminUrl('ops-payouts'), external: true, icon: Banknote, label: '買取振込管理', count: stats.buybackPayoutPending, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
+      ? [{ href: '/admin/buyback/requests', icon: Package, label: '買取申請管理', count: stats.buybackSubmittedRequests, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
       : []),
     ...(hasPermission('admin.users.read')
       ? [{ href: '/admin/security/admins', icon: Lock, label: '管理者・セキュリティ', count: 0, color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' }]

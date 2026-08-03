@@ -7,6 +7,8 @@ from datetime import date
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from services.buyback_age import today_jst
+
 import models
 
 
@@ -16,7 +18,7 @@ def update_user_birth_date(
     user: models.User,
     birth_date: date,
 ) -> models.User:
-    today = date.today()
+    today = today_jst()
     if birth_date > today:
         raise HTTPException(status_code=400, detail="生年月日が未来の日付です")
     if birth_date.year < 1900:

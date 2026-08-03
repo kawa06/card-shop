@@ -13,12 +13,15 @@ from sqlalchemy.orm import Session, joinedload
 
 import models
 import models_buyback
-from services.buyback_compliance import get_compliance_status
+from services.buyback_compliance import PAYOUT_TRANSFER_STATUS_LABELS, get_compliance_status
 from services.buyback_emails import (
     notify_buyback_assessment_ready,
     notify_buyback_decision,
     notify_buyback_payout_completed,
     notify_buyback_status_changed,
+    notify_identity_approved,
+    notify_identity_rejected,
+    notify_identity_resubmit_requested,
     payout_email_already_sent,
 )
 from services.buyback_item_labels import (
@@ -27,6 +30,7 @@ from services.buyback_item_labels import (
     format_rejection_reason,
     parse_assessment_lines,
 )
+from services.buyback_customer_review import sync_item_line_statuses_from_assessment
 from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
 from services.buyback_logistics_logs import write_buyback_audit
 from services.buyback_request_status import (
@@ -69,6 +73,26 @@ def _audit(
         entity_id=entity_id,
         details=details,
     )
+
+
+def _get_user_identity(db: Session, user_id: int) -> models_buyback.IdentityVerification | None:
+    return (
+        db.query(models_buyback.IdentityVerification)
+        .filter(models_buyback.IdentityVerification.user_id == user_id)
+        .order_by(models_buyback.IdentityVerification.id.desc())
+        .first()
+    )
+
+
+def resolve_payout_transfer_status(request: models_buyback.BuybackRequest) -> str:
+    if request.paid_at or request.payout_transfer_status == models_buyback.PayoutTransferStatus.completed.value:
+        return models_buyback.PayoutTransferStatus.completed.value
+    if (
+        request.payout_scheduled_at
+        or request.payout_transfer_status == models_buyback.PayoutTransferStatus.scheduled.value
+    ):
+        return models_buyback.PayoutTransferStatus.scheduled.value
+    return models_buyback.PayoutTransferStatus.unpaid.value
 
 
 def list_identity_verifications(
@@ -140,6 +164,16 @@ def approve_identity(
     )
     db.commit()
     db.refresh(row)
+
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    if user:
+        email_ok, email_err = notify_identity_approved(db, user=user, verification=row)
+        if not email_ok and email_err:
+            logger.warning(
+                "Identity approved email failed verification_id=%s error=%s",
+                row.id,
+                email_err,
+            )
     return row
 
 
@@ -152,11 +186,11 @@ def reject_identity(
 ) -> models_buyback.IdentityVerification:
     reason = (rejection_reason or "").strip()
     if not reason:
-        raise HTTPException(status_code=400, detail="差戻し理由を入力してください")
+        raise HTTPException(status_code=400, detail="否認理由を入力してください")
 
     row = get_identity_verification(db, verification_id)
     if row.status != models_buyback.IdentityVerificationStatus.pending.value:
-        raise HTTPException(status_code=400, detail="審査中の本人確認のみ差戻しできます")
+        raise HTTPException(status_code=400, detail="審査中の本人確認のみ否認できます")
 
     now = datetime.utcnow()
     row.status = models_buyback.IdentityVerificationStatus.rejected.value
@@ -174,6 +208,94 @@ def reject_identity(
     )
     db.commit()
     db.refresh(row)
+
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    if user:
+        email_ok, email_err = notify_identity_rejected(
+            db, user=user, verification=row, reason=reason
+        )
+        if not email_ok and email_err:
+            logger.warning(
+                "Identity rejected email failed verification_id=%s error=%s",
+                row.id,
+                email_err,
+            )
+    return row
+
+
+def request_resubmit_identity(
+    db: Session,
+    *,
+    verification_id: int,
+    admin_user: models.User,
+    reason: str,
+    admin_memo: str | None = None,
+) -> models_buyback.IdentityVerification:
+    note = (reason or "").strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="再提出理由を入力してください")
+
+    row = get_identity_verification(db, verification_id)
+    if row.status not in {
+        models_buyback.IdentityVerificationStatus.pending.value,
+        models_buyback.IdentityVerificationStatus.approved.value,
+        models_buyback.IdentityVerificationStatus.rejected.value,
+    }:
+        raise HTTPException(status_code=400, detail="再提出依頼できないステータスです")
+
+    now = datetime.utcnow()
+    row.status = models_buyback.IdentityVerificationStatus.resubmit_requested.value
+    row.reviewed_by_user_id = admin_user.id
+    row.reviewed_at = now
+    row.rejection_reason = note
+    if admin_memo is not None:
+        row.admin_memo = admin_memo.strip() or None
+    row.updated_at = now
+    _audit(
+        db,
+        actor_user_id=admin_user.id,
+        action="identity_resubmit_requested",
+        entity_type="identity_verification",
+        entity_id=str(row.id),
+        details={"user_id": row.user_id, "reason": note},
+    )
+    db.commit()
+    db.refresh(row)
+
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    if user:
+        email_ok, email_err = notify_identity_resubmit_requested(
+            db, user=user, verification=row, reason=note
+        )
+        if not email_ok and email_err:
+            logger.warning(
+                "Identity resubmit email failed verification_id=%s error=%s",
+                row.id,
+                email_err,
+            )
+    return row
+
+
+def update_identity_admin_memo(
+    db: Session,
+    *,
+    verification_id: int,
+    admin_user: models.User,
+    admin_memo: str,
+) -> models_buyback.IdentityVerification:
+    row = get_identity_verification(db, verification_id)
+    row.admin_memo = (admin_memo or "").strip() or None
+    row.updated_at = datetime.utcnow()
+    _audit(
+        db,
+        actor_user_id=admin_user.id,
+        action="identity_admin_memo_updated",
+        entity_type="identity_verification",
+        entity_id=str(row.id),
+        details={"user_id": row.user_id},
+    )
+    db.commit()
+    db.refresh(row)
     return row
 
 
@@ -181,10 +303,17 @@ def list_admin_requests(
     db: Session,
     *,
     status: Optional[str] = None,
+    buyback_method: Optional[str] = None,
+    payout_transfer_status: Optional[str] = None,
+    identity_not_approved: bool = False,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
     q: Optional[str] = None,
     allow_pii_search: bool = False,
     limit: int = 100,
 ) -> list[models_buyback.BuybackRequest]:
+    from services.buyback_method import MAIL_ALIASES, STORE_ALIASES, normalize_buyback_method
+
     query = (
         db.query(models_buyback.BuybackRequest)
         .join(models.User, models_buyback.BuybackRequest.user_id == models.User.id)
@@ -192,6 +321,61 @@ def list_admin_requests(
     )
     if status:
         query = query.filter(models_buyback.BuybackRequest.status == status)
+    if buyback_method:
+        want = normalize_buyback_method(buyback_method)
+        if want == "store":
+            query = query.filter(
+                models_buyback.BuybackRequest.buyback_method.in_(list(STORE_ALIASES))
+            )
+        else:
+            query = query.filter(
+                or_(
+                    models_buyback.BuybackRequest.buyback_method.in_(list(MAIL_ALIASES)),
+                    models_buyback.BuybackRequest.buyback_method.is_(None),
+                    ~models_buyback.BuybackRequest.buyback_method.in_(list(STORE_ALIASES)),
+                )
+            )
+    if payout_transfer_status:
+        if payout_transfer_status == models_buyback.PayoutTransferStatus.completed.value:
+            query = query.filter(
+                or_(
+                    models_buyback.BuybackRequest.payout_transfer_status
+                    == models_buyback.PayoutTransferStatus.completed.value,
+                    models_buyback.BuybackRequest.paid_at.isnot(None),
+                )
+            )
+        elif payout_transfer_status == models_buyback.PayoutTransferStatus.scheduled.value:
+            query = query.filter(
+                or_(
+                    models_buyback.BuybackRequest.payout_transfer_status
+                    == models_buyback.PayoutTransferStatus.scheduled.value,
+                    models_buyback.BuybackRequest.payout_scheduled_at.isnot(None),
+                ),
+                models_buyback.BuybackRequest.paid_at.is_(None),
+            )
+        elif payout_transfer_status == models_buyback.PayoutTransferStatus.unpaid.value:
+            query = query.filter(models_buyback.BuybackRequest.paid_at.is_(None)).filter(
+                or_(
+                    models_buyback.BuybackRequest.payout_transfer_status.is_(None),
+                    models_buyback.BuybackRequest.payout_transfer_status
+                    == models_buyback.PayoutTransferStatus.unpaid.value,
+                ),
+                models_buyback.BuybackRequest.payout_scheduled_at.is_(None),
+            )
+    if identity_not_approved:
+        approved_ids = (
+            db.query(models_buyback.IdentityVerification.user_id)
+            .filter(
+                models_buyback.IdentityVerification.status
+                == models_buyback.IdentityVerificationStatus.approved.value
+            )
+            .subquery()
+        )
+        query = query.filter(~models_buyback.BuybackRequest.user_id.in_(approved_ids))
+    if date_from:
+        query = query.filter(models_buyback.BuybackRequest.submitted_at >= date_from)
+    if date_to:
+        query = query.filter(models_buyback.BuybackRequest.submitted_at <= date_to)
     if q:
         term = f"%{q.strip()}%"
         search_filters = [models_buyback.BuybackRequest.request_number.ilike(term)]
@@ -203,7 +387,7 @@ def list_admin_requests(
                 ]
             )
         query = query.filter(or_(*search_filters))
-    return (
+    rows = (
         query.order_by(
             models_buyback.BuybackRequest.submitted_at.desc(),
             models_buyback.BuybackRequest.created_at.desc(),
@@ -211,6 +395,7 @@ def list_admin_requests(
         .limit(limit)
         .all()
     )
+    return rows
 
 
 def get_admin_request(db: Session, request_id: int) -> models_buyback.BuybackRequest:
@@ -294,10 +479,21 @@ def update_request_status(
     if assessed_total is not None:
         request.assessed_total = assessed_total
         request.assessed_at = now
+    elif new_status in {
+        models_buyback.BuybackRequestStatus.assessed.value,
+        models_buyback.BuybackRequestStatus.awaiting_customer.value,
+    }:
+        sync_item_line_statuses_from_assessment(request)
+        request.assessed_total = compute_assessed_total(request.items or [], request)
+        request.assessed_at = request.assessed_at or now
     if payout_total is not None:
         request.payout_total = payout_total
     if new_status == models_buyback.BuybackRequestStatus.paid.value:
         request.paid_at = now
+        request.payout_transfer_status = models_buyback.PayoutTransferStatus.completed.value
+    if new_status == models_buyback.BuybackRequestStatus.payout_pending.value:
+        if not request.payout_transfer_status:
+            request.payout_transfer_status = models_buyback.PayoutTransferStatus.unpaid.value
     request.updated_at = now
 
     db.add(
@@ -470,7 +666,7 @@ def update_request_items(
         apply_rejected_item_handling(request)
 
     if recalculate_assessed_total:
-        request.assessed_total = compute_assessed_total(list(request.items or []))
+        request.assessed_total = compute_assessed_total(list(request.items or []), request)
         request.assessed_at = datetime.utcnow()
 
     request.updated_at = datetime.utcnow()
@@ -501,7 +697,48 @@ def identity_stats(db: Session) -> dict[str, int]:
             models_buyback.IdentityVerification.status
             == models_buyback.IdentityVerificationStatus.rejected.value
         ).count(),
+        "resubmit_requested_count": base.filter(
+            models_buyback.IdentityVerification.status
+            == models_buyback.IdentityVerificationStatus.resubmit_requested.value
+        ).count(),
     }
+
+
+def schedule_request_payout(
+    db: Session,
+    *,
+    request_id: int,
+    admin_user: models.User,
+    payout_scheduled_at: datetime,
+    admin_note: str | None = None,
+) -> models_buyback.BuybackRequest:
+    request = get_admin_request(db, request_id)
+    if request.status not in {
+        models_buyback.BuybackRequestStatus.payout_pending.value,
+        models_buyback.BuybackRequestStatus.accepted.value,
+    }:
+        raise HTTPException(status_code=400, detail="振込予定日を設定できるステータスではありません")
+    if request.paid_at:
+        raise HTTPException(status_code=400, detail="振込済みの申込です")
+
+    request.payout_scheduled_at = payout_scheduled_at
+    request.payout_transfer_status = models_buyback.PayoutTransferStatus.scheduled.value
+    if admin_note is not None:
+        request.admin_note = admin_note.strip() or None
+    request.updated_at = datetime.utcnow()
+    _audit(
+        db,
+        actor_user_id=admin_user.id,
+        action="request_payout_scheduled",
+        entity_type="buyback_request",
+        entity_id=str(request_id),
+        details={
+            "payout_scheduled_at": payout_scheduled_at.isoformat(),
+            "payout_total": request.payout_total,
+        },
+    )
+    db.commit()
+    return get_admin_request(db, request_id)
 
 
 def complete_request_payout(
@@ -542,6 +779,7 @@ def complete_request_payout(
         payout_total=amount,
         allow_payout_completion=True,
     )
+    updated.payout_transfer_status = models_buyback.PayoutTransferStatus.completed.value
 
     email_ok = True
     email_err: str | None = None
@@ -575,7 +813,12 @@ def complete_request_payout(
 def get_request_payout_context(db: Session, request: models_buyback.BuybackRequest) -> dict:
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     default_account = get_default_payout_account(db, request.user_id)
-    compliance = get_compliance_status(db, user_id=request.user_id)
+    compliance = get_compliance_status(db, user_id=request.user_id, user=user)
+    identity = _get_user_identity(db, request.user_id)
+    identity_approved_at = None
+    if identity and identity.status == models_buyback.IdentityVerificationStatus.approved.value:
+        identity_approved_at = identity.reviewed_at
+    transfer_status = resolve_payout_transfer_status(request)
     return {
         "payout_account": serialize_payout_account_for_admin(default_account)
         if default_account
@@ -583,10 +826,110 @@ def get_request_payout_context(db: Session, request: models_buyback.BuybackReque
         "ready_for_payout": compliance.get("ready_for_payout", False),
         "payout_email_sent": payout_email_already_sent(db, request.id),
         "paid_at": request.paid_at,
+        "payout_scheduled_at": request.payout_scheduled_at,
+        "payout_transfer_status": transfer_status,
+        "payout_transfer_status_label": PAYOUT_TRANSFER_STATUS_LABELS.get(
+            transfer_status, transfer_status
+        ),
+        "identity_status": compliance.get("identity_status"),
+        "identity_status_label": compliance.get("identity_status_label"),
+        "identity_approved_at": identity_approved_at,
+        "assessment_approved_at": request.customer_confirmed_at or request.assessed_at,
+        "requires_guardian_consent": compliance.get("requires_guardian_consent", False),
+        "guardian_status": compliance.get("guardian_status"),
+        "guardian_status_label": compliance.get("guardian_status_label"),
+        "guardian_ready": compliance.get("guardian_ready", True),
     }
 
 
-def request_stats(db: Session) -> dict[str, int]:
+def _count_channel_requests(
+    db: Session,
+    *,
+    method: str,
+    exclude_statuses: frozenset[str] | None = None,
+) -> dict[str, int]:
+    from services.buyback_method import normalize_buyback_method
+
+    exclude = exclude_statuses or frozenset({"draft", "completed", "cancelled"})
+    rows = db.query(
+        models_buyback.BuybackRequest.status,
+        models_buyback.BuybackRequest.buyback_method,
+    ).all()
+
+    stats = {
+        "total_count": 0,
+        "assessing_count": 0,
+        "awaiting_customer_count": 0,
+        "awaiting_arrival_count": 0,
+        "awaiting_visit_count": 0,
+    }
+    for status, buyback_method in rows:
+        if normalize_buyback_method(buyback_method) != method:
+            continue
+        if status in exclude:
+            continue
+        stats["total_count"] += 1
+        if status == models_buyback.BuybackRequestStatus.assessing.value:
+            stats["assessing_count"] += 1
+        elif status == models_buyback.BuybackRequestStatus.awaiting_customer.value:
+            stats["awaiting_customer_count"] += 1
+        elif method == "mail" and status in {
+            models_buyback.BuybackRequestStatus.awaiting_shipment.value,
+            models_buyback.BuybackRequestStatus.shipped.value,
+        }:
+            stats["awaiting_arrival_count"] += 1
+        elif method == "store" and status in {
+            models_buyback.BuybackRequestStatus.awaiting_visit.value,
+            models_buyback.BuybackRequestStatus.submitted.value,
+        }:
+            stats["awaiting_visit_count"] += 1
+    return stats
+
+
+def _payout_queue_stats(db: Session) -> dict[str, int]:
+    from sqlalchemy import or_
+
+    base = db.query(models_buyback.BuybackRequest).filter(
+        models_buyback.BuybackRequest.status
+        == models_buyback.BuybackRequestStatus.payout_pending.value
+    )
+    scheduled_count = base.filter(
+        models_buyback.BuybackRequest.payout_transfer_status
+        == models_buyback.PayoutTransferStatus.scheduled.value
+    ).count()
+    waiting_count = base.filter(
+        or_(
+            models_buyback.BuybackRequest.payout_transfer_status.is_(None),
+            models_buyback.BuybackRequest.payout_transfer_status
+            == models_buyback.PayoutTransferStatus.unpaid.value,
+        )
+    ).count()
+    approved_identity = models_buyback.IdentityVerificationStatus.approved.value
+    needs_review_count = (
+        db.query(models_buyback.BuybackRequest)
+        .outerjoin(
+            models_buyback.IdentityVerification,
+            models_buyback.IdentityVerification.user_id == models_buyback.BuybackRequest.user_id,
+        )
+        .filter(
+            models_buyback.BuybackRequest.status
+            == models_buyback.BuybackRequestStatus.payout_pending.value,
+            or_(
+                models_buyback.IdentityVerification.id.is_(None),
+                models_buyback.IdentityVerification.status != approved_identity,
+            ),
+        )
+        .count()
+    )
+    return {
+        "scheduled_count": scheduled_count,
+        "waiting_count": waiting_count,
+        "needs_review_count": needs_review_count,
+        "failed_count": 0,
+    }
+
+
+def request_stats(db: Session) -> dict[str, object]:
     base = db.query(models_buyback.BuybackRequest)
     return {
         "submitted_count": base.filter(
@@ -600,6 +943,8 @@ def request_stats(db: Session) -> dict[str, int]:
                     models_buyback.BuybackRequestStatus.assessing.value,
                     models_buyback.BuybackRequestStatus.assessed.value,
                     models_buyback.BuybackRequestStatus.awaiting_customer.value,
+                    models_buyback.BuybackRequestStatus.awaiting_visit.value,
+                    models_buyback.BuybackRequestStatus.store_visited.value,
                 ]
             )
         ).count(),
@@ -607,4 +952,7 @@ def request_stats(db: Session) -> dict[str, int]:
             models_buyback.BuybackRequest.status
             == models_buyback.BuybackRequestStatus.payout_pending.value
         ).count(),
+        "payout": _payout_queue_stats(db),
+        "mail": _count_channel_requests(db, method="mail"),
+        "store": _count_channel_requests(db, method="store"),
     }

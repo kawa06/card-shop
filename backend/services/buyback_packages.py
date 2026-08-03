@@ -148,7 +148,7 @@ def issue_packages_for_request(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
 
     if request.status == models_buyback.BuybackRequestStatus.cancelled.value:
         raise HTTPException(status_code=400, detail="キャンセル済み申込には梱包バーコードを発行できません")
@@ -441,7 +441,7 @@ def get_package_label_payload(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
 
     dest = db.query(models.User).filter(models.User.id == package.destination_user_id).first()
     serialized = _serialize_package(db, package)

@@ -32,6 +32,8 @@ class BuybackUserOut(BaseModel):
     is_admin: bool
     is_verified: bool
     birth_date: Optional[date] = None
+    age: Optional[int] = None
+    age_as_of: Optional[date] = None
 
     class Config:
         from_attributes = True
@@ -251,6 +253,13 @@ class AssessmentLineOut(BaseModel):
     unit_price: int
 
 
+class CustomerUnitDecisionOut(BaseModel):
+    line_index: int
+    unit_index: int
+    unit_price: int
+    accepted: bool
+
+
 class AssessmentLineIn(BaseModel):
     quantity: int = Field(..., ge=1)
     unit_price: int = Field(..., ge=0)
@@ -279,6 +288,24 @@ class BuybackRequestItemOut(BaseModel):
     return_shipping_cost: Optional[int] = None
     customer_decision: Optional[str] = None
     customer_decision_label: Optional[str] = None
+    customer_decision_lines: List["CustomerUnitDecisionOut"] = []
+    assessed_subtotal: Optional[int] = None
+    accepted_subtotal: Optional[int] = None
+    condition_code_label: Optional[str] = None
+    effective_line_status: Optional[str] = None
+    is_choosable: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class BuybackAppraisalEstimateOut(BaseModel):
+    estimated_minutes: int
+    message: Optional[str] = None
+    sent_at: datetime
+    revision_count: int = 1
+    expected_completion_at: Optional[datetime] = None
+    is_overdue: bool = False
 
     class Config:
         from_attributes = True
@@ -339,6 +366,13 @@ class BuybackRequestDetailOut(BaseModel):
     submitted_at: Optional[datetime] = None
     application_form_issued_at: Optional[datetime] = None
     assessed_at: Optional[datetime] = None
+    customer_confirmed_at: Optional[datetime] = None
+    can_print_application_form: bool = False
+    can_review_appraisal: bool = False
+    assessment_result_version: int = 0
+    latest_appraisal_estimate: Optional["BuybackAppraisalEstimateOut"] = None
+    store_payment_method: Optional[str] = None
+    store_payment_method_label: Optional[str] = None
     created_at: datetime
     items: List[BuybackRequestItemOut] = []
 
@@ -425,6 +459,7 @@ class GuardianDocumentTypeIn(BaseModel):
 class GuardianConsentRequestIn(BaseModel):
     guardian_name: str
     guardian_email: str
+    resend: bool = False
 
 
 class GuardianConsentSignIn(BaseModel):
@@ -461,6 +496,8 @@ class PayoutAccountOut(BaseModel):
 
 class ComplianceStatusOut(BaseModel):
     birth_date: Optional[str] = None
+    age: Optional[int] = None
+    age_as_of: Optional[str] = None
     identity_status: str
     identity_status_label: str
     identity_ready: bool
@@ -475,25 +512,47 @@ class ComplianceStatusOut(BaseModel):
     ready_for_payout: bool
 
 
+class AssessmentUnitDecisionIn(BaseModel):
+    line_index: int = Field(default=0, ge=0)
+    unit_index: int = Field(default=0, ge=0)
+    accepted: bool
+
+
 class AssessmentDecisionIn(BaseModel):
     item_id: int
-    accepted: bool
+    unit_decisions: List[AssessmentUnitDecisionIn] = Field(min_length=1)
 
 
 class AssessmentResponseIn(BaseModel):
     decisions: List[AssessmentDecisionIn] = Field(min_length=1)
 
 
+class BuybackChannelStatsOut(BaseModel):
+    total_count: int = 0
+    assessing_count: int = 0
+    awaiting_customer_count: int = 0
+    awaiting_arrival_count: int = 0
+    awaiting_visit_count: int = 0
+
+
 class AdminBuybackStatsOut(BaseModel):
     pending_kyc_count: int = 0
+    kyc_resubmit_count: int = 0
     submitted_request_count: int = 0
     in_progress_request_count: int = 0
     payout_pending_count: int = 0
+    payout_scheduled_count: int = 0
+    payout_waiting_count: int = 0
+    payout_needs_review_count: int = 0
+    payout_failed_count: int = 0
+    mail: BuybackChannelStatsOut = BuybackChannelStatsOut()
+    store: BuybackChannelStatsOut = BuybackChannelStatsOut()
 
 
 class AdminIdentityListOut(BaseModel):
     id: int
     user_id: int
+    public_member_id: Optional[str] = None
     user_email: str
     user_name: str
     status: str
@@ -504,16 +563,32 @@ class AdminIdentityListOut(BaseModel):
     has_back: bool = False
     submitted_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    reviewer_name: Optional[str] = None
 
 
 class AdminIdentityDetailOut(AdminIdentityListOut):
     rejection_reason: Optional[str] = None
+    admin_memo: Optional[str] = None
     reviewed_at: Optional[datetime] = None
-    reviewer_name: Optional[str] = None
+    birth_date: Optional[str] = None
+    postal_code: Optional[str] = None
+    prefecture: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
 
 
 class AdminIdentityRejectIn(BaseModel):
     rejection_reason: str
+
+
+class AdminIdentityResubmitIn(BaseModel):
+    reason: str
+    admin_memo: Optional[str] = None
+
+
+class AdminIdentityMemoIn(BaseModel):
+    admin_memo: str
 
 
 class AdminBuybackRequestListOut(BaseModel):
@@ -521,12 +596,20 @@ class AdminBuybackRequestListOut(BaseModel):
     request_number: Optional[str] = None
     status: str
     status_label: str
+    buyback_method: Optional[str] = None
+    buyback_method_label: Optional[str] = None
     user_id: int
     user_email: str
     user_name: str
     item_count: int = 0
     estimated_total: Optional[int] = None
     payout_total: Optional[int] = None
+    identity_status: Optional[str] = None
+    identity_status_label: Optional[str] = None
+    payout_transfer_status: Optional[str] = None
+    payout_transfer_status_label: Optional[str] = None
+    payout_scheduled_at: Optional[datetime] = None
+    paid_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     created_at: datetime
 
@@ -590,6 +673,25 @@ class AdminBuybackRequestDetailOut(BaseModel):
     ready_for_payout: bool = False
     payout_email_sent: bool = False
     paid_at: Optional[datetime] = None
+    payout_scheduled_at: Optional[datetime] = None
+    payout_transfer_status: Optional[str] = None
+    payout_transfer_status_label: Optional[str] = None
+    identity_status: Optional[str] = None
+    identity_status_label: Optional[str] = None
+    identity_approved_at: Optional[datetime] = None
+    assessment_approved_at: Optional[datetime] = None
+    requires_guardian_consent: bool = False
+    guardian_status: Optional[str] = None
+    guardian_status_label: Optional[str] = None
+    guardian_ready: bool = False
+    store_visit_at: Optional[datetime] = None
+    store_checked_in_at: Optional[datetime] = None
+    assessment_started_at: Optional[datetime] = None
+    assessment_presented_at: Optional[datetime] = None
+    assessment_result_version: int = 0
+    latest_appraisal_estimate: Optional["BuybackAppraisalEstimateOut"] = None
+    is_store_purchase: bool = False
+    store_visit_overdue: bool = False
     rejection_reason_options: List[dict[str, str]] = []
 
 
@@ -619,6 +721,36 @@ class AdminCompletePayoutIn(BaseModel):
     admin_note: Optional[str] = None
     send_email: bool = True
     force_email: bool = False
+
+
+class AdminSchedulePayoutIn(BaseModel):
+    payout_scheduled_at: datetime
+    admin_note: Optional[str] = None
+
+
+class AdminPresentAssessmentIn(BaseModel):
+    customer_status_note: Optional[str] = None
+
+
+class AdminAppraisalEstimateIn(BaseModel):
+    estimated_minutes: int = Field(ge=1, le=999)
+    message: Optional[str] = None
+
+
+class AdminStoreVisitUpdateIn(BaseModel):
+    store_visit_at: datetime
+    reason: str = Field(min_length=1)
+
+
+class AdminStorePaymentIn(BaseModel):
+    payment_method: str = Field(min_length=1)
+    payment_amount: Optional[int] = Field(default=None, ge=0)
+    payment_note: Optional[str] = None
+
+
+class AdminStoreActionOut(BaseModel):
+    ok: bool = True
+    notification_warning: Optional[str] = None
 
 
 class AdminFirestoreImportIn(BaseModel):

@@ -90,3 +90,24 @@ def test_set_default_and_delete_payout_account(db):
     remaining = list_payout_accounts_masked(db, user.id)
     assert len(remaining) == 1
     assert remaining[0]["is_default"] is True
+
+
+def test_create_payout_account_without_encryption_key(db, monkeypatch):
+    monkeypatch.setattr(settings, "DEBUG", False)
+    monkeypatch.setattr(settings, "BUYBACK_PAYOUT_ENCRYPTION_KEY", "")
+    user = _user(db, email="payout3@example.com")
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_payout_account(
+            db,
+            user_id=user.id,
+            bank_name="C銀行",
+            branch_name=None,
+            account_type="ordinary",
+            account_number="3333333",
+            account_holder="C",
+        )
+    assert exc_info.value.status_code == 503
+    assert "振込口座を登録できません" in str(exc_info.value.detail)
+    assert "BUYBACK_PAYOUT_ENCRYPTION_KEY" not in str(exc_info.value.detail)

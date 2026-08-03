@@ -115,7 +115,14 @@ def add_columns_if_missing():
             ("estimated_delivery_min_days", "INTEGER"),
             ("estimated_delivery_max_days", "INTEGER"),
             ("is_recommended", "BOOLEAN DEFAULT 0"),
-        ]
+        ],
+        "buyback_requests": [
+            ("payout_transfer_status", "VARCHAR(32)"),
+            ("payout_scheduled_at", "DATETIME"),
+        ],
+        "identity_verifications": [
+            ("admin_memo", "TEXT"),
+        ],
     }
 
     for table_name, columns in tables_to_migrate.items():
@@ -189,10 +196,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS — credentials 利用時は * 不可のため明示オリジンを使う
+_cors_origins = list(settings.CORS_ORIGINS)
+for _origin in (
+    (settings.BUYLIST_URL or "").rstrip("/"),
+    (settings.FRONTEND_URL or "").rstrip("/"),
+):
+    if _origin and _origin not in _cors_origins:
+        _cors_origins.append(_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

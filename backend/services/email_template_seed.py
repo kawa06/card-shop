@@ -42,7 +42,7 @@ TEMPLATE_DEFS: list[dict] = [
     {"key": "order_refund", "category": "order", "name": "返金完了", "subject": "【{{shopName}}】返金が完了しました（{{orderNo}}）"},
     {"key": "order_cancel_complete", "category": "order", "name": "注文キャンセル完了", "subject": "【{{shopName}}】キャンセル処理完了（{{orderNo}}）"},
     # buyback (includes legacy alias keys)
-    {"key": "buyback_request_submitted", "category": "buyback", "name": "買取申込受付", "subject": "【{{shopName}}】買取申込を受け付けました（{{buyNo}}）"},
+    {"key": "buyback_request_submitted", "category": "buyback", "name": "買取申請受付", "subject": "【{{shopName}}】買取申請を受け付けました（{{buyNo}}）"},
     {"key": "buyback_store_reservation", "category": "buyback", "name": "店舗予約受付", "subject": "【{{shopName}}】店舗買取予約を受け付けました"},
     {"key": "buyback_mail_received", "category": "buyback", "name": "郵送受付", "subject": "【{{shopName}}】郵送買取の受付"},
     {"key": "buyback_inbound_received", "category": "buyback", "name": "荷物到着", "subject": "【{{shopName}}】荷物を受け取りました（{{buyNo}}）"},
@@ -60,7 +60,8 @@ TEMPLATE_DEFS: list[dict] = [
     {"key": "buyback_return_tracking", "category": "buyback", "name": "返送送り状番号", "subject": "【{{shopName}}】返送送り状番号（{{buyNo}}）"},
     {"key": "buyback_payout_scheduled", "category": "buyback", "name": "振込予定", "subject": "【{{shopName}}】振込予定のお知らせ（{{buyNo}}）"},
     {"key": "buyback_payout_completed", "category": "buyback", "name": "振込完了", "subject": "【{{shopName}}】振込が完了しました（{{buyNo}}）"},
-    {"key": "buyback_request_admin_alert", "category": "buyback", "name": "買取申込（管理者）", "subject": "【{{shopName}}】新規買取申込"},
+    {"key": "buyback_request_admin_alert", "category": "buyback", "name": "買取申請（管理者）", "subject": "【{{shopName}}】新規買取申請"},
+    {"key": "buyback_guardian_consent", "category": "buyback", "name": "保護者同意依頼", "subject": "【{{shopName}}】保護者同意のお願い"},
     # point
     {"key": "point_granted", "category": "point", "name": "ポイント付与", "subject": "【{{shopName}}】ポイント付与のお知らせ"},
     {"key": "point_expired", "category": "point", "name": "ポイント失効", "subject": "【{{shopName}}】ポイント失効のお知らせ"},

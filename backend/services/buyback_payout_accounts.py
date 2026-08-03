@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import HTTPException, status
@@ -9,10 +10,14 @@ from sqlalchemy.orm import Session
 
 import models_buyback
 from services.buyback_payout_crypto import (
+    PAYOUT_USER_MESSAGE,
+    PayoutEncryptionUnavailable,
     decrypt_account_number,
     encrypt_account_number,
     mask_account_number,
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_ACCOUNTS_PER_USER = 3
 ALLOWED_ACCOUNT_TYPES = {"ordinary", "checking"}
@@ -36,6 +41,10 @@ def _serialize_masked(account: models_buyback.PayoutAccount) -> dict:
         plain = decrypt_account_number(account.account_number_encrypted)
         masked = mask_account_number(plain)
     except Exception:
+        logger.warning(
+            "payout_account_decrypt_failed code=payout_decrypt_failed account_id=%s",
+            account.id,
+        )
         masked = "****"
     return {
         "id": account.id,
@@ -118,8 +127,12 @@ def create_payout_account(
         encrypted = encrypt_account_number(account_number)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except PayoutEncryptionUnavailable as exc:
+        logger.error(
+            "payout_account_create_failed code=payout_encryption_unconfigured user_id=%s",
+            user_id,
+        )
+        raise HTTPException(status_code=503, detail=PAYOUT_USER_MESSAGE) from exc
 
     make_default = set_default or existing_count == 0
     if make_default:

@@ -3,8 +3,16 @@ from fastapi import HTTPException
 from config import settings
 
 
+def smtp_configured() -> bool:
+    return bool(
+        (settings.MAIL_USERNAME or "").strip()
+        and (settings.MAIL_PASSWORD or "").strip()
+        and (settings.MAIL_SERVER or "").strip()
+    )
+
+
 def email_configured() -> bool:
-    return bool(settings.RESEND_API_KEY)
+    return bool(settings.RESEND_API_KEY) or smtp_configured()
 
 
 def twilio_configured() -> bool:

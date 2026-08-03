@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 import models_buyback
-from services.buyback_kyc_storage import upload_kyc_document
+from services.buyback_kyc_storage import delete_kyc_object, upload_kyc_document
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_DOCUMENT_TYPES = {
     "drivers_license",
@@ -20,7 +23,10 @@ ALLOWED_DOCUMENT_TYPES = {
 EDITABLE_STATUSES = {
     models_buyback.IdentityVerificationStatus.not_submitted.value,
     models_buyback.IdentityVerificationStatus.rejected.value,
+    models_buyback.IdentityVerificationStatus.resubmit_requested.value,
 }
+
+_SIDE_LABELS = {"front": "表面", "back": "裏面"}
 
 
 def get_or_create_identity(db: Session, user_id: int) -> models_buyback.IdentityVerification:
@@ -60,6 +66,9 @@ def upload_identity_document(
             detail="現在の本人確認ステータスでは書類を更新できません",
         )
 
+    side_label = _SIDE_LABELS.get(side, side)
+    previous_key = identity.storage_key_front if side == "front" else identity.storage_key_back
+
     try:
         key = upload_kyc_document(
             user_id=user_id,
@@ -69,9 +78,28 @@ def upload_identity_document(
             data=data,
         )
     except ValueError as exc:
+        logger.warning(
+            "identity_upload_rejected user_id=%s verification_id=%s side=%s size=%s mime=%s",
+            user_id,
+            identity.id,
+            side,
+            len(data or b""),
+            (content_type or "")[:64],
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error(
+            "identity_upload_failed user_id=%s verification_id=%s side=%s size=%s mime=%s",
+            user_id,
+            identity.id,
+            side,
+            len(data or b""),
+            (content_type or "")[:64],
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=f"本人確認書類の{side_label}をアップロードできませんでした。時間をおいて再度お試しください。",
+        ) from exc
 
     if side == "front":
         identity.storage_key_front = key
@@ -80,6 +108,10 @@ def upload_identity_document(
     identity.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(identity)
+
+    if previous_key and previous_key != key:
+        delete_kyc_object(previous_key)
+
     return identity
 
 

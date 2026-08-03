@@ -70,8 +70,8 @@ def test_notify_buyback_request_submitted(mock_send, mock_configured, db):
 
     assert mock_send.call_count == 2
     subjects = [call.kwargs["fallback_subject"] for call in mock_send.call_args_list]
-    assert any("買取申込を受け付けました" in s for s in subjects)
-    assert any("新規買取申込" in s for s in subjects)
+    assert any("買取申請を受け付けました" in s for s in subjects)
+    assert any("新規買取申請" in s for s in subjects)
 
     deliveries = db.query(models_buyback.NotificationDelivery).all()
     assert len(deliveries) == 2

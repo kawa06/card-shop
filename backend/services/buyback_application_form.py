@@ -50,6 +50,31 @@ BUYBACK_METHOD_LABELS = {
 }
 
 
+def can_print_application_form(request: models_buyback.BuybackRequest) -> bool:
+    method = (request.buyback_method or "mail").strip().lower()
+    if method == "store":
+        return False
+    if request.status not in PRINTABLE_REQUEST_STATUSES:
+        return False
+    if request.assessed_at is not None:
+        return False
+    if request.assessed_total is not None:
+        return False
+    for item in request.items or []:
+        if item.assessed_unit_price is not None:
+            return False
+        if item.assessment_lines_json:
+            return False
+        line_status = item.line_status or ""
+        if line_status in (
+            models_buyback.BuybackItemLineStatus.buyable.value,
+            models_buyback.BuybackItemLineStatus.reduced.value,
+            models_buyback.BuybackItemLineStatus.rejected.value,
+        ):
+            return False
+    return True
+
+
 def _log_print(
     db: Session,
     *,
@@ -107,6 +132,11 @@ def build_application_form(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="このステータスでは申込書を印刷できません",
+        )
+    if not can_print_application_form(request):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="査定結果確定後は申込書を印刷できません",
         )
 
     declared_item_count = sum(item.quantity for item in (request.items or []))

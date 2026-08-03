@@ -20,7 +20,7 @@ STATUS_LABELS: dict[str, str] = {
     "awaiting_shipment": "発送待ち",
     "awaiting_visit": "来店待ち",
     "shipped": "発送済み",
-    "received": "商品到着",
+    "received": "到着済み",
     "store_visited": "来店済み",
     "assessing": "査定中",
     "assessed": "査定完了",
@@ -29,7 +29,7 @@ STATUS_LABELS: dict[str, str] = {
     "rejected": "買取不可",
     "payout_pending": "支払準備中",
     "paid": "支払完了",
-    "return_preparing": "返送準備中",
+    "return_preparing": "返送待ち",
     "returned": "返送済み",
     "completed": "完了",
     "cancelled": "キャンセル",
@@ -103,7 +103,6 @@ STORE_PROGRESS_STEPS: list[str] = [
     "awaiting_visit",
     "store_visited",
     "assessing",
-    "assessed",
     "awaiting_customer",
     "accepted",
     "paid",
@@ -184,18 +183,29 @@ def status_color(code: str | None) -> str:
     return STATUS_COLORS.get(code, STATUS_COLOR_WAITING)
 
 
+def _normalized_method(buyback_method: str | None) -> str:
+    from services.buyback_method import normalize_buyback_method
+
+    return normalize_buyback_method(buyback_method)
+
+
 def progress_steps_for_method(buyback_method: str | None) -> list[str]:
-    if buyback_method == "store":
+    if _normalized_method(buyback_method) == "store":
         return list(STORE_PROGRESS_STEPS)
     return list(MAIL_PROGRESS_STEPS)
 
 
 def progress_index(status: str, buyback_method: str | None) -> int:
-    steps = progress_steps_for_method(buyback_method)
-    if status in steps:
-        return steps.index(status)
+    method = _normalized_method(buyback_method)
+    steps = progress_steps_for_method(method)
+    normalized_status = status
+    if method == "store" and status == "assessed":
+        normalized_status = "awaiting_customer"
+    if normalized_status in steps:
+        return steps.index(normalized_status)
     fallback = {
         "identity_pending": 0,
+        "assessed": steps.index("awaiting_customer") if "awaiting_customer" in steps else 0,
         "return_preparing": max(len(steps) - 2, 0),
         "returned": max(len(steps) - 2, 0),
         "sent_back": 0,
@@ -233,7 +243,7 @@ def transitions_for_request(
     status: str,
     buyback_method: str | None,
 ) -> set[str]:
-    if buyback_method == "store":
+    if _normalized_method(buyback_method) == "store":
         base = STORE_TRANSITIONS.get(status, set())
     else:
         base = MAIL_TRANSITIONS.get(status, set())
@@ -247,7 +257,7 @@ def allowed_next_statuses(
 ) -> list[str]:
     permissions = permissions or set()
     current = request.status or ""
-    method = request.buyback_method
+    method = _normalized_method(request.buyback_method)
     next_statuses = transitions_for_request(current, method)
     next_statuses -= BARCODE_ONLY_STATUSES
     next_statuses.discard(DEDICATED_PAYOUT_STATUS)

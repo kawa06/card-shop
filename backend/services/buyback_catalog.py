@@ -45,7 +45,9 @@ def _duplicate_query(
 ):
     normalized_pack = _normalized(pack_name)
     normalized_number = _normalized(card_number)
-    query = db.query(models_buyback.BuybackProduct)
+    query = db.query(models_buyback.BuybackProduct).filter(
+        models_buyback.BuybackProduct.is_active.is_(True)
+    )
     if normalized_number is not None:
         query = query.filter(
             func.lower(models_buyback.BuybackProduct.card_number)

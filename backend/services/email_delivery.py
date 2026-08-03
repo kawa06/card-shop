@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 import models_email
 from config import settings
-from services.verification import email_configured
+from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,100 @@ VAR_PATTERN = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}")
 MAIL_REPLY_TO_FALLBACK = "oripakawa@gmail.com"
 
 
+def _effective_from_address(*, via_smtp: bool = False) -> str:
+    username = (settings.MAIL_USERNAME or "").strip()
+    if via_smtp and username:
+        return f"{settings.MAIL_FROM_NAME} <{username}>"
+    if username.endswith("@gmail.com"):
+        return f"{settings.MAIL_FROM_NAME} <{username}>"
+    return f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+
+
+def _send_smtp(*, to: str, subject: str, html_body: str) -> tuple[bool, str | None, str | None]:
+    if not smtp_configured():
+        return False, "SMTP is not configured", None
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    from_addr = settings.MAIL_USERNAME.strip()
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = _effective_from_address(via_smtp=True)
+    msg["To"] = to
+    reply_to = (settings.MAIL_REPLY_TO or MAIL_REPLY_TO_FALLBACK).strip()
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+    try:
+        if settings.MAIL_SSL:
+            server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=30)
+        else:
+            server = smtplib.SMTP(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=30)
+            if settings.MAIL_TLS:
+                server.starttls()
+        server.login(settings.MAIL_USERNAME, settings.MAIL_PASSWORD)
+        server.sendmail(from_addr, [to], msg.as_string())
+        server.quit()
+        logger.info("SMTP fallback send ok to=%s from=%s", to, from_addr)
+        return True, None, "smtp"
+    except Exception as exc:
+        logger.exception("SMTP fallback send failed to=%s from=%s", to, from_addr)
+        return False, str(exc), None
+
+
 @dataclass
 class SendResult:
     ok: bool
     error: Optional[str] = None
+    error_code: Optional[str] = None
+    user_message: Optional[str] = None
     provider_message_id: Optional[str] = None
     used_template: bool = False
+
+
+def parse_resend_error(status_code: int, response_text: str) -> tuple[str, str, str]:
+    """Return (user_message, error_code, technical_detail)."""
+    technical = f"Resend error ({status_code}): {response_text}"
+    message = response_text
+    try:
+        payload = json.loads(response_text)
+        if isinstance(payload, dict):
+            message = str(payload.get("message") or payload.get("error") or response_text)
+    except Exception:
+        pass
+
+    lower = message.lower()
+    if status_code == 403 and "domain" in lower and "not verified" in lower:
+        return (
+            "メール送信の設定に問題があります（送信元ドメインが未検証）。ショップ管理者へお問い合わせください。",
+            "mail_domain_unverified",
+            technical,
+        )
+    if status_code == 403:
+        return (
+            "メール送信が拒否されました。設定を確認してください。",
+            "mail_forbidden",
+            technical,
+        )
+    if status_code == 422:
+        return (
+            "メールアドレスが不正です。入力内容を確認してください。",
+            "mail_invalid_recipient",
+            technical,
+        )
+    if status_code >= 500:
+        return (
+            "メール送信サービスが一時的に利用できません。時間をおいて再度お試しください。",
+            "mail_provider_error",
+            technical,
+        )
+    return (
+        "メールの送信に失敗しました。メールアドレスを確認して再度お試しください。",
+        "mail_send_failed",
+        technical,
+    )
 
 
 def _default_variables() -> dict[str, str]:
@@ -108,14 +196,19 @@ def wrap_with_brand(body_html: str, brand: models_email.EmailBrandSettings, vari
     )
 
 
-def _send_resend(*, to: str, subject: str, html_body: str) -> tuple[bool, str | None, str | None]:
-    if not email_configured():
+def _send_resend(
+    *, to: str, subject: str, html_body: str
+) -> tuple[bool, str | None, str | None, str | None, str | None]:
+    """Returns ok, technical_error, message_id, error_code, user_message."""
+    if not settings.RESEND_API_KEY:
         if settings.DEBUG:
-            logger.info("[EMAIL MOCK] to=%s subject=%s", to, subject)
-            return True, None, "mock"
-        return False, "RESEND_API_KEY is not configured", None
+            logger.info("[EMAIL MOCK] to=%s subject=%s from=%s", to, subject, settings.MAIL_FROM)
+            return True, None, "mock", None, None
+        return False, "RESEND_API_KEY is not configured", None, "mail_not_configured", (
+            "メール送信が設定されていません。ショップ管理者へお問い合わせください。"
+        )
 
-    from_address = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+    from_address = _effective_from_address()
     reply_to = (settings.MAIL_REPLY_TO or MAIL_REPLY_TO_FALLBACK).strip()
     payload: dict = {"from": from_address, "to": [to], "subject": subject, "html": html_body}
     if reply_to:
@@ -137,11 +230,55 @@ def _send_resend(*, to: str, subject: str, html_body: str) -> tuple[bool, str | 
                 msg_id = response.json().get("id")
             except Exception:
                 pass
-            return True, None, msg_id
-        return False, f"Resend error ({response.status_code}): {response.text}", None
+            return True, None, msg_id, None, None
+        user_message, error_code, technical = parse_resend_error(
+            response.status_code, response.text
+        )
+        logger.error(
+            "Resend send failed to=%s from=%s status=%s error_code=%s detail=%s",
+            to,
+            settings.MAIL_FROM,
+            response.status_code,
+            error_code,
+            technical,
+        )
+        if error_code in {"mail_domain_unverified", "mail_forbidden"} and smtp_configured():
+            smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+            if smtp_ok:
+                return True, None, smtp_id, None, None
+            technical = f"{technical}; SMTP fallback failed: {smtp_err}"
+        return False, technical, None, error_code, user_message
     except Exception as exc:
-        logger.exception("Resend send failed")
-        return False, str(exc), None
+        logger.exception("Resend send failed to=%s from=%s", to, settings.MAIL_FROM)
+        return (
+            False,
+            str(exc),
+            None,
+            "mail_network_error",
+            "メール送信に失敗しました。通信環境を確認して再度お試しください。",
+        )
+
+
+def _send_email(
+    *, to: str, subject: str, html_body: str
+) -> tuple[bool, str | None, str | None, str | None, str | None]:
+    """Prefer Gmail SMTP; fall back to Resend when SMTP is unavailable."""
+    if smtp_configured():
+        smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+        if smtp_ok:
+            return True, None, smtp_id, None, None
+        logger.warning("SMTP send failed to=%s; trying Resend if configured: %s", to, smtp_err)
+        if settings.RESEND_API_KEY:
+            ok, err, msg_id, error_code, user_message = _send_resend(
+                to=to, subject=subject, html_body=html_body
+            )
+            if ok:
+                return ok, err, msg_id, error_code, user_message
+            return False, f"SMTP: {smtp_err}; Resend: {err}", msg_id, error_code, user_message
+        return False, smtp_err, None, "mail_send_failed", (
+            "メールの送信に失敗しました。Gmail の設定を確認してください。"
+        )
+    return _send_resend(to=to, subject=subject, html_body=html_body)
 
 
 def _log_send(
@@ -236,7 +373,9 @@ def send_templated_email(
         body_html = render_template_string(body_html, variables, raw_keys=raw_variable_keys)
 
     full_html = wrap_with_brand(body_html, brand, variables)
-    ok, err, msg_id = _send_resend(to=to_email, subject=subject, html_body=full_html)
+    ok, err, msg_id, error_code, user_message = _send_email(
+        to=to_email, subject=subject, html_body=full_html
+    )
     _log_send(
         db,
         template_key=template_key,
@@ -249,7 +388,14 @@ def send_templated_email(
         reference_id=reference_id,
         is_test=is_test,
     )
-    return SendResult(ok=ok, error=err, provider_message_id=msg_id, used_template=used_template)
+    return SendResult(
+        ok=ok,
+        error=err,
+        error_code=error_code,
+        user_message=user_message,
+        provider_message_id=msg_id,
+        used_template=used_template,
+    )
 
 
 def preview_template(

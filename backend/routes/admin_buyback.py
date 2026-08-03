@@ -25,16 +25,32 @@ from services.buyback_admin import (
     list_admin_requests,
     list_identity_verifications,
     reject_identity,
+    request_resubmit_identity,
     request_stats,
+    resolve_payout_transfer_status,
+    schedule_request_payout,
+    update_identity_admin_memo,
     update_request_items,
     update_request_status,
 )
 from services.buyback_serializers import (
     rejection_reason_options,
     rejected_item_handling_label,
+    serialize_appraisal_estimate,
     serialize_request_item,
+    store_payment_method_label,
 )
-from services.buyback_compliance import IDENTITY_STATUS_LABELS
+from services.buyback_method import buyback_method_label, is_store_purchase, normalize_buyback_method
+from services.buyback_customer_review import present_assessment_to_customer
+from services.buyback_store_workflow import (
+    check_in_store_visit,
+    complete_store_payment,
+    complete_store_transaction,
+    send_appraisal_estimate,
+    start_store_assessment,
+    update_store_visit_at,
+)
+from services.buyback_compliance import IDENTITY_STATUS_LABELS, PAYOUT_TRANSFER_STATUS_LABELS
 from services.buyback_request_status import (
     STATUS_DESCRIPTIONS,
     STATUS_LABELS,
@@ -43,6 +59,15 @@ from services.buyback_request_status import (
     status_description,
 )
 from services.buyback_kyc_storage import fetch_kyc_document
+from services.buyback_admin_permissions import (
+    can_complete_payout,
+    can_view_bank_account,
+    can_view_kyc,
+    can_view_kyc_documents,
+    can_view_payout_queue,
+    has_any_buyback_perm,
+    has_buyback_perm,
+)
 from services.buyback_firestore_import import import_firestore_buylist_export, validate_import_counts
 from services.buyback_logistics_logs import write_buyback_audit
 from services import buyback_catalog
@@ -69,6 +94,8 @@ def _enforce_permission(
     *,
     request: Request,
 ) -> None:
+    if has_buyback_perm(ctx, permission):
+        return
     try:
         require_permission(ctx, permission)
     except AdminAccessError as exc:
@@ -132,11 +159,16 @@ def _user_map(db: Session, user_ids: set[int]) -> dict[int, models.User]:
     return {row.id: row for row in rows}
 
 
-def _identity_list_out(row, user: models.User | None) -> schemas_buyback.AdminIdentityListOut:
+def _identity_list_out(
+    row,
+    user: models.User | None,
+    reviewer: models.User | None = None,
+) -> schemas_buyback.AdminIdentityListOut:
     doc_type = row.document_type
     return schemas_buyback.AdminIdentityListOut(
         id=row.id,
         user_id=row.user_id,
+        public_member_id=user.public_member_id if user else None,
         user_email=user.email if user else "",
         user_name=user.name if user else "",
         status=row.status,
@@ -147,6 +179,27 @@ def _identity_list_out(row, user: models.User | None) -> schemas_buyback.AdminId
         has_back=bool(row.storage_key_back),
         submitted_at=row.submitted_at,
         updated_at=row.updated_at,
+        reviewer_name=reviewer.name if reviewer else None,
+    )
+
+
+def _identity_detail_out(
+    row: models_buyback.IdentityVerification,
+    user: models.User | None,
+    reviewer: models.User | None = None,
+) -> schemas_buyback.AdminIdentityDetailOut:
+    base = _identity_list_out(row, user, reviewer)
+    return schemas_buyback.AdminIdentityDetailOut(
+        **base.model_dump(),
+        rejection_reason=row.rejection_reason,
+        admin_memo=row.admin_memo,
+        reviewed_at=row.reviewed_at,
+        birth_date=user.birth_date.isoformat() if user and user.birth_date else None,
+        postal_code=user.postal_code if user else None,
+        prefecture=user.region if user else None,
+        city=user.city if user else None,
+        address_line1=user.address_line1 if user else None,
+        address_line2=user.address_line2 if user else None,
     )
 
 
@@ -157,11 +210,21 @@ def buyback_stats(
 ):
     kyc = identity_stats(db)
     req = request_stats(db)
+    mail = req.get("mail") or {}
+    store = req.get("store") or {}
+    payout = req.get("payout") or {}
     return schemas_buyback.AdminBuybackStatsOut(
         pending_kyc_count=kyc["pending_count"],
+        kyc_resubmit_count=kyc["resubmit_requested_count"],
         submitted_request_count=req["submitted_count"],
         in_progress_request_count=req["in_progress_count"],
         payout_pending_count=req["payout_pending_count"],
+        payout_scheduled_count=payout.get("scheduled_count", 0),
+        payout_waiting_count=payout.get("waiting_count", 0),
+        payout_needs_review_count=payout.get("needs_review_count", 0),
+        payout_failed_count=payout.get("failed_count", 0),
+        mail=schemas_buyback.BuybackChannelStatsOut(**mail),
+        store=schemas_buyback.BuybackChannelStatsOut(**store),
     )
 
 
@@ -171,12 +234,17 @@ def list_identity(
     q: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
-        _require_perms("buyback.identity.read", "admin.pii.read")
+        _require_perms("kyc.view")
     ),
 ):
     rows = list_identity_verifications(db, status=status, q=q)
     users = _user_map(db, {row.user_id for row in rows})
-    result = [_identity_list_out(row, users.get(row.user_id)) for row in rows]
+    reviewer_ids = {row.reviewed_by_user_id for row in rows if row.reviewed_by_user_id}
+    reviewers = _user_map(db, reviewer_ids)
+    result = [
+        _identity_list_out(row, users.get(row.user_id), reviewers.get(row.reviewed_by_user_id))
+        for row in rows
+    ]
     _audit_access(
         db,
         ctx,
@@ -192,7 +260,7 @@ def get_identity(
     verification_id: int,
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
-        _require_perms("buyback.identity.read", "admin.pii.read")
+        _require_perms("kyc.view")
     ),
 ):
     row = get_identity_verification(db, verification_id)
@@ -202,12 +270,8 @@ def get_identity(
         reviewer = (
             db.query(models.User).filter(models.User.id == row.reviewed_by_user_id).first()
         )
-    base = _identity_list_out(row, user)
     result = schemas_buyback.AdminIdentityDetailOut(
-        **base.model_dump(),
-        rejection_reason=row.rejection_reason,
-        reviewed_at=row.reviewed_at,
-        reviewer_name=reviewer.name if reviewer else None,
+        **_identity_detail_out(row, user, reviewer).model_dump(),
     )
     _audit_access(
         db,
@@ -225,14 +289,14 @@ def get_identity_document(
     verification_id: int,
     side: str,
     db: Session = Depends(get_db),
-    ctx: AdminContext = Depends(
-        _require_perms("buyback.identity.read", "admin.pii.read")
-    ),
+    ctx: AdminContext = Depends(_require_perms("kyc.document.view")),
 ):
     if side not in ("front", "back"):
         raise HTTPException(status_code=400, detail="side は front または back を指定してください")
 
     row = get_identity_verification(db, verification_id)
+    if side == "back" and (row.document_type or "").lower() in ("my_number_card", "my_number"):
+        raise HTTPException(status_code=404, detail="マイナンバーカードの裏面は保存・表示されません")
     key = row.storage_key_front if side == "front" else row.storage_key_back
     if not key:
         raise HTTPException(status_code=404, detail="書類画像が見つかりません")
@@ -252,7 +316,8 @@ def get_identity_document(
         entity_id=row.id,
         includes_pii=True,
     )
-    return Response(content=data, media_type=content_type)
+    headers = {"Cache-Control": "no-store, no-cache, must-revalidate, private"}
+    return Response(content=data, media_type=content_type, headers=headers)
 
 
 @router.post("/identity/{verification_id}/approve", response_model=schemas_buyback.AdminIdentityDetailOut)
@@ -260,13 +325,12 @@ def approve_identity_route(
     verification_id: int,
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
-        _require_perms("buyback.identity.write", "admin.pii.read")
+        _require_perms("kyc.review")
     ),
 ):
     row = approve_identity(db, verification_id=verification_id, admin_user=ctx.user)
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    base = _identity_list_out(row, user)
-    return schemas_buyback.AdminIdentityDetailOut(**base.model_dump(), reviewed_at=row.reviewed_at)
+    return _identity_detail_out(row, user)
 
 
 @router.post("/identity/{verification_id}/reject", response_model=schemas_buyback.AdminIdentityDetailOut)
@@ -275,7 +339,7 @@ def reject_identity_route(
     body: schemas_buyback.AdminIdentityRejectIn,
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
-        _require_perms("buyback.identity.write", "admin.pii.read")
+        _require_perms("kyc.review")
     ),
 ):
     row = reject_identity(
@@ -285,28 +349,87 @@ def reject_identity_route(
         rejection_reason=body.rejection_reason,
     )
     user = db.query(models.User).filter(models.User.id == row.user_id).first()
-    base = _identity_list_out(row, user)
-    return schemas_buyback.AdminIdentityDetailOut(
-        **base.model_dump(),
-        rejection_reason=row.rejection_reason,
-        reviewed_at=row.reviewed_at,
+    return _identity_detail_out(row, user)
+
+
+@router.post(
+    "/identity/{verification_id}/request-resubmit",
+    response_model=schemas_buyback.AdminIdentityDetailOut,
+)
+def request_resubmit_identity_route(
+    verification_id: int,
+    body: schemas_buyback.AdminIdentityResubmitIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(
+        _require_perms("kyc.review")
+    ),
+):
+    row = request_resubmit_identity(
+        db,
+        verification_id=verification_id,
+        admin_user=ctx.user,
+        reason=body.reason,
+        admin_memo=body.admin_memo,
     )
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    return _identity_detail_out(row, user)
+
+
+@router.patch(
+    "/identity/{verification_id}/memo",
+    response_model=schemas_buyback.AdminIdentityDetailOut,
+)
+def update_identity_memo_route(
+    verification_id: int,
+    body: schemas_buyback.AdminIdentityMemoIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(
+        _require_perms("kyc.review")
+    ),
+):
+    row = update_identity_admin_memo(
+        db,
+        verification_id=verification_id,
+        admin_user=ctx.user,
+        admin_memo=body.admin_memo,
+    )
+    user = db.query(models.User).filter(models.User.id == row.user_id).first()
+    return _identity_detail_out(row, user)
 
 
 def _request_list_out(
-    request, user: models.User | None, *, include_pii: bool
+    request,
+    user: models.User | None,
+    *,
+    include_pii: bool,
+    identity_row: models_buyback.IdentityVerification | None = None,
 ) -> schemas_buyback.AdminBuybackRequestListOut:
+    method = normalize_buyback_method(request.buyback_method)
+    transfer_status = resolve_payout_transfer_status(request)
+    identity_status = identity_row.status if identity_row else None
     return schemas_buyback.AdminBuybackRequestListOut(
         id=request.id,
         request_number=request.request_number,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
+        buyback_method=method,
+        buyback_method_label=buyback_method_label(method),
         user_id=request.user_id,
         user_email=user.email if include_pii and user else "",
         user_name=user.name if include_pii and user else "",
         item_count=len(request.items or []),
         estimated_total=request.estimated_total,
         payout_total=request.payout_total,
+        identity_status=identity_status,
+        identity_status_label=IDENTITY_STATUS_LABELS.get(identity_status, identity_status)
+        if identity_status
+        else None,
+        payout_transfer_status=transfer_status,
+        payout_transfer_status_label=PAYOUT_TRANSFER_STATUS_LABELS.get(
+            transfer_status, transfer_status
+        ),
+        payout_scheduled_at=request.payout_scheduled_at,
+        paid_at=request.paid_at,
         submitted_at=request.submitted_at,
         created_at=request.created_at,
     )
@@ -319,12 +442,13 @@ def _request_detail_out(
     *,
     ctx: AdminContext,
 ) -> schemas_buyback.AdminBuybackRequestDetailOut:
-    include_pii = "admin.pii.read" in ctx.permissions
+    include_contact = can_view_kyc(ctx) or can_view_payout_queue(ctx)
+    include_bank = can_view_bank_account(ctx)
     actor_ids = {
         h.changed_by_user_id for h in (request.status_history or []) if h.changed_by_user_id
     }
     actors = {}
-    if actor_ids and include_pii:
+    if actor_ids and include_contact:
         rows = db.query(models.User).filter(models.User.id.in_(actor_ids)).all()
         actors = {row.id: row.name or row.email for row in rows}
     history = [
@@ -336,16 +460,33 @@ def _request_detail_out(
             else None,
             to_status=h.to_status,
             to_status_label=STATUS_LABELS.get(h.to_status, h.to_status),
-            changed_by_name=actors.get(h.changed_by_user_id) if include_pii else None,
-            note=h.note if include_pii else None,
+            changed_by_name=actors.get(h.changed_by_user_id) if include_contact else None,
+            note=h.note if include_contact else None,
             created_at=h.created_at,
         )
         for h in sorted(request.status_history or [], key=lambda x: x.created_at)
     ]
-    payout_ctx = get_request_payout_context(db, request) if include_pii else {}
-    payout_account = payout_ctx.get("payout_account")
+    payout_ctx = get_request_payout_context(db, request)
+    payout_account = payout_ctx.get("payout_account") if include_bank else None
     next_statuses = allowed_next_statuses(request, permissions=set(ctx.permissions))
     handling = request.rejected_item_handling
+    method = normalize_buyback_method(request.buyback_method)
+    estimate_row = (
+        db.query(models_buyback.BuybackAppraisalEstimate)
+        .filter(models_buyback.BuybackAppraisalEstimate.request_id == request.id)
+        .first()
+    )
+    from datetime import datetime
+
+    store_visit_overdue = False
+    if (
+        is_store_purchase(method)
+        and request.store_visit_at
+        and not request.store_checked_in_at
+        and request.status == models_buyback.BuybackRequestStatus.awaiting_visit.value
+        and datetime.utcnow() > request.store_visit_at
+    ):
+        store_visit_overdue = True
     return schemas_buyback.AdminBuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
@@ -353,15 +494,15 @@ def _request_detail_out(
         status_label=STATUS_LABELS.get(request.status, request.status),
         status_description=status_description(request.status),
         status_color=status_color(request.status),
-        buyback_method=request.buyback_method,
+        buyback_method=method,
         user_id=request.user_id,
-        user_email=user.email if include_pii and user else "",
-        user_name=user.name if include_pii and user else "",
+        user_email=user.email if include_contact and user else "",
+        user_name=user.name if include_contact and user else "",
         shipping_method=request.shipping_method,
-        tracking_number=request.tracking_number if include_pii else None,
-        customer_note=request.customer_note if include_pii else None,
-        admin_note=request.admin_note if include_pii else None,
-        customer_status_note=request.customer_status_note if include_pii else None,
+        tracking_number=request.tracking_number if include_contact else None,
+        customer_note=request.customer_note if include_contact else None,
+        admin_note=request.admin_note if include_contact else None,
+        customer_status_note=request.customer_status_note if include_contact else None,
         estimated_total=request.estimated_total,
         assessed_total=request.assessed_total,
         payout_total=request.payout_total,
@@ -372,7 +513,15 @@ def _request_detail_out(
         agreed_condition_rejection=bool(request.agreed_condition_rejection),
         submitted_at=request.submitted_at,
         created_at=request.created_at,
-        items=[serialize_request_item(item) for item in (request.items or [])],
+        store_visit_at=request.store_visit_at,
+        store_checked_in_at=request.store_checked_in_at,
+        assessment_started_at=request.assessment_started_at,
+        assessment_presented_at=request.assessment_presented_at,
+        assessment_result_version=request.assessment_result_version or 0,
+        latest_appraisal_estimate=serialize_appraisal_estimate(estimate_row),
+        is_store_purchase=is_store_purchase(method),
+        store_visit_overdue=store_visit_overdue,
+        items=[serialize_request_item(item, request) for item in (request.items or [])],
         status_history=history,
         allowed_next_statuses=next_statuses,
         allowed_next_status_labels=[
@@ -385,6 +534,17 @@ def _request_detail_out(
         ready_for_payout=bool(payout_ctx.get("ready_for_payout")),
         payout_email_sent=bool(payout_ctx.get("payout_email_sent")),
         paid_at=payout_ctx.get("paid_at"),
+        payout_scheduled_at=payout_ctx.get("payout_scheduled_at"),
+        payout_transfer_status=payout_ctx.get("payout_transfer_status"),
+        payout_transfer_status_label=payout_ctx.get("payout_transfer_status_label"),
+        identity_status=payout_ctx.get("identity_status"),
+        identity_status_label=payout_ctx.get("identity_status_label"),
+        identity_approved_at=payout_ctx.get("identity_approved_at") if include_contact else None,
+        assessment_approved_at=payout_ctx.get("assessment_approved_at") if include_contact else None,
+        requires_guardian_consent=bool(payout_ctx.get("requires_guardian_consent")),
+        guardian_status=payout_ctx.get("guardian_status") if include_contact else None,
+        guardian_status_label=payout_ctx.get("guardian_status_label") if include_contact else None,
+        guardian_ready=bool(payout_ctx.get("guardian_ready")),
         rejection_reason_options=rejection_reason_options(),
     )
 
@@ -392,20 +552,62 @@ def _request_detail_out(
 @router.get("/requests", response_model=list[schemas_buyback.AdminBuybackRequestListOut])
 def list_requests(
     status: Optional[str] = Query(None),
+    buyback_method: Optional[str] = Query(None),
+    payout_transfer_status: Optional[str] = Query(None),
+    identity_not_approved: bool = Query(False),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(_require_perm("buyback.request.read")),
 ):
-    include_pii = "admin.pii.read" in ctx.permissions
+    from datetime import datetime
+
+    include_contact = can_view_kyc(ctx) or can_view_payout_queue(ctx)
+    parsed_from = None
+    parsed_to = None
+    if date_from:
+        try:
+            parsed_from = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date_from の形式が不正です")
+    if date_to:
+        try:
+            parsed_to = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="date_to の形式が不正です")
+
     rows = list_admin_requests(
         db,
         status=status,
+        buyback_method=buyback_method,
+        payout_transfer_status=payout_transfer_status,
+        identity_not_approved=identity_not_approved,
+        date_from=parsed_from,
+        date_to=parsed_to,
         q=q,
-        allow_pii_search=include_pii,
+        allow_pii_search=include_contact,
     )
-    users = _user_map(db, {row.user_id for row in rows}) if include_pii else {}
+    users = _user_map(db, {row.user_id for row in rows}) if include_contact else {}
+    user_ids = {row.user_id for row in rows}
+    identity_map: dict[int, models_buyback.IdentityVerification] = {}
+    if user_ids:
+        identity_rows = (
+            db.query(models_buyback.IdentityVerification)
+            .filter(models_buyback.IdentityVerification.user_id.in_(user_ids))
+            .order_by(models_buyback.IdentityVerification.id.desc())
+            .all()
+        )
+        for identity_row in identity_rows:
+            if identity_row.user_id not in identity_map:
+                identity_map[identity_row.user_id] = identity_row
     result = [
-        _request_list_out(row, users.get(row.user_id), include_pii=include_pii)
+        _request_list_out(
+            row,
+            users.get(row.user_id),
+            include_pii=include_contact,
+            identity_row=identity_map.get(row.user_id),
+        )
         for row in rows
     ]
     _audit_access(
@@ -413,7 +615,7 @@ def list_requests(
         ctx,
         action="buyback_request_list_viewed",
         entity_type="buyback_request_list",
-        includes_pii=include_pii,
+        includes_pii=include_contact,
     )
     return result
 
@@ -425,10 +627,10 @@ def get_request(
     ctx: AdminContext = Depends(_require_perm("buyback.request.read")),
 ):
     request = get_admin_request(db, request_id)
-    include_pii = "admin.pii.read" in ctx.permissions
+    include_contact = can_view_kyc(ctx) or can_view_payout_queue(ctx)
     user = (
         db.query(models.User).filter(models.User.id == request.user_id).first()
-        if include_pii
+        if include_contact
         else None
     )
     result = _request_detail_out(request, user, db, ctx=ctx)
@@ -438,7 +640,7 @@ def get_request(
         action="buyback_request_detail_viewed",
         entity_type="buyback_request",
         entity_id=request.id,
-        includes_pii=include_pii,
+        includes_pii=include_contact or can_view_bank_account(ctx),
     )
     return result
 
@@ -448,7 +650,7 @@ def complete_payout_route(
     request_id: int,
     body: schemas_buyback.AdminCompletePayoutIn,
     db: Session = Depends(get_db),
-    ctx: AdminContext = Depends(_require_perm("buyback.payout.complete")),
+    ctx: AdminContext = Depends(_require_perm("payout.complete")),
 ):
     complete_request_payout(
         db,
@@ -458,6 +660,25 @@ def complete_payout_route(
         admin_note=body.admin_note,
         send_email=body.send_email,
         force_email=body.force_email,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post("/requests/{request_id}/schedule-payout", response_model=schemas_buyback.AdminBuybackRequestDetailOut)
+def schedule_payout_route(
+    request_id: int,
+    body: schemas_buyback.AdminSchedulePayoutIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("payout.complete")),
+):
+    schedule_request_payout(
+        db,
+        request_id=request_id,
+        admin_user=ctx.user,
+        payout_scheduled_at=body.payout_scheduled_at,
+        admin_note=body.admin_note,
     )
     request = get_admin_request(db, request_id)
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
@@ -731,6 +952,144 @@ def patch_request_items(
         recalculate_assessed_total=body.recalculate_assessed_total,
         apply_handling_policy=body.apply_handling_policy,
     )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/store/check-in",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_check_in(
+    request_id: int,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.assessment.write")),
+):
+    check_in_store_visit(db, request_id=request_id, admin_user=ctx.user)
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/store/start-assessment",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_start_assessment(
+    request_id: int,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.assessment.write")),
+):
+    start_store_assessment(db, request_id=request_id, admin_user=ctx.user)
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/store/appraisal-estimate",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_appraisal_estimate(
+    request_id: int,
+    body: schemas_buyback.AdminAppraisalEstimateIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.assessment.write")),
+):
+    row = send_appraisal_estimate(
+        db,
+        request_id=request_id,
+        admin_user=ctx.user,
+        estimated_minutes=body.estimated_minutes,
+        message=body.message,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    out = _request_detail_out(request, user, db, ctx=ctx)
+    warning = getattr(row, "_notification_warning", None)
+    if warning:
+        note = out.customer_status_note or ""
+        out.customer_status_note = (note + f"\n[通知警告] {warning}").strip()
+    return out
+
+
+@router.patch(
+    "/requests/{request_id}/store/visit-at",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_update_visit_at(
+    request_id: int,
+    body: schemas_buyback.AdminStoreVisitUpdateIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.assessment.write")),
+):
+    update_store_visit_at(
+        db,
+        request_id=request_id,
+        admin_user=ctx.user,
+        store_visit_at=body.store_visit_at,
+        reason=body.reason,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/present-assessment",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def present_assessment(
+    request_id: int,
+    body: schemas_buyback.AdminPresentAssessmentIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.assessment.write")),
+):
+    present_assessment_to_customer(
+        db,
+        request_id=request_id,
+        admin_user=ctx.user,
+        customer_status_note=body.customer_status_note,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/store/complete-payment",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_complete_payment(
+    request_id: int,
+    body: schemas_buyback.AdminStorePaymentIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("payout.complete")),
+):
+    complete_store_payment(
+        db,
+        request_id=request_id,
+        admin_user=ctx.user,
+        payment_method=body.payment_method,
+        payment_amount=body.payment_amount,
+        payment_note=body.payment_note,
+    )
+    request = get_admin_request(db, request_id)
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    return _request_detail_out(request, user, db, ctx=ctx)
+
+
+@router.post(
+    "/requests/{request_id}/store/complete-transaction",
+    response_model=schemas_buyback.AdminBuybackRequestDetailOut,
+)
+def store_complete_transaction(
+    request_id: int,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.request.status.write")),
+):
+    complete_store_transaction(db, request_id=request_id, admin_user=ctx.user)
     request = get_admin_request(db, request_id)
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     return _request_detail_out(request, user, db, ctx=ctx)

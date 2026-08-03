@@ -7,6 +7,7 @@ from unittest.mock import patch
 from auth import create_access_token, hash_password
 import models
 import models_buyback
+from services.buyback_application_form import can_print_application_form
 from services.buyback_cart import add_cart_item
 from services.buyback_requests import submit_request_from_cart
 
@@ -149,3 +150,13 @@ def test_application_form_other_user_forbidden(api_client, db):
         headers=_auth_header(other),
     )
     assert res.status_code == 404
+
+
+def test_can_print_application_form_false_after_assessment(db):
+    user = _create_user(db, email="assessed@example.com")
+    request = _seed_and_submit(db, user)
+    assert can_print_application_form(request) is True
+
+    request.assessed_at = request.submitted_at
+    request.assessed_total = 1000
+    assert can_print_application_form(request) is False
