@@ -215,6 +215,19 @@ class AdminLoyaltyResendEmailIn(BaseModel):
     event_key: str
 
 
+class InquiryEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class InquiryEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
+class AdminInquiryResendEmailIn(BaseModel):
+    event_key: str
+    reply_text: str | None = None
+
+
 class AdminIdentityResendEmailIn(BaseModel):
     event_key: str
     force: bool = True

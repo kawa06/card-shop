@@ -406,6 +406,46 @@ export interface AdminInquiryReplyPayload {
   status?: string | null
   assigned_admin_id?: number | null
   reason?: string | null
+  email_template_key?: string | null
+  send_email?: boolean
+  save_draft?: boolean
+}
+
+export interface InquiryEmailTemplateOption {
+  event_key: string
+  template_key: string
+  label: string
+  category: string
+}
+
+export interface InquiryEmailPreview {
+  subject: string
+  preheader: string
+  html: string
+  text: string
+}
+
+export interface InquiryEmailLog {
+  id: number
+  template_key: string
+  template_name?: string | null
+  subject: string
+  recipient: string
+  status: string
+  sent_at?: string | null
+  sent_by_name?: string | null
+  error_message?: string | null
+  is_test: boolean
+}
+
+export interface InquiryReplyDraft {
+  inquiry_id: number
+  message: string
+  email_template_key?: string | null
+  new_status?: string | null
+  send_email: boolean
+  reason?: string | null
+  updated_at?: string | null
 }
 
 export interface AdminBuybackStats {

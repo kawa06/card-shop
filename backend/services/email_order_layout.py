@@ -224,6 +224,40 @@ BROADCAST_VARIABLES_HINT = (
 )
 
 
+INQUIRY_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{inquiryInfoBlock}}
+
+{{attachmentBlock}}
+
+<div style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{replyContent}}</div>
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+INQUIRY_VARIABLES_HINT = (
+    "{{name}} / {{ユーザー名}}, {{inquiryNo}} / {{お問い合わせ番号}}, "
+    "{{inquiryCategory}} / {{お問い合わせ種別}}, {{receivedAt}} / {{受付日時}}, "
+    "{{repliedAt}} / {{返信日時}}, {{assignedAdmin}} / {{担当者}}, "
+    "{{inquiryUrl}} / {{お問い合わせURL}}, {{inquiryContent}} / {{お問い合わせ内容}}, "
+    "{{replyContent}} / {{返信内容}}, {{supportChannel}} / {{サポート}}, "
+    "{{bodyTitle}}, {{bodyDescription}}, {{inquiryInfoBlock}}, {{attachmentBlock}}, "
+    "{{buttonsBlock}}, {{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -383,6 +417,38 @@ def build_broadcast_info_block(rows: list[tuple[str, str]]) -> str:
     if not visible:
         return ""
     return build_order_summary_block(visible)
+
+
+def build_inquiry_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic inquiry info table — no PII beyond what admin explicitly includes."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_attachment_block(files: list[tuple[str, str]]) -> str:
+    """Attachment list — filename and size only, no URLs or storage paths."""
+    visible = [(name, size) for name, size in files if name and str(name).strip()]
+    if not visible:
+        return ""
+    rows = "".join(
+        f'<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;color:#334155;">'
+        f'{_esc(name)}</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;'
+        f'color:#64748b;text-align:right;">{_esc(size)}</td></tr>'
+        for name, size in visible
+    )
+    return f"""
+<div style="margin:0 0 20px;">
+  <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#475569;">添付ファイル</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;background:#f8fafc;border-radius:8px;overflow:hidden;">
+    <thead><tr>
+      <th style="padding:8px 12px;text-align:left;color:#64748b;font-weight:500;">ファイル名</th>
+      <th style="padding:8px 12px;text-align:right;color:#64748b;font-weight:500;">サイズ</th>
+    </tr></thead>
+    <tbody>{rows}</tbody>
+  </table>
+</div>""".strip()
 
 
 def build_image_block(image_urls: list[str]) -> str:

@@ -37,6 +37,11 @@ from services.loyalty_email_auto_send import (
 )
 from services.broadcast_email_variables import broadcast_variables_for_template
 from services.broadcast_audience_registry import list_audience_segments
+from services.inquiry_email_variables import inquiry_variables_for_template
+from services.inquiry_email_auto_send import (
+    get_auto_send_settings as get_inquiry_auto_send_settings,
+    update_auto_send_settings as update_inquiry_auto_send_settings,
+)
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -189,6 +194,11 @@ def get_template_variables(
         or template_key in {"announcement_broadcast", "maintenance_notice", "incident_notice", "incident_resolved"}
     ):
         variables = broadcast_variables_for_template(template_key)
+    elif (
+        template_key.startswith("inquiry_")
+        or template_key in {"inquiry_reply", "inquiry_received"}
+    ):
+        variables = inquiry_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -365,6 +375,55 @@ def resend_loyalty_email_route(
     return {"message": "メールを再送しました", "event_key": body.event_key}
 
 
+@router.get("/inquiry/auto-send", response_model=schemas_email.InquiryEmailAutoSendOut)
+def get_inquiry_auto_send(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.InquiryEmailAutoSendOut(settings=get_inquiry_auto_send_settings(db))
+
+
+@router.put("/inquiry/auto-send", response_model=schemas_email.InquiryEmailAutoSendOut)
+def update_inquiry_auto_send(
+    payload: schemas_email.InquiryEmailAutoSendUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_inquiry_auto_send_settings(db, payload.settings)
+    db.commit()
+    return schemas_email.InquiryEmailAutoSendOut(settings=updated)
+
+
+@router.post("/inquiry/inquiries/{inquiry_id}/resend")
+def resend_inquiry_email_route(
+    inquiry_id: int,
+    body: schemas_email.AdminInquiryResendEmailIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    from services.inquiry_email_registry import get_inquiry_email_event
+    from services.inquiry_emails import resend_inquiry_email
+    from services.inquiry_service import get_admin_inquiry
+
+    if not get_inquiry_email_event(body.event_key):
+        raise HTTPException(status_code=400, detail="不明なイベントキーです")
+    inquiry = get_admin_inquiry(db, inquiry_id)
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
+    ok, err = resend_inquiry_email(
+        db,
+        event_key=body.event_key,
+        inquiry=inquiry,
+        admin=ctx.user,
+        reply_text=body.reply_text,
+        include_reply_content=bool(body.reply_text),
+        sent_by_user_id=ctx.user.id,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    return {"message": "メールを再送しました", "event_key": body.event_key}
+
+
 @router.get("/broadcast/audiences")
 def list_broadcast_audiences(
     ctx: AdminContext = Depends(_require_perm("admin.email.read")),
@@ -440,6 +499,8 @@ def test_send(
             "shippingInfoBlock", "orderSummaryBlock", "itemsTable", "buttonsBlock",
             "notesBlock", "contactBlock", "signatureBlock",
             "kycInfoBlock", "buybackInfoBlock", "assessmentDetail", "memberInfoBlock",
+            "loyaltyInfoBlock", "broadcastInfoBlock", "inquiryInfoBlock", "attachmentBlock",
+            "imageBlock", "noticeContent", "replyContent", "inquiryContent", "content",
         },
     )
     safe_commit(db)

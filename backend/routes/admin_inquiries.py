@@ -10,7 +10,9 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 import models
+import models_email
 import schemas
+import schemas_email
 from auth import get_current_admin
 from database import get_db
 from services.db_persist import PersistDep, safe_commit
@@ -20,10 +22,16 @@ from services.inquiry_service import (
     get_inquiry_settings,
     mark_admin_read,
 )
-from services.inquiry_emails import notify_customer_admin_reply, notify_inquiry_status_change
+from services.inquiry_emails import (
+    notify_customer_admin_reply,
+    notify_inquiry_status_change,
+    preview_inquiry_email,
+    resend_inquiry_email,
+)
 from services.inquiry_template_render import build_template_context, render_template_body
 from services.inquiry_seed import seed_inquiry_data
 from services.inquiry_service import save_inquiry_attachments
+from services.inquiry_email_registry import INQUIRY_EMAIL_EVENTS, get_inquiry_email_event
 from services.inquiry_upload import build_download_path, create_attachment_download_token
 
 router = APIRouter(
@@ -304,6 +312,155 @@ def update_settings(
     return row
 
 
+@router.get("/email/templates")
+def list_inquiry_email_templates(
+    _: models.User = Depends(get_current_admin),
+):
+    return [
+        {"event_key": ev.event_key, "template_key": ev.default_template_key, "label": ev.description, "category": ev.category}
+        for ev in INQUIRY_EMAIL_EVENTS.values()
+    ]
+
+
+@router.get("/{inquiry_id}/email/logs", response_model=list[schemas.InquiryEmailLogOut])
+def inquiry_email_logs(
+    inquiry_id: int,
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    inquiry = get_admin_inquiry(db, inquiry_id)
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
+    logs = (
+        db.query(models_email.EmailSendLog)
+        .filter(
+            models_email.EmailSendLog.reference_type == "inquiry",
+            models_email.EmailSendLog.reference_id.like(f"{inquiry_id}%"),
+        )
+        .order_by(models_email.EmailSendLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    template_names = {
+        t.template_key: t.name
+        for t in db.query(models_email.EmailTemplate).filter(
+            models_email.EmailTemplate.template_key.in_({log.template_key for log in logs})
+        )
+    }
+    admin_names = {}
+    admin_ids = {log.sent_by_user_id for log in logs if log.sent_by_user_id}
+    if admin_ids:
+        for u in db.query(models.User).filter(models.User.id.in_(admin_ids)):
+            admin_names[u.id] = u.name
+
+    return [
+        schemas.InquiryEmailLogOut(
+            id=log.id,
+            template_key=log.template_key,
+            template_name=template_names.get(log.template_key),
+            subject=log.subject,
+            recipient=log.recipient,
+            status=log.status,
+            sent_at=log.created_at,
+            sent_by_name=admin_names.get(log.sent_by_user_id) if log.sent_by_user_id else None,
+            error_message=log.error_message,
+            is_test=log.is_test,
+        )
+        for log in logs
+    ]
+
+
+@router.post("/{inquiry_id}/email/preview", response_model=schemas.InquiryEmailPreviewOut)
+def preview_inquiry_email_route(
+    inquiry_id: int,
+    payload: schemas.InquiryEmailPreviewIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    inquiry = get_admin_inquiry(db, inquiry_id)
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
+    result = preview_inquiry_email(
+        db,
+        inquiry=inquiry,
+        event_key=payload.email_template_key,
+        admin=admin,
+        reply_text=payload.reply_text,
+        include_reply_content=payload.include_reply_content,
+        force_dark=payload.force_dark,
+    )
+    return schemas.InquiryEmailPreviewOut(
+        subject=result.get("subject", ""),
+        preheader=result.get("preheader", ""),
+        html=result.get("html", ""),
+        text=result.get("text", ""),
+    )
+
+
+@router.post("/{inquiry_id}/email/resend")
+def resend_inquiry_email_route(
+    inquiry_id: int,
+    payload: schemas_email.AdminInquiryResendEmailIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    if not get_inquiry_email_event(payload.event_key):
+        raise HTTPException(status_code=400, detail="不明なイベントキーです")
+    inquiry = get_admin_inquiry(db, inquiry_id)
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
+    ok, err = resend_inquiry_email(
+        db,
+        event_key=payload.event_key,
+        inquiry=inquiry,
+        admin=admin,
+        reply_text=payload.reply_text,
+        include_reply_content=bool(payload.reply_text),
+        sent_by_user_id=admin.id,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    safe_commit(db, action="問い合わせメール再送")
+    return {"ok": True, "event_key": payload.event_key}
+
+
+@router.get("/{inquiry_id}/draft", response_model=schemas.InquiryReplyDraftOut | None)
+def get_reply_draft(
+    inquiry_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    inquiry = get_admin_inquiry(db, inquiry_id)
+    if not inquiry:
+        raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
+    draft = (
+        db.query(models.InquiryReplyDraft)
+        .filter(models.InquiryReplyDraft.inquiry_id == inquiry_id, models.InquiryReplyDraft.admin_id == admin.id)
+        .first()
+    )
+    if not draft:
+        return None
+    return schemas.InquiryReplyDraftOut.model_validate(draft)
+
+
+@router.delete("/{inquiry_id}/draft")
+def delete_reply_draft(
+    inquiry_id: int,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    draft = (
+        db.query(models.InquiryReplyDraft)
+        .filter(models.InquiryReplyDraft.inquiry_id == inquiry_id, models.InquiryReplyDraft.admin_id == admin.id)
+        .first()
+    )
+    if draft:
+        db.delete(draft)
+        safe_commit(db, action="下書き削除")
+    return {"ok": True}
+
+
 @router.get("/{inquiry_id}")
 def get_inquiry_detail(
     inquiry_id: int,
@@ -337,6 +494,32 @@ def reply_inquiry(
     if not inquiry:
         raise HTTPException(status_code=404, detail="問い合わせが見つかりません")
 
+    if payload.save_draft and not payload.is_internal_note:
+        draft = (
+            db.query(models.InquiryReplyDraft)
+            .filter(models.InquiryReplyDraft.inquiry_id == inquiry_id, models.InquiryReplyDraft.admin_id == admin.id)
+            .first()
+        )
+        if draft is None:
+            draft = models.InquiryReplyDraft(inquiry_id=inquiry_id, admin_id=admin.id, message="")
+            db.add(draft)
+        draft.message = payload.message
+        draft.email_template_key = payload.email_template_key
+        draft.new_status = payload.status
+        draft.send_email = payload.send_email
+        draft.reason = payload.reason
+        draft.updated_at = datetime.utcnow()
+        safe_commit(db, action="返信下書き保存")
+        return schemas.InquiryMessageOut(
+            id=0,
+            sender_type="admin",
+            message=payload.message,
+            is_internal_note=False,
+            template_id=payload.template_id,
+            created_at=datetime.utcnow(),
+            sender_name=admin.name,
+        )
+
     old_status = inquiry.status
     message = payload.message
     if payload.template_id and not message.strip():
@@ -366,7 +549,7 @@ def reply_inquiry(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    if not payload.is_internal_note:
+    if not payload.is_internal_note and payload.send_email:
         db.refresh(inquiry)
         new_status = inquiry.status
         if new_status in ("resolved", "closed") and new_status != old_status:
@@ -376,9 +559,27 @@ def reply_inquiry(
                 old_status=old_status,
                 new_status=new_status,
                 reply_text=message,
+                admin=admin,
+                email_template_key=payload.email_template_key,
+                send_email=True,
             )
         else:
-            notify_customer_admin_reply(db, inquiry, message)
+            notify_customer_admin_reply(
+                db,
+                inquiry,
+                message,
+                admin=admin,
+                email_template_key=payload.email_template_key,
+                send_email=True,
+                sent_by_user_id=admin.id,
+            )
+        draft = (
+            db.query(models.InquiryReplyDraft)
+            .filter(models.InquiryReplyDraft.inquiry_id == inquiry_id, models.InquiryReplyDraft.admin_id == admin.id)
+            .first()
+        )
+        if draft:
+            db.delete(draft)
 
     return schemas.InquiryMessageOut(
         id=msg.id,
@@ -445,5 +646,8 @@ async def upload_admin_attachments(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from services.inquiry_emails import notify_inquiry_attachment_received
+
+    notify_inquiry_attachment_received(db, inquiry, saved)
     return [_admin_attachment_out(a) for a in saved]
 

@@ -568,6 +568,19 @@ export const adminInquiriesApi = {
       { params: messageId ? { message_id: messageId } : undefined }
     )
   },
+  getEmailTemplates: () =>
+    apiClient.get<import('./types').InquiryEmailTemplateOption[]>('/admin/inquiries/email/templates'),
+  previewEmail: (inquiryId: number, data: { email_template_key: string; reply_text: string; include_reply_content?: boolean; force_dark?: boolean }) =>
+    apiClient.post<import('./types').InquiryEmailPreview>(`/admin/inquiries/${inquiryId}/email/preview`, data),
+  getEmailLogs: (inquiryId: number, limit?: number) =>
+    apiClient.get<import('./types').InquiryEmailLog[]>(`/admin/inquiries/${inquiryId}/email/logs`, {
+      params: limit ? { limit } : undefined,
+    }),
+  resendEmail: (inquiryId: number, data: { event_key: string; reply_text?: string }) =>
+    apiClient.post(`/admin/inquiries/${inquiryId}/email/resend`, data),
+  getDraft: (inquiryId: number) =>
+    apiClient.get<import('./types').InquiryReplyDraft | null>(`/admin/inquiries/${inquiryId}/draft`),
+  deleteDraft: (inquiryId: number) => apiClient.delete(`/admin/inquiries/${inquiryId}/draft`),
 }
 
 export const adminBuybackApi = {
@@ -854,6 +867,12 @@ export const adminEmailApi = {
     apiClient.put('/admin/email/loyalty/auto-send', { settings }),
   resendLoyaltyEmail: (userId: number, data: { event_key: string }) =>
     apiClient.post(`/admin/email/loyalty/users/${userId}/resend`, data),
+  getInquiryAutoSend: () =>
+    apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/inquiry/auto-send'),
+  updateInquiryAutoSend: (settings: Record<string, boolean>) =>
+    apiClient.put('/admin/email/inquiry/auto-send', { settings }),
+  resendInquiryEmail: (inquiryId: number, data: { event_key: string; reply_text?: string }) =>
+    apiClient.post(`/admin/email/inquiry/inquiries/${inquiryId}/resend`, data),
   getBroadcastAudiences: () =>
     apiClient.get<{ segments: Array<{ segment_key: string; label: string; description: string; requires_params: boolean }> }>(
       '/admin/email/broadcast/audiences'

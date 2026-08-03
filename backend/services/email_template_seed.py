@@ -67,8 +67,7 @@ TEMPLATE_DEFS: list[dict] = [
     # point/coupon/rank templates seeded via loyalty_email_templates_seed.py
     # ops
     # ops broadcast templates seeded via broadcast_email_templates_seed.py
-    {"key": "inquiry_received", "category": "ops", "name": "お問い合わせ受付", "subject": "【{{shopName}}】お問い合わせを受け付けました"},
-    {"key": "inquiry_reply", "category": "ops", "name": "お問い合わせ返信", "subject": "【{{shopName}}】お問い合わせへの返信"},
+    # inquiry templates seeded via inquiry_email_templates_seed.py
 ]
 
 

@@ -308,6 +308,10 @@ async def upload_attachments(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    from services.inquiry_emails import notify_inquiry_attachment_received
+
+    notify_inquiry_attachment_received(db, inquiry, saved, user=current_user)
     return [_attachment_out(a, user_id=current_user.id) for a in saved]
 
 

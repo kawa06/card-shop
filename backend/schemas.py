@@ -556,6 +556,49 @@ class AdminInquiryReply(BaseModel):
     status: Optional[str] = None
     assigned_admin_id: Optional[int] = None
     reason: Optional[str] = None
+    email_template_key: Optional[str] = None
+    send_email: bool = True
+    save_draft: bool = False
+
+
+class InquiryEmailPreviewIn(BaseModel):
+    email_template_key: str = "inquiry_admin_reply"
+    reply_text: str = ""
+    include_reply_content: bool = True
+    force_dark: bool = False
+
+
+class InquiryEmailPreviewOut(BaseModel):
+    subject: str
+    preheader: str = ""
+    html: str
+    text: str = ""
+
+
+class InquiryReplyDraftOut(BaseModel):
+    inquiry_id: int
+    message: str = ""
+    email_template_key: Optional[str] = None
+    new_status: Optional[str] = None
+    send_email: bool = True
+    reason: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InquiryEmailLogOut(BaseModel):
+    id: int
+    template_key: str
+    template_name: Optional[str] = None
+    subject: str
+    recipient: str
+    status: str
+    sent_at: Optional[datetime] = None
+    sent_by_name: Optional[str] = None
+    error_message: Optional[str] = None
+    is_test: bool = False
 
 
 class AdminInquiryUpdate(BaseModel):

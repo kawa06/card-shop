@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Send } from 'lucide-react'
+import { ArrowLeft, Eye, Loader2, Monitor, Moon, RotateCcw, Save, Send, Smartphone } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminInquiriesApi } from '@/lib/api'
-import { AdminInquiryDetail, InquiryTemplate } from '@/lib/types'
+import {
+  AdminInquiryDetail,
+  InquiryEmailLog,
+  InquiryEmailTemplateOption,
+  InquiryTemplate,
+} from '@/lib/types'
 import { inquiryCategoryLabel, inquiryStatusLabel, INQUIRY_STATUS_COLORS } from '@/lib/inquiry-labels'
 import { toast } from '@/lib/use-toast'
 import { Button } from '@/components/ui/button'
@@ -34,15 +39,25 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
   const { isReady } = useAdminGuard()
   const [inquiry, setInquiry] = useState<AdminInquiryDetail | null>(null)
   const [templates, setTemplates] = useState<InquiryTemplate[]>([])
+  const [emailTemplates, setEmailTemplates] = useState<InquiryEmailTemplateOption[]>([])
+  const [emailLogs, setEmailLogs] = useState<InquiryEmailLog[]>([])
   const [message, setMessage] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [templateId, setTemplateId] = useState('')
+  const [emailTemplateKey, setEmailTemplateKey] = useState('inquiry_admin_reply')
+  const [sendEmail, setSendEmail] = useState(true)
   const [reason, setReason] = useState('')
   const [newStatus, setNewStatus] = useState('')
   const [replyFiles, setReplyFiles] = useState<File[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile' | 'dark'>('desktop')
+  const [previewHtml, setPreviewHtml] = useState('')
+  const [previewSubject, setPreviewSubject] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
@@ -52,13 +67,26 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
     if (!inquiryId) return
     setIsLoading(true)
     try {
-      const [detailRes, tplRes] = await Promise.all([
+      const [detailRes, tplRes, emailTplRes, logsRes, draftRes] = await Promise.all([
         adminInquiriesApi.getById(inquiryId),
         adminInquiriesApi.getReplyTemplates(),
+        adminInquiriesApi.getEmailTemplates(),
+        adminInquiriesApi.getEmailLogs(inquiryId),
+        adminInquiriesApi.getDraft(inquiryId).catch(() => ({ data: null })),
       ])
       setInquiry(detailRes.data)
       setNewStatus(detailRes.data.status)
       setTemplates(tplRes.data || [])
+      setEmailTemplates(emailTplRes.data || [])
+      setEmailLogs(logsRes.data || [])
+      const draft = draftRes.data
+      if (draft) {
+        setMessage(draft.message || '')
+        setEmailTemplateKey(draft.email_template_key || 'inquiry_admin_reply')
+        setSendEmail(draft.send_email ?? true)
+        if (draft.new_status) setNewStatus(draft.new_status)
+        if (draft.reason) setReason(draft.reason)
+      }
     } catch {
       toast({ title: '問い合わせの取得に失敗しました', variant: 'destructive' })
     } finally {
@@ -71,6 +99,32 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
     void load()
   }, [isMounted, isReady, load])
 
+  const refreshPreview = useCallback(async () => {
+    if (!inquiry) return
+    setPreviewLoading(true)
+    try {
+      const res = await adminInquiriesApi.previewEmail(inquiry.id, {
+        email_template_key: emailTemplateKey,
+        reply_text: message,
+        include_reply_content: true,
+        force_dark: previewMode === 'dark',
+      })
+      setPreviewHtml(res.data.html)
+      setPreviewSubject(res.data.subject)
+    } catch {
+      setPreviewHtml('')
+      toast({ title: 'プレビューの取得に失敗しました', variant: 'destructive' })
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [inquiry, emailTemplateKey, message, previewMode])
+
+  useEffect(() => {
+    if (!showPreview || !inquiry) return
+    const timer = setTimeout(() => void refreshPreview(), 400)
+    return () => clearTimeout(timer)
+  }, [showPreview, inquiry, emailTemplateKey, message, previewMode, refreshPreview])
+
   const handleTemplatePreview = async (value: string) => {
     setTemplateId(value)
     if (!value || !inquiry) return
@@ -82,9 +136,10 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
     }
   }
 
-  const handleReply = async () => {
-    if (!inquiry || (!message.trim() && !templateId)) return
-    setIsSending(true)
+  const handleReply = async (saveDraft = false) => {
+    if (!inquiry || (!message.trim() && !templateId && !saveDraft)) return
+    if (saveDraft) setIsSavingDraft(true)
+    else setIsSending(true)
     try {
       const res = await adminInquiriesApi.reply(inquiry.id, {
         message: message.trim(),
@@ -92,24 +147,46 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
         template_id: templateId ? parseInt(templateId, 10) : null,
         status: newStatus !== inquiry.status ? newStatus : null,
         reason: reason || null,
+        email_template_key: emailTemplateKey,
+        send_email: sendEmail,
+        save_draft: saveDraft,
       })
-      if (!isInternal && replyFiles.length > 0) {
+      if (saveDraft) {
+        toast({ title: '下書きを保存しました' })
+        return
+      }
+      if (!isInternal && replyFiles.length > 0 && res.data.id) {
         await adminInquiriesApi.uploadAttachments(inquiry.id, replyFiles, res.data.id)
       }
       setMessage('')
       setTemplateId('')
       setReplyFiles([])
       await load()
-      toast({ title: isInternal ? '内部メモを保存しました' : '返信を送信しました' })
+      toast({ title: isInternal ? '内部メモを保存しました' : sendEmail ? '返信を送信しました' : '返信を保存しました（メール未送信）' })
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       toast({
-        title: '送信に失敗しました',
+        title: saveDraft ? '下書き保存に失敗しました' : '送信に失敗しました',
         description: typeof detail === 'string' ? detail : undefined,
         variant: 'destructive',
       })
     } finally {
       setIsSending(false)
+      setIsSavingDraft(false)
+    }
+  }
+
+  const handleResend = async (log: InquiryEmailLog) => {
+    if (!inquiry) return
+    try {
+      await adminInquiriesApi.resendEmail(inquiry.id, {
+        event_key: log.template_key,
+        reply_text: message || undefined,
+      })
+      await load()
+      toast({ title: 'メールを再送しました' })
+    } catch {
+      toast({ title: '再送に失敗しました', variant: 'destructive' })
     }
   }
 
@@ -197,12 +274,43 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
               ))}
             </div>
 
+            {emailLogs.length > 0 && (
+              <div className="mb-8 border border-gray-200 rounded-lg p-4">
+                <h2 className="font-medium text-gray-900 mb-3">メール送信履歴</h2>
+                <div className="space-y-2">
+                  {emailLogs.map((log) => (
+                    <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-gray-100 pb-2">
+                      <div>
+                        <p className="font-medium text-gray-900">{log.template_name || log.template_key}</p>
+                        <p className="text-xs text-gray-500">{log.subject}</p>
+                        <p className="text-xs text-gray-400">
+                          {log.sent_at ? formatDate(log.sent_at) : '—'} · {log.sent_by_name || '自動'} · {log.recipient}
+                        </p>
+                        {log.error_message && <p className="text-xs text-red-600">{log.error_message}</p>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${log.status === 'sent' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {log.status === 'sent' ? '成功' : '失敗'}
+                        </span>
+                        {log.status !== 'sent' && (
+                          <Button variant="outline" size="sm" onClick={() => void handleResend(log)}>
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            再送
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
               <h2 className="font-medium text-gray-900">返信 / 内部メモ</h2>
 
               {templates.length > 0 && (
                 <div>
-                  <Label>定型返信</Label>
+                  <Label>定型返信（本文）</Label>
                   <select
                     className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
                     value={templateId}
@@ -212,6 +320,23 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
                     {templates.map((tpl) => (
                       <option key={tpl.id} value={String(tpl.id)}>
                         {tpl.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {!isInternal && emailTemplates.length > 0 && (
+                <div>
+                  <Label>メールテンプレート</Label>
+                  <select
+                    className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                    value={emailTemplateKey}
+                    onChange={(e) => setEmailTemplateKey(e.target.value)}
+                  >
+                    {emailTemplates.map((tpl) => (
+                      <option key={tpl.event_key} value={tpl.event_key}>
+                        {tpl.label}
                       </option>
                     ))}
                   </select>
@@ -255,6 +380,12 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
                   <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
                   内部メモ（購入者に非表示）
                 </label>
+                {!isInternal && (
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+                    メールを送信する
+                  </label>
+                )}
                 <div className="flex items-center gap-2">
                   <Label className="text-sm">ステータス</Label>
                   <select
@@ -274,20 +405,79 @@ export default function AdminInquiryDetailPage({ params }: { params: { id: strin
                 </div>
               </div>
 
-              <Button onClick={() => void handleReply()} disabled={isSending}>
-                {isSending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-1" />
-                    {isInternal ? 'メモを保存' : '返信を送信'}
-                  </>
+              <div className="flex flex-wrap gap-2">
+                {!isInternal && (
+                  <Button variant="outline" onClick={() => setShowPreview(true)} disabled={!message.trim()}>
+                    <Eye className="h-4 w-4 mr-1" />
+                    メールプレビュー
+                  </Button>
                 )}
-              </Button>
+                {!isInternal && (
+                  <Button variant="outline" onClick={() => void handleReply(true)} disabled={isSavingDraft}>
+                    {isSavingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                    下書き保存
+                  </Button>
+                )}
+                <Button onClick={() => void handleReply(false)} disabled={isSending}>
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-1" />
+                      {isInternal ? 'メモを保存' : sendEmail ? '返信を送信' : '返信を保存（メールなし）'}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </>
         )}
       </div>
+
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowPreview(false)}>
+          <div
+            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-semibold text-gray-900">メールプレビュー</h3>
+                <p className="text-sm text-gray-500 truncate">{previewSubject}</p>
+              </div>
+              <div className="flex gap-1">
+                {(['desktop', 'mobile', 'dark'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPreviewMode(mode)}
+                    className={`p-2 rounded ${previewMode === mode ? 'bg-yellow-100 text-yellow-800' : 'text-gray-500 hover:bg-gray-100'}`}
+                  >
+                    {mode === 'desktop' && <Monitor className="h-4 w-4" />}
+                    {mode === 'mobile' && <Smartphone className="h-4 w-4" />}
+                    {mode === 'dark' && <Moon className="h-4 w-4" />}
+                  </button>
+                ))}
+                <Button variant="outline" size="sm" onClick={() => setShowPreview(false)}>
+                  閉じる
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 bg-gray-100 flex justify-center">
+              {previewLoading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400 my-12" />
+              ) : (
+                <div
+                  className={`bg-white shadow-lg overflow-hidden ${
+                    previewMode === 'mobile' ? 'w-[375px]' : 'w-full max-w-[640px]'
+                  } ${previewMode === 'dark' ? 'dark-preview invert hue-rotate-180' : ''}`}
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -38,6 +38,7 @@ class EmailBrandSettings(Base):
     email_signature_html = Column(Text, nullable=True)
     member_email_auto_send_json = Column(Text, nullable=True)
     loyalty_email_auto_send_json = Column(Text, nullable=True)
+    inquiry_email_auto_send_json = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

@@ -362,6 +362,24 @@ class InquiryStatusHistory(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class InquiryReplyDraft(Base):
+    __tablename__ = "inquiry_reply_drafts"
+    __table_args__ = (UniqueConstraint("inquiry_id", name="uq_inquiry_reply_drafts_inquiry"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    inquiry_id = Column(Integer, ForeignKey("inquiries.id"), nullable=False, index=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=False, default="")
+    email_template_key = Column(String(64), nullable=True)
+    new_status = Column(String(32), nullable=True)
+    send_email = Column(Boolean, default=True, nullable=False)
+    reason = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    inquiry = relationship("Inquiry", backref="reply_draft")
+    admin = relationship("User")
+
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 

@@ -562,6 +562,7 @@ def _migrate_inquiry_tables() -> None:
         ("inquiry_messages", models.InquiryMessage),
         ("inquiry_attachments", models.InquiryAttachment),
         ("inquiry_status_history", models.InquiryStatusHistory),
+        ("inquiry_reply_drafts", models.InquiryReplyDraft),
     ]
     for name, model in tables:
         _create_table_if_missing(name, model)
@@ -784,6 +785,7 @@ def _migrate_email_auth_schema() -> None:
     _add_column_if_missing("email_brand_settings", "email_signature_html", "TEXT")
     _add_column_if_missing("email_brand_settings", "member_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_brand_settings", "loyalty_email_auto_send_json", "TEXT")
+    _add_column_if_missing("email_brand_settings", "inquiry_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_templates", "preheader", "VARCHAR(255)")
     _add_column_if_missing("user_otp_challenges", "link_token_hash", "VARCHAR(128)")
 
@@ -917,3 +919,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("broadcast email template upgrade failed")
+        try:
+            from services.inquiry_email_templates_seed import upgrade_inquiry_email_templates
+
+            inquiry_upgraded = upgrade_inquiry_email_templates(db)
+            if inquiry_upgraded:
+                db.commit()
+                logger.info("Upgraded %s inquiry email templates", inquiry_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("inquiry email template upgrade failed")
