@@ -873,6 +873,27 @@ export const adminEmailApi = {
     apiClient.put('/admin/email/inquiry/auto-send', { settings }),
   resendInquiryEmail: (inquiryId: number, data: { event_key: string; reply_text?: string }) =>
     apiClient.post(`/admin/email/inquiry/inquiries/${inquiryId}/resend`, data),
+  getAdminNotifyEvents: () =>
+    apiClient.get<Array<{ event_key: string; template_key: string; label: string; category: string; channel_default: string }>>(
+      '/admin/email/admin-notify/events'
+    ),
+  getAdminNotifyAutoSend: () =>
+    apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/admin-notify/auto-send'),
+  updateAdminNotifyAutoSend: (settings: Record<string, boolean>) =>
+    apiClient.put('/admin/email/admin-notify/auto-send', { settings }),
+  getAdminNotifyChannels: () =>
+    apiClient.get<{ settings: Record<string, string> }>('/admin/email/admin-notify/channels'),
+  updateAdminNotifyChannels: (settings: Record<string, string>) =>
+    apiClient.put('/admin/email/admin-notify/channels', { settings }),
+  getAdminNotifyRecipients: () =>
+    apiClient.get<{ settings: Record<string, { mode: string; permission_codes: string[]; custom_emails: string[] }> }>(
+      '/admin/email/admin-notify/recipients'
+    ),
+  updateAdminNotifyRecipients: (
+    settings: Record<string, { mode: string; permission_codes: string[]; custom_emails: string[] }>
+  ) => apiClient.put('/admin/email/admin-notify/recipients', { settings }),
+  duplicateTemplate: (key: string, data: { new_template_key: string; name?: string; category?: string }) =>
+    apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/duplicate`, data),
   getBroadcastAudiences: () =>
     apiClient.get<{ segments: Array<{ segment_key: string; label: string; description: string; requires_params: boolean }> }>(
       '/admin/email/broadcast/audiences'

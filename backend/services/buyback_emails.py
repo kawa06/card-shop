@@ -372,44 +372,20 @@ def notify_buyback_request_submitted(
         error=err,
     )
 
-    admin_body = f"""
-      <p>新しい買取申請が届きました。</p>
-      <ul>
-        <li>申込番号：{request_number}</li>
-        <li>申込者：{user.name}（{user.email}）</li>
-        <li>参考合計：{_format_jpy(request.estimated_total)}</li>
-        <li>発送方法：{request.shipping_method or '—'}</li>
-      </ul>
-      {f'<p>備考：{request.customer_note}</p>' if request.customer_note else ''}
-      {_items_table_html(request)}
-    """
-    admin_html = _wrap_email(admin_body)
-    admin_subject = f"【KRX TCG 管理】新規買取申請 {request_number}"
+    from services.admin_notify_emails import send_admin_notify_event
 
-    admin_result = send_templated_email(
+    admin_base = settings.FRONTEND_URL.rstrip("/") if settings.FRONTEND_URL else ""
+    send_admin_notify_event(
         db,
-        template_key="buyback_request_admin_alert",
-        to_email=ADMIN_EMAIL,
-        variables={
-            "name": user.name or "お客",
-            "email": user.email,
-            "buyNo": request_number,
-            "content": admin_body,
-        },
-        fallback_subject=admin_subject,
-        fallback_html=admin_html,
+        "admin_notify_buyback_request_new",
         reference_type="buyback_request",
         reference_id=str(request.id),
-        raw_variable_keys={"content"},
-    )
-    admin_ok, admin_err = admin_result.ok, admin_result.error
-    _record_delivery(
-        db,
-        user_id=None,
-        template_key="buyback_request_admin_alert",
-        reference_id=str(request.id),
-        ok=admin_ok,
-        error=admin_err,
+        extra={
+            "buybackNo": request_number,
+            "userName": user.name or "お客",
+            "assessmentAmount": _format_jpy(request.estimated_total),
+            "url": f"{admin_base}/admin/buyback" if admin_base else "",
+        },
     )
 
 

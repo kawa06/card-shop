@@ -62,7 +62,7 @@ TEMPLATE_DEFS: list[dict] = [
     {"key": "buyback_return_tracking", "category": "buyback", "name": "返送送り状番号", "subject": "【{{shopName}}】返送送り状番号（{{buyNo}}）"},
     {"key": "buyback_payout_scheduled", "category": "buyback", "name": "振込予定", "subject": "【{{shopName}}】振込予定のお知らせ（{{buyNo}}）"},
     {"key": "buyback_payout_completed", "category": "buyback", "name": "振込完了", "subject": "【{{shopName}}】振込が完了しました（{{buyNo}}）"},
-    {"key": "buyback_request_admin_alert", "category": "buyback", "name": "買取申請（管理者）", "subject": "【{{shopName}}】新規買取申請"},
+    # buyback admin alert seeded via admin_notify_email_templates_seed.py
     {"key": "buyback_guardian_consent", "category": "buyback", "name": "保護者同意依頼", "subject": "【{{shopName}}】保護者同意のお願い"},
     # point/coupon/rank templates seeded via loyalty_email_templates_seed.py
     # ops

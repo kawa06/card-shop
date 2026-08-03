@@ -42,6 +42,16 @@ from services.inquiry_email_auto_send import (
     get_auto_send_settings as get_inquiry_auto_send_settings,
     update_auto_send_settings as update_inquiry_auto_send_settings,
 )
+from services.admin_notify_email_variables import admin_notify_variables_for_template
+from services.admin_notify_settings import (
+    get_auto_send_settings as get_admin_notify_auto_send_settings,
+    update_auto_send_settings as update_admin_notify_auto_send_settings,
+    get_channel_settings as get_admin_notify_channel_settings,
+    update_channel_settings as update_admin_notify_channel_settings,
+    get_recipient_settings as get_admin_notify_recipient_settings,
+    update_recipient_settings as update_admin_notify_recipient_settings,
+)
+from services.admin_notify_email_registry import ADMIN_NOTIFY_EMAIL_EVENTS
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -117,6 +127,44 @@ def create_template(
     safe_commit(db)
     db.refresh(tpl)
     return tpl
+
+
+@router.post("/templates/{template_key}/duplicate", response_model=schemas_email.EmailTemplateOut)
+def duplicate_template(
+    template_key: str,
+    payload: schemas_email.EmailTemplateDuplicateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    source = (
+        db.query(models_email.EmailTemplate)
+        .filter(models_email.EmailTemplate.template_key == template_key)
+        .first()
+    )
+    if not source:
+        raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
+    exists = (
+        db.query(models_email.EmailTemplate)
+        .filter(models_email.EmailTemplate.template_key == payload.new_template_key)
+        .first()
+    )
+    if exists:
+        raise HTTPException(status_code=409, detail="テンプレートキーが既に存在します")
+    copy = models_email.EmailTemplate(
+        template_key=payload.new_template_key,
+        category=payload.category or source.category,
+        name=payload.name or f"{source.name}（コピー）",
+        subject=source.subject,
+        preheader=source.preheader,
+        html_body=source.html_body,
+        text_body=source.text_body,
+        variables_hint=source.variables_hint,
+        is_active=False,
+    )
+    db.add(copy)
+    safe_commit(db)
+    db.refresh(copy)
+    return copy
 
 
 @router.get("/templates", response_model=list[schemas_email.EmailTemplateListItem])
@@ -199,6 +247,8 @@ def get_template_variables(
         or template_key in {"inquiry_reply", "inquiry_received"}
     ):
         variables = inquiry_variables_for_template(template_key)
+    elif template_key.startswith("admin_notify_") or template_key == "buyback_request_admin_alert":
+        variables = admin_notify_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -424,6 +474,99 @@ def resend_inquiry_email_route(
     return {"message": "メールを再送しました", "event_key": body.event_key}
 
 
+@router.get("/admin-notify/events")
+def list_admin_notify_events(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+):
+    return [
+        {
+            "event_key": ev.event_key,
+            "template_key": ev.default_template_key,
+            "label": ev.description,
+            "category": ev.category,
+            "channel_default": ev.channel_default,
+        }
+        for ev in ADMIN_NOTIFY_EMAIL_EVENTS.values()
+    ]
+
+
+@router.get("/admin-notify/auto-send", response_model=schemas_email.AdminNotifyEmailAutoSendOut)
+def get_admin_notify_auto_send(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.AdminNotifyEmailAutoSendOut(settings=get_admin_notify_auto_send_settings(db))
+
+
+@router.put("/admin-notify/auto-send", response_model=schemas_email.AdminNotifyEmailAutoSendOut)
+def update_admin_notify_auto_send(
+    payload: schemas_email.AdminNotifyEmailAutoSendUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_admin_notify_auto_send_settings(db, payload.settings)
+    db.commit()
+    return schemas_email.AdminNotifyEmailAutoSendOut(settings=updated)
+
+
+@router.get("/admin-notify/channels", response_model=schemas_email.AdminNotifyChannelOut)
+def get_admin_notify_channels(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.AdminNotifyChannelOut(settings=get_admin_notify_channel_settings(db))
+
+
+@router.put("/admin-notify/channels", response_model=schemas_email.AdminNotifyChannelOut)
+def update_admin_notify_channels(
+    payload: schemas_email.AdminNotifyChannelUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_admin_notify_channel_settings(db, payload.settings)
+    db.commit()
+    return schemas_email.AdminNotifyChannelOut(settings=updated)
+
+
+@router.get("/admin-notify/recipients", response_model=schemas_email.AdminNotifyRecipientsOut)
+def get_admin_notify_recipients(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.AdminNotifyRecipientsOut(settings=get_admin_notify_recipient_settings(db))
+
+
+@router.put("/admin-notify/recipients", response_model=schemas_email.AdminNotifyRecipientsOut)
+def update_admin_notify_recipients(
+    payload: schemas_email.AdminNotifyRecipientsUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_admin_notify_recipient_settings(db, payload.settings)
+    db.commit()
+    return schemas_email.AdminNotifyRecipientsOut(settings=updated)
+
+
+@router.post("/admin-notify/resend")
+def resend_admin_notify_route(
+    body: schemas_email.AdminNotifyResendIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    from services.admin_notify_email_registry import get_admin_notify_email_event
+    from services.admin_notify_emails import resend_admin_notify_event
+
+    if not get_admin_notify_email_event(body.event_key):
+        raise HTTPException(status_code=400, detail="不明なイベントキーです")
+    ok, err, success, failed = resend_admin_notify_event(
+        db, body.event_key, sent_by_user_id=ctx.user.id
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "送信に失敗しました")
+    safe_commit(db)
+    return {"message": "再送しました", "success_count": success, "failed_count": failed}
+
+
 @router.get("/broadcast/audiences")
 def list_broadcast_audiences(
     ctx: AdminContext = Depends(_require_perm("admin.email.read")),
@@ -500,6 +643,7 @@ def test_send(
             "notesBlock", "contactBlock", "signatureBlock",
             "kycInfoBlock", "buybackInfoBlock", "assessmentDetail", "memberInfoBlock",
             "loyaltyInfoBlock", "broadcastInfoBlock", "inquiryInfoBlock", "attachmentBlock",
+            "adminNotifyInfoBlock", "errorBlock", "logBlock",
             "imageBlock", "noticeContent", "replyContent", "inquiryContent", "content",
         },
     )

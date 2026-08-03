@@ -207,17 +207,20 @@ def notify_inquiry_received(db: Session, inquiry: models.Inquiry, user: models.U
 def notify_admin_new_inquiry(
     db: Session, inquiry: models.Inquiry, user: models.User, first_message: str
 ) -> None:
-    admin_email = settings.MAIL_REPLY_TO
-    if not admin_email:
-        return
-    send_inquiry_event_email(
+    from services.admin_notify_emails import send_admin_notify_event
+
+    base = settings.FRONTEND_URL.rstrip("/") if settings.FRONTEND_URL else ""
+    send_admin_notify_event(
         db,
-        "inquiry_received",
-        inquiry=inquiry,
-        user=user,
-        to_email=admin_email,
-        include_inquiry_content=False,
-        reference_suffix=":admin-new",
+        "admin_notify_inquiry_new",
+        reference_type="inquiry",
+        reference_id=str(inquiry.id),
+        assignee_admin_id=inquiry.assigned_admin_id,
+        extra={
+            "inquiryNo": inquiry.inquiry_number,
+            "userName": user.name or "お客",
+            "url": f"{base}/admin/inquiries/{inquiry.id}" if base else "",
+        },
     )
 
 
@@ -248,18 +251,21 @@ def notify_customer_admin_reply(
 def notify_admin_customer_reply(
     db: Session, inquiry: models.Inquiry, user: models.User, reply_text: str
 ) -> None:
-    admin_email = settings.MAIL_REPLY_TO
-    if not admin_email:
-        return
-    send_inquiry_event_email(
+    from services.admin_notify_emails import send_admin_notify_event
+
+    base = settings.FRONTEND_URL.rstrip("/") if settings.FRONTEND_URL else ""
+    send_admin_notify_event(
         db,
-        "inquiry_admin_reply",
-        inquiry=inquiry,
-        user=user,
-        to_email=admin_email,
-        reply_text=reply_text,
-        include_reply_content=False,
-        reference_suffix=":customer-reply-admin",
+        "admin_notify_inquiry_reply_pending",
+        reference_type="inquiry",
+        reference_id=f"{inquiry.id}:customer-reply",
+        assignee_admin_id=inquiry.assigned_admin_id,
+        extra={
+            "inquiryNo": inquiry.inquiry_number,
+            "userName": user.name or "お客",
+            "assignee": inquiry.assigned_admin.name if inquiry.assigned_admin else "—",
+            "url": f"{base}/admin/inquiries/{inquiry.id}" if base else "",
+        },
     )
 
 

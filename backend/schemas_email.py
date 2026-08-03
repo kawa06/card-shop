@@ -56,6 +56,12 @@ class EmailTemplateCreate(BaseModel):
     is_active: bool = True
 
 
+class EmailTemplateDuplicateIn(BaseModel):
+    new_template_key: str = Field(..., min_length=3, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    name: str | None = None
+    category: str | None = None
+
+
 class EmailTemplateOut(BaseModel):
     id: int
     template_key: str
@@ -226,6 +232,49 @@ class InquiryEmailAutoSendUpdateIn(BaseModel):
 class AdminInquiryResendEmailIn(BaseModel):
     event_key: str
     reply_text: str | None = None
+
+
+class AdminNotifyEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class AdminNotifyEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
+class AdminNotifyChannelOut(BaseModel):
+    settings: dict[str, str]
+
+
+class AdminNotifyChannelUpdateIn(BaseModel):
+    settings: dict[str, str] = Field(default_factory=dict)
+
+
+class AdminNotifyRecipientsOut(BaseModel):
+    settings: dict[str, dict]
+
+
+class AdminNotifyRecipientsUpdateIn(BaseModel):
+    settings: dict[str, dict] = Field(default_factory=dict)
+
+
+class AdminNotifyResendIn(BaseModel):
+    event_key: str
+
+
+class AdminInAppNotificationOut(BaseModel):
+    id: int
+    event_key: str
+    title: str
+    body: str
+    reference_type: str | None = None
+    reference_id: str | None = None
+    is_read: bool
+    read_at: datetime | None = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class AdminIdentityResendEmailIn(BaseModel):

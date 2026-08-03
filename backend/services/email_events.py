@@ -286,6 +286,8 @@ def sample_variables_for_template(template_key: str) -> dict[str, str]:
     from services.broadcast_email_variables import build_broadcast_sample_variables
     from services.inquiry_email_registry import is_inquiry_template_key, normalize_template_key as normalize_inquiry_template_key
     from services.inquiry_email_variables import build_inquiry_sample_variables
+    from services.admin_notify_email_registry import is_admin_notify_template_key, normalize_template_key as normalize_admin_notify_template_key
+    from services.admin_notify_email_variables import build_admin_notify_sample_variables
 
     member_normalized = normalize_member_template_key(template_key)
     if (
@@ -312,6 +314,11 @@ def sample_variables_for_template(template_key: str) -> dict[str, str]:
     inquiry_normalized = normalize_inquiry_template_key(template_key)
     if is_inquiry_template_key(inquiry_normalized) or is_inquiry_template_key(template_key):
         sample = build_inquiry_sample_variables(inquiry_normalized)
+        return {k: v for k, v in sample.items() if not str(k).startswith("_")}
+
+    admin_notify_normalized = normalize_admin_notify_template_key(template_key)
+    if is_admin_notify_template_key(admin_notify_normalized) or is_admin_notify_template_key(template_key):
+        sample = build_admin_notify_sample_variables(admin_notify_normalized)
         return {k: v for k, v in sample.items() if not str(k).startswith("_")}
 
     kyc_normalized = normalize_kyc_template_key(template_key)

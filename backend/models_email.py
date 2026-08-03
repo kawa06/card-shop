@@ -39,6 +39,9 @@ class EmailBrandSettings(Base):
     member_email_auto_send_json = Column(Text, nullable=True)
     loyalty_email_auto_send_json = Column(Text, nullable=True)
     inquiry_email_auto_send_json = Column(Text, nullable=True)
+    admin_notify_email_auto_send_json = Column(Text, nullable=True)
+    admin_notify_channel_json = Column(Text, nullable=True)
+    admin_notify_recipients_json = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -150,3 +153,18 @@ class UserOtpChallenge(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", backref="otp_challenges")
+
+
+class AdminInAppNotification(Base):
+    __tablename__ = "admin_in_app_notifications"
+
+    id = Column(Integer, primary_key=True)
+    admin_user_id = Column(Integer, ForeignKey("admin_users.id"), nullable=False, index=True)
+    event_key = Column(String(64), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=False)
+    reference_type = Column(String(64), nullable=True, index=True)
+    reference_id = Column(String(64), nullable=True, index=True)
+    is_read = Column(Boolean, default=False, nullable=False, index=True)
+    read_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)

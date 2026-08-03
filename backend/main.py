@@ -32,6 +32,7 @@ from routes.admin_buyback_settings import router as admin_buyback_settings_route
 from routes.buyback import router as buyback_router
 from routes.announcements import router as announcements_router
 from routes.admin_email import router as admin_email_router
+from routes.admin_notifications import router as admin_notifications_router
 
 from sqlalchemy import text, inspect
 
@@ -243,6 +244,7 @@ app.include_router(admin_buyback_settings_router)
 app.include_router(admin_buyback_logistics_router)
 app.include_router(admin_security_router)
 app.include_router(admin_email_router)
+app.include_router(admin_notifications_router)
 app.include_router(buyback_router)
 
 

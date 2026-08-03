@@ -127,6 +127,18 @@ export default function AdminEmailEditPage() {
     }
   }
 
+  const handleDuplicate = async () => {
+    const newKey = window.prompt('複製先テンプレートキー', `${key}_copy`)
+    if (!newKey) return
+    try {
+      const res = await adminEmailApi.duplicateTemplate(key, { new_template_key: newKey })
+      toast({ title: 'テンプレートを複製しました' })
+      window.location.href = `/admin/settings/email/${encodeURIComponent(res.data.template_key)}`
+    } catch {
+      toast({ title: '複製に失敗しました', variant: 'destructive' })
+    }
+  }
+
   if (!isReady || loading || !tpl) {
     return (
       <div className="flex justify-center py-20">
@@ -216,6 +228,9 @@ export default function AdminEmailEditPage() {
           <div className="flex flex-wrap gap-2">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? '保存中…' : '保存'}
+            </Button>
+            <Button variant="outline" onClick={() => void handleDuplicate()}>
+              複製
             </Button>
             <Input
               placeholder="テスト送信先メール"

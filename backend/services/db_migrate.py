@@ -767,6 +767,7 @@ def _migrate_email_auth_schema() -> None:
         ("email_scheduled_sends", models_email.EmailScheduledSend),
         ("login_histories", models_email.LoginHistory),
         ("user_otp_challenges", models_email.UserOtpChallenge),
+        ("admin_in_app_notifications", models_email.AdminInAppNotification),
     ]
     for table_name, model in email_tables:
         _create_table_if_missing(table_name, model)
@@ -786,6 +787,9 @@ def _migrate_email_auth_schema() -> None:
     _add_column_if_missing("email_brand_settings", "member_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_brand_settings", "loyalty_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_brand_settings", "inquiry_email_auto_send_json", "TEXT")
+    _add_column_if_missing("email_brand_settings", "admin_notify_email_auto_send_json", "TEXT")
+    _add_column_if_missing("email_brand_settings", "admin_notify_channel_json", "TEXT")
+    _add_column_if_missing("email_brand_settings", "admin_notify_recipients_json", "TEXT")
     _add_column_if_missing("email_templates", "preheader", "VARCHAR(255)")
     _add_column_if_missing("user_otp_challenges", "link_token_hash", "VARCHAR(128)")
 
@@ -929,3 +933,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("inquiry email template upgrade failed")
+        try:
+            from services.admin_notify_email_templates_seed import upgrade_admin_notify_email_templates
+
+            admin_notify_upgraded = upgrade_admin_notify_email_templates(db)
+            if admin_notify_upgraded:
+                db.commit()
+                logger.info("Upgraded %s admin notify email templates", admin_notify_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("admin notify email template upgrade failed")

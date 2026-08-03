@@ -258,6 +258,41 @@ INQUIRY_VARIABLES_HINT = (
 )
 
 
+ADMIN_NOTIFY_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{adminName}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{adminNotifyInfoBlock}}
+
+{{errorBlock}}
+
+{{logBlock}}
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+ADMIN_NOTIFY_VARIABLES_HINT = (
+    "{{adminName}} / {{管理者名}}, {{userName}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, "
+    "{{buybackNo}} / {{買取番号}}, {{inquiryNo}} / {{お問い合わせ番号}}, {{eventAt}} / {{日時}}, "
+    "{{productName}} / {{商品名}}, {{orderAmount}} / {{注文金額}}, {{assessmentAmount}} / {{査定金額}}, "
+    "{{errorMessage}} / {{エラー内容}}, {{logSnippet}} / {{ログ}}, {{carrier}} / {{配送会社}}, "
+    "{{trackingNo}} / {{送り状番号}}, {{assignee}} / {{担当者}}, {{serverName}} / {{サーバー}}, "
+    "{{systemName}} / {{システム名}}, {{ipAddress}} / {{IPアドレス}}, {{url}} / {{URL}}, "
+    "{{bodyTitle}}, {{bodyDescription}}, {{adminNotifyInfoBlock}}, {{errorBlock}}, {{logBlock}}, "
+    "{{buttonsBlock}}, {{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -421,6 +456,14 @@ def build_broadcast_info_block(rows: list[tuple[str, str]]) -> str:
 
 def build_inquiry_info_block(rows: list[tuple[str, str]]) -> str:
     """Dynamic inquiry info table — no PII beyond what admin explicitly includes."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_admin_notify_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic admin notification info table — minimal PII only."""
     visible = [(label, value) for label, value in rows if value and str(value).strip()]
     if not visible:
         return ""

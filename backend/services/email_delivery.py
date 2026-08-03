@@ -25,6 +25,7 @@ from services.member_email_registry import normalize_template_key as normalize_m
 from services.loyalty_email_registry import normalize_template_key as normalize_loyalty_template_key
 from services.broadcast_email_registry import normalize_template_key as normalize_broadcast_template_key
 from services.inquiry_email_registry import normalize_template_key as normalize_inquiry_template_key
+from services.admin_notify_email_registry import normalize_template_key as normalize_admin_notify_template_key
 from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
@@ -196,6 +197,7 @@ def _find_active_template(db: Session, template_key: str) -> models_email.EmailT
         normalize_loyalty_template_key(template_key),
         normalize_broadcast_template_key(template_key),
         normalize_inquiry_template_key(template_key),
+        normalize_admin_notify_template_key(template_key),
     ):
         if key and key not in keys:
             keys.append(key)

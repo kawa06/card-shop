@@ -21,6 +21,9 @@ const CATEGORIES = [
   { id: 'promo', label: 'キャンペーン配信' },
   { id: 'broadcast', label: '配信その他' },
   { id: 'inquiry', label: 'お問い合わせ' },
+  { id: 'inventory', label: '在庫' },
+  { id: 'system', label: 'システム' },
+  { id: 'security', label: 'セキュリティ' },
   { id: 'order', label: '購入' },
   { id: 'shipping', label: '発送・配送' },
   { id: 'buyback', label: '買取' },
@@ -420,6 +423,9 @@ export default function AdminEmailPage() {
               <Plus className="h-4 w-4" /> 新規テンプレート
             </button>
           )}
+          <Link href="/admin/settings/email/admin-notifications" className="text-purple-600 hover:underline">
+            管理者通知設定
+          </Link>
           <Link href="/admin/settings/email/brand" className="text-cyan-600 hover:underline">
             ブランド設定
           </Link>
