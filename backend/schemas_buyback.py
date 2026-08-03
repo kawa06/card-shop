@@ -537,6 +537,7 @@ class BuybackChannelStatsOut(BaseModel):
 
 class AdminBuybackStatsOut(BaseModel):
     pending_kyc_count: int = 0
+    kyc_in_review_count: int = 0
     kyc_resubmit_count: int = 0
     submitted_request_count: int = 0
     in_progress_request_count: int = 0

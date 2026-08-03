@@ -159,6 +159,14 @@ def _user_map(db: Session, user_ids: set[int]) -> dict[int, models.User]:
     return {row.id: row for row in rows}
 
 
+def _identity_status_label(row: models_buyback.IdentityVerification) -> str:
+    if row.status == models_buyback.IdentityVerificationStatus.pending.value:
+        if row.admin_memo and str(row.admin_memo).strip():
+            return "審査中"
+        return "審査待ち"
+    return IDENTITY_STATUS_LABELS.get(row.status, row.status)
+
+
 def _identity_list_out(
     row,
     user: models.User | None,
@@ -172,7 +180,7 @@ def _identity_list_out(
         user_email=user.email if user else "",
         user_name=user.name if user else "",
         status=row.status,
-        status_label=IDENTITY_STATUS_LABELS.get(row.status, row.status),
+        status_label=_identity_status_label(row),
         document_type=doc_type,
         document_type_label=DOCUMENT_TYPE_LABELS.get(doc_type, doc_type) if doc_type else None,
         has_front=bool(row.storage_key_front),
@@ -215,6 +223,7 @@ def buyback_stats(
     payout = req.get("payout") or {}
     return schemas_buyback.AdminBuybackStatsOut(
         pending_kyc_count=kyc["pending_count"],
+        kyc_in_review_count=kyc["in_review_count"],
         kyc_resubmit_count=kyc["resubmit_requested_count"],
         submitted_request_count=req["submitted_count"],
         in_progress_request_count=req["in_progress_count"],
@@ -231,13 +240,16 @@ def buyback_stats(
 @router.get("/identity", response_model=list[schemas_buyback.AdminIdentityListOut])
 def list_identity(
     status: Optional[str] = Query(None),
+    review_queue: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     ctx: AdminContext = Depends(
         _require_perms("kyc.view")
     ),
 ):
-    rows = list_identity_verifications(db, status=status, q=q)
+    if review_queue and review_queue not in {"waiting", "in_review"}:
+        raise HTTPException(status_code=400, detail="review_queue が不正です")
+    rows = list_identity_verifications(db, status=status, review_queue=review_queue, q=q)
     users = _user_map(db, {row.user_id for row in rows})
     reviewer_ids = {row.reviewed_by_user_id for row in rows if row.reviewed_by_user_id}
     reviewers = _user_map(db, reviewer_ids)

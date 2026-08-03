@@ -99,6 +99,7 @@ def list_identity_verifications(
     db: Session,
     *,
     status: Optional[str] = None,
+    review_queue: Optional[str] = None,
     q: Optional[str] = None,
     limit: int = 100,
 ) -> list[models_buyback.IdentityVerification]:
@@ -107,6 +108,22 @@ def list_identity_verifications(
     )
     if status:
         query = query.filter(models_buyback.IdentityVerification.status == status)
+    if review_queue == "waiting":
+        query = query.filter(
+            models_buyback.IdentityVerification.status
+            == models_buyback.IdentityVerificationStatus.pending.value,
+            or_(
+                models_buyback.IdentityVerification.admin_memo.is_(None),
+                models_buyback.IdentityVerification.admin_memo == "",
+            ),
+        )
+    elif review_queue == "in_review":
+        query = query.filter(
+            models_buyback.IdentityVerification.status
+            == models_buyback.IdentityVerificationStatus.pending.value,
+            models_buyback.IdentityVerification.admin_memo.isnot(None),
+            models_buyback.IdentityVerification.admin_memo != "",
+        )
     if q:
         term = f"%{q.strip()}%"
         query = query.filter(
@@ -684,11 +701,23 @@ def update_request_items(
 
 def identity_stats(db: Session) -> dict[str, int]:
     base = db.query(models_buyback.IdentityVerification)
+    pending_base = base.filter(
+        models_buyback.IdentityVerification.status
+        == models_buyback.IdentityVerificationStatus.pending.value
+    )
+    waiting_count = pending_base.filter(
+        or_(
+            models_buyback.IdentityVerification.admin_memo.is_(None),
+            models_buyback.IdentityVerification.admin_memo == "",
+        )
+    ).count()
+    in_review_count = pending_base.filter(
+        models_buyback.IdentityVerification.admin_memo.isnot(None),
+        models_buyback.IdentityVerification.admin_memo != "",
+    ).count()
     return {
-        "pending_count": base.filter(
-            models_buyback.IdentityVerification.status
-            == models_buyback.IdentityVerificationStatus.pending.value
-        ).count(),
+        "pending_count": waiting_count,
+        "in_review_count": in_review_count,
         "approved_count": base.filter(
             models_buyback.IdentityVerification.status
             == models_buyback.IdentityVerificationStatus.approved.value

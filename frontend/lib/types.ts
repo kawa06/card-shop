@@ -392,6 +392,8 @@ export interface AdminInquiryReplyPayload {
 
 export interface AdminBuybackStats {
   pending_kyc_count: number
+  kyc_in_review_count?: number
+  kyc_resubmit_count?: number
   submitted_request_count: number
   in_progress_request_count: number
   payout_pending_count: number
