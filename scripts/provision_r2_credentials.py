@@ -58,6 +58,28 @@ def pick_group(groups: list[dict]) -> str | None:
     return None
 
 
+def fetch_r2_write_group_id(token: str) -> str:
+    scoped_path = (
+        f"/accounts/{ACCOUNT_ID}/tokens/permission_groups"
+        f"?name=Workers%20R2%20Storage%20Bucket%20Item%20Write"
+        f"&scope=com.cloudflare.edge.r2.bucket"
+    )
+    status, body = api("GET", scoped_path, token)
+    if status == 200 and body.get("success"):
+        groups = body.get("result") or []
+        if groups:
+            return groups[0]["id"]
+
+    status, body = api("GET", f"/accounts/{ACCOUNT_ID}/tokens/permission_groups", token)
+    if status != 200 or not body.get("success"):
+        raise RuntimeError(f"permission_groups failed: {json.dumps(body.get('errors') or body)}")
+
+    group_id = pick_group(body.get("result") or [])
+    if not group_id:
+        raise RuntimeError("no R2 permission group found")
+    return group_id
+
+
 def normalize_access_key(raw: str) -> str:
     return raw.strip().replace("-", "").lower()
 
@@ -107,13 +129,7 @@ def set_railway_vars(access_key_id: str, secret_access_key: str) -> None:
 def create_credentials() -> tuple[str, str]:
     """Create Account API token S3 credentials (requires Super Admin)."""
     token = oauth()
-    status, body = api("GET", f"/accounts/{ACCOUNT_ID}/tokens/permission_groups", token)
-    if status != 200 or not body.get("success"):
-        raise RuntimeError(f"permission_groups failed: {json.dumps(body.get('errors') or body)}")
-
-    group_id = pick_group(body.get("result") or [])
-    if not group_id:
-        raise RuntimeError("no R2 permission group found")
+    group_id = fetch_r2_write_group_id(token)
 
     resource_key = f"com.cloudflare.edge.r2.bucket.{ACCOUNT_ID}_default_{BUCKET_NAME}"
     payload = {
@@ -145,13 +161,7 @@ def create_credentials() -> tuple[str, str]:
 def create_user_api_token() -> str:
     """Create a User API token with R2 bucket write (works with wrangler OAuth)."""
     token = oauth()
-    status, body = api("GET", f"/accounts/{ACCOUNT_ID}/tokens/permission_groups", token)
-    if status != 200 or not body.get("success"):
-        raise RuntimeError(f"permission_groups failed: {json.dumps(body.get('errors') or body)}")
-
-    group_id = pick_group(body.get("result") or [])
-    if not group_id:
-        raise RuntimeError("no R2 permission group found")
+    group_id = fetch_r2_write_group_id(token)
 
     resource_key = f"com.cloudflare.edge.r2.bucket.{ACCOUNT_ID}_default_{BUCKET_NAME}"
     payload = {
