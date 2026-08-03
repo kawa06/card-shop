@@ -821,6 +821,7 @@ export const adminEmailApi = {
   updateBrand: (data: Record<string, unknown>) => apiClient.put('/admin/email/brand', data),
   listTemplates: (category?: string) =>
     apiClient.get('/admin/email/templates', { params: category ? { category } : {} }),
+  createTemplate: (data: Record<string, unknown>) => apiClient.post('/admin/email/templates', data),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
   getTemplateVariables: (key: string) =>
     apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(
@@ -830,7 +831,14 @@ export const adminEmailApi = {
     apiClient.put(`/admin/email/templates/${encodeURIComponent(key)}`, data),
   previewTemplate: (
     key: string,
-    payload: { variables?: Record<string, string>; subject?: string; html_body?: string }
+    payload: {
+      variables?: Record<string, string>
+      subject?: string
+      preheader?: string
+      html_body?: string
+      text_body?: string
+      force_dark?: boolean
+    }
   ) =>
     apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/preview`, payload),
   testSend: (key: string, to_email: string, variables: Record<string, string>) =>

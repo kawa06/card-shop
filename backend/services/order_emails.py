@@ -6,100 +6,27 @@ import html
 import logging
 from datetime import datetime
 
-import httpx
 from sqlalchemy.orm import Session, joinedload
 
 import models
 from config import settings
 from services.email_delivery import send_templated_email
-from services.verification import email_configured
-from services.tracking_urls import (
-    build_tracking_url,
-    carrier_display_name,
-    is_trackable_shipping_method,
+from services.email_order_layout import ORDER_EMAIL_BODY_SKELETON
+from services.order_email_utils import (
+    BANK_TRANSFER_METHODS,
+    SHIPPING_METHOD_LABELS,
+    format_datetime_jst,
+    format_jpy,
+    order_subtotal,
+    payment_method_label,
 )
+from services.order_email_variables import RAW_ORDER_VARIABLE_KEYS, build_order_email_variables
+from services.payment_email_registry import resolve_order_template_key
+from services.shipping_emails import send_shipping_completion_email
 
 logger = logging.getLogger(__name__)
 
 MAIL_REPLY_TO = "oripakawa@gmail.com"
-
-SHIPPING_METHOD_LABELS: dict[str, str] = {
-    "click_post": "クリックポスト",
-    "teikei_post": "定形郵便",
-    "teigai_post": "定形外郵便",
-    "letter_pack_light": "レターパックライト",
-    "letter_pack_plus": "レターパックプラス",
-    "yu_pack_60": "ゆうパック 60サイズ",
-    "yu_pack_80": "ゆうパック 80サイズ",
-    "yu_pack_100": "ゆうパック 100サイズ",
-    "takkyubin_compact": "宅急便コンパクト",
-    "takkyubin_60": "宅急便 60サイズ",
-    "takkyubin_80": "宅急便 80サイズ",
-    "ems": "EMS",
-    "yamato_global": "ヤマトグローバル",
-}
-
-PAYMENT_METHOD_LABELS: dict[str, str] = {
-    "stripe_card": "クレジットカード（Stripe）",
-    "stripe_bank_transfer": "銀行振込（Stripe）",
-}
-
-BANK_TRANSFER_METHODS = {"stripe_bank_transfer", "bank_transfer"}
-
-
-def _format_jpy(amount: float | int) -> str:
-    return f"¥{int(round(float(amount))):,}"
-
-
-def _format_datetime_jst(dt: datetime | None) -> str:
-    if not dt:
-        return ""
-    return dt.strftime("%Y/%m/%d %H:%M") + " (UTC)"
-
-
-def _payment_method_label(order: models.Order) -> str:
-    return PAYMENT_METHOD_LABELS.get(order.payment_method or "", order.payment_method or "—")
-
-
-def _order_subtotal(order: models.Order) -> float:
-    return sum(item.unit_price * item.quantity for item in order.items)
-
-
-def _send_html_email(*, to: str, subject: str, html_body: str) -> tuple[bool, str | None]:
-    if not email_configured():
-        if settings.DEBUG:
-            logger.info("[EMAIL MOCK] to=%s subject=%s", to, subject)
-            return True, None
-        return False, "RESEND_API_KEY is not configured"
-
-    from_address = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
-    reply_to = (settings.MAIL_REPLY_TO or MAIL_REPLY_TO).strip()
-
-    payload: dict = {
-        "from": from_address,
-        "to": [to],
-        "subject": subject,
-        "html": html_body,
-    }
-    if reply_to:
-        payload["reply_to"] = reply_to
-
-    try:
-        with httpx.Client(timeout=30.0) as client:
-            response = client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {settings.RESEND_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-        if response.status_code in (200, 201):
-            return True, None
-        return False, f"Resend error ({response.status_code}): {response.text}"
-    except Exception as exc:
-        logger.error("Failed to send order email")
-        return False, str(exc)
 
 
 def _build_order_items_table_html(order: models.Order) -> str:
@@ -110,7 +37,7 @@ def _build_order_items_table_html(order: models.Order) -> str:
         <tr>
           <td style="padding:8px;border-bottom:1px solid #eee;">{name}</td>
           <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">{item.quantity}</td>
-          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">{_format_jpy(item.unit_price)}</td>
+          <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">{format_jpy(item.unit_price)}</td>
         </tr>"""
     return rows
 
@@ -125,23 +52,57 @@ def _dispatch_order_email(
     fallback_html: str,
     reference_id: str,
     raw_variable_keys: set[str] | None = None,
+    text_body: str | None = None,
 ) -> tuple[bool, str | None]:
+    clean_vars = {k: v for k, v in variables.items() if not str(k).startswith("_")}
     result = send_templated_email(
         db,
         template_key=template_key,
         to_email=to_email,
-        variables=variables,
+        variables=clean_vars,
         fallback_subject=fallback_subject,
         fallback_html=fallback_html,
+        fallback_text=text_body or variables.get("_text_body"),
         reference_type="order",
         reference_id=reference_id,
-        raw_variable_keys=raw_variable_keys,
+        raw_variable_keys=raw_variable_keys or RAW_ORDER_VARIABLE_KEYS,
     )
     return result.ok, result.error
 
 
+def _send_order_event_email(
+    db: Session,
+    order: models.Order,
+    event_key: str,
+    *,
+    fallback_subject: str,
+) -> tuple[bool, str | None]:
+    template_key = resolve_order_template_key(event_key, order.payment_method)
+    variables = build_order_email_variables(order, event_key, db=db)
+    from services.email_delivery import render_template_string
+
+    fallback_html = render_template_string(
+        ORDER_EMAIL_BODY_SKELETON,
+        variables,
+        raw_keys=RAW_ORDER_VARIABLE_KEYS,
+    )
+    buyer = order.user
+    if not buyer or not buyer.email:
+        return False, "購入者メールアドレスがありません"
+    return _dispatch_order_email(
+        db,
+        template_key=template_key,
+        to_email=buyer.email,
+        variables=variables,
+        fallback_subject=fallback_subject,
+        fallback_html=fallback_html,
+        reference_id=str(order.id),
+        text_body=variables.get("_text_body"),
+    )
+
+
 def _build_purchase_confirmation_html(order: models.Order, buyer_name: str) -> str:
-    subtotal = _order_subtotal(order)
+    subtotal = order_subtotal(order)
     shipping_fee = order.shipping_fee or 0
     method_label = SHIPPING_METHOD_LABELS.get(order.shipping_method or "", order.shipping_method or "—")
     rows = _build_order_items_table_html(order)
@@ -152,8 +113,8 @@ def _build_purchase_confirmation_html(order: models.Order, buyer_name: str) -> s
       <p>お支払いが確認できました。以下の内容でご注文を承りました。</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
         <tr><td style="padding:6px 0;color:#666;">注文番号</td><td style="padding:6px 0;font-weight:bold;">{order.order_number or '—'}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">注文日時</td><td style="padding:6px 0;">{_format_datetime_jst(order.paid_at or order.created_at)}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{_payment_method_label(order)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">注文日時</td><td style="padding:6px 0;">{format_datetime_jst(order.paid_at or order.created_at)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{payment_method_label(order)}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">発送方法</td><td style="padding:6px 0;">{method_label}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">配送先</td><td style="padding:6px 0;">{(order.shipping_address or '').replace(chr(10), '<br>')}</td></tr>
       </table>
@@ -168,9 +129,9 @@ def _build_purchase_confirmation_html(order: models.Order, buyer_name: str) -> s
         <tbody>{rows}</tbody>
       </table>
       <table style="width:100%;font-size:14px;margin-top:8px;">
-        <tr><td style="padding:4px 0;color:#666;">商品小計</td><td style="text-align:right;">{_format_jpy(subtotal)}</td></tr>
-        <tr><td style="padding:4px 0;color:#666;">送料</td><td style="text-align:right;">{_format_jpy(shipping_fee)}</td></tr>
-        <tr><td style="padding:8px 0;font-weight:bold;">お支払総額</td><td style="text-align:right;font-weight:bold;color:#ca8a04;">{_format_jpy(order.total_amount)}</td></tr>
+        <tr><td style="padding:4px 0;color:#666;">商品小計</td><td style="text-align:right;">{format_jpy(subtotal)}</td></tr>
+        <tr><td style="padding:4px 0;color:#666;">送料</td><td style="text-align:right;">{format_jpy(shipping_fee)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:bold;">お支払総額</td><td style="text-align:right;font-weight:bold;color:#ca8a04;">{format_jpy(order.total_amount)}</td></tr>
       </table>
       <p style="font-size:13px;color:#444;margin-top:24px;">
         入金確認後、順次発送準備を進めます。発送完了時には別途メールでお知らせします。
@@ -225,25 +186,12 @@ def send_purchase_confirmation_email(
         return False, "購入者メールアドレスがありません"
 
     buyer_name = buyer.name or buyer.email.split("@")[0]
-    html_body = _build_purchase_confirmation_html(order, buyer_name)
     subject = f"【KRX TCG】ご購入ありがとうございます（注文番号: {order.order_number}）"
-    variables = {
-        "name": buyer_name,
-        "email": buyer.email,
-        "orderNo": order.order_number or "",
-        "content": "お支払いが確認できました。",
-        "itemsTable": _build_order_items_table_html(order),
-    }
-
-    ok, err = _dispatch_order_email(
+    ok, err = _send_order_event_email(
         db,
-        template_key="order_payment_confirmed",
-        to_email=buyer.email,
-        variables=variables,
+        order,
+        "payment_success",
         fallback_subject=subject,
-        fallback_html=html_body,
-        reference_id=str(order.id),
-        raw_variable_keys={"itemsTable"},
     )
     now = datetime.utcnow()
     if ok:
@@ -265,9 +213,9 @@ def try_auto_purchase_email_after_payment(db: Session, order: models.Order) -> N
 
 
 def _build_bank_transfer_pending_html(order: models.Order, buyer_name: str) -> str:
-    subtotal = _order_subtotal(order)
+    subtotal = order_subtotal(order)
     shipping_fee = order.shipping_fee or 0
-    deadline_text = _format_datetime_jst(order.payment_deadline)
+    deadline_text = format_datetime_jst(order.payment_deadline)
     method_label = SHIPPING_METHOD_LABELS.get(order.shipping_method or "", order.shipping_method or "—")
     rows = _build_order_items_table_html(order)
     return f"""
@@ -281,7 +229,7 @@ def _build_bank_transfer_pending_html(order: models.Order, buyer_name: str) -> s
       </p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
         <tr><td style="padding:6px 0;color:#666;">受付ID</td><td style="padding:6px 0;font-weight:bold;">#{order.id}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{_payment_method_label(order)}</td></tr>
+        <tr><td style="padding:6px 0;color:#666;">お支払方法</td><td style="padding:6px 0;">{payment_method_label(order)}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">お支払期限</td><td style="padding:6px 0;color:#b45309;font-weight:bold;">{deadline_text or '—'}</td></tr>
         <tr><td style="padding:6px 0;color:#666;">発送方法</td><td style="padding:6px 0;">{method_label}</td></tr>
       </table>
@@ -296,9 +244,9 @@ def _build_bank_transfer_pending_html(order: models.Order, buyer_name: str) -> s
         <tbody>{rows}</tbody>
       </table>
       <table style="width:100%;font-size:14px;margin-top:8px;">
-        <tr><td style="padding:4px 0;color:#666;">商品小計</td><td style="text-align:right;">{_format_jpy(subtotal)}</td></tr>
-        <tr><td style="padding:4px 0;color:#666;">送料</td><td style="text-align:right;">{_format_jpy(shipping_fee)}</td></tr>
-        <tr><td style="padding:8px 0;font-weight:bold;">お振込金額</td><td style="text-align:right;font-weight:bold;color:#ca8a04;">{_format_jpy(order.total_amount)}</td></tr>
+        <tr><td style="padding:4px 0;color:#666;">商品小計</td><td style="text-align:right;">{format_jpy(subtotal)}</td></tr>
+        <tr><td style="padding:4px 0;color:#666;">送料</td><td style="text-align:right;">{format_jpy(shipping_fee)}</td></tr>
+        <tr><td style="padding:8px 0;font-weight:bold;">お振込金額</td><td style="text-align:right;font-weight:bold;color:#ca8a04;">{format_jpy(order.total_amount)}</td></tr>
       </table>
       <p style="font-size:13px;color:#444;margin-top:24px;">
         商品は取り置き済みです。入金確認後に注文番号を発行し、発送準備を進めます。入金確認後、別途ご購入完了メールをお送りします。
@@ -358,25 +306,12 @@ def send_bank_transfer_pending_email(
         return False, "購入者メールアドレスがありません"
 
     buyer_name = buyer.name or buyer.email.split("@")[0]
-    html_body = _build_bank_transfer_pending_html(order, buyer_name)
     subject = f"【KRX TCG】銀行振込のご案内（受付ID: #{order.id}）"
-    variables = {
-        "name": buyer_name,
-        "email": buyer.email,
-        "orderNo": str(order.id),
-        "content": "銀行振込によるご注文を受け付けました。",
-        "itemsTable": _build_order_items_table_html(order),
-    }
-
-    ok, err = _dispatch_order_email(
+    ok, err = _send_order_event_email(
         db,
-        template_key="order_bank_transfer",
-        to_email=buyer.email,
-        variables=variables,
+        order,
+        "payment_pending",
         fallback_subject=subject,
-        fallback_html=html_body,
-        reference_id=str(order.id),
-        raw_variable_keys={"itemsTable"},
     )
     if ok:
         order.email_send_status = "bank_transfer_pending_ok"
@@ -407,24 +342,13 @@ def send_bank_transfer_cancelled_email(
         return False, "購入者メールアドレスがありません"
 
     buyer_name = buyer.name or buyer.email.split("@")[0]
-    html_body = _build_bank_transfer_cancelled_html(order, buyer_name, as_expired=as_expired)
     subject = f"【KRX TCG】ご注文キャンセルのお知らせ（受付ID: #{order.id}）"
-    reason = "お支払期限を過ぎたため" if as_expired else "決済が完了しなかったため"
-    variables = {
-        "name": buyer_name,
-        "email": buyer.email,
-        "orderNo": str(order.id),
-        "content": f"{reason}、ご注文はキャンセルとなりました。",
-    }
-
-    ok, err = _dispatch_order_email(
+    event_key = "payment_expired" if as_expired else "order_cancelled"
+    ok, err = _send_order_event_email(
         db,
-        template_key="order_cancelled",
-        to_email=buyer.email,
-        variables=variables,
+        order,
+        event_key,
         fallback_subject=subject,
-        fallback_html=html_body,
-        reference_id=str(order.id),
     )
     if ok:
         order.email_send_status = status_key
@@ -454,135 +378,3 @@ def try_auto_bank_transfer_cancelled_email(
     ok, err = send_bank_transfer_cancelled_email(db, order.id, as_expired=as_expired, force=False)
     if not ok and err:
         logger.warning("Bank transfer cancelled email failed for order %s: %s", order.id, err)
-
-
-def _build_shipping_completion_html(order: models.Order, buyer_name: str) -> str:
-    carrier_label = carrier_display_name(order.shipping_method, order.shipping_carrier)
-    tracking = (order.tracking_number or "").strip()
-    tracking_url = build_tracking_url(
-        tracking,
-        shipping_method=order.shipping_method,
-        shipping_carrier=order.shipping_carrier,
-    )
-    method_label = SHIPPING_METHOD_LABELS.get(order.shipping_method or "", order.shipping_method or "—")
-
-    tracking_block = ""
-    if tracking:
-        if tracking_url:
-            tracking_block = f"""
-            <p style="font-size:15px;margin:16px 0;">
-              <strong>追跡番号：</strong>
-              <a href="{tracking_url}" style="color:#ca8a04;font-weight:bold;">{tracking}</a>
-            </p>
-            <p style="font-size:13px;color:#444;">
-              上記リンクから配送状況をご確認いただけます。
-            </p>"""
-        else:
-            tracking_block = f"""
-            <p style="font-size:15px;margin:16px 0;">
-              <strong>追跡番号：</strong>{tracking}
-            </p>"""
-
-    return f"""
-    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
-      <h2 style="color:#ca8a04;margin:0 0 16px;">KRX TCG — 商品を発送しました</h2>
-      <p>{buyer_name} 様</p>
-      <p>ご注文の商品を発送いたしました。到着まで今しばらくお待ちください。</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
-        <tr><td style="padding:6px 0;color:#666;">注文番号</td><td style="padding:6px 0;font-weight:bold;">{order.order_number or '—'}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">発送日時</td><td style="padding:6px 0;">{_format_datetime_jst(order.shipped_at or datetime.utcnow())}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">配送方法</td><td style="padding:6px 0;">{method_label}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">配送業者</td><td style="padding:6px 0;">{carrier_label}</td></tr>
-        <tr><td style="padding:6px 0;color:#666;">配送先</td><td style="padding:6px 0;">{(order.shipping_address or '').replace(chr(10), '<br>')}</td></tr>
-      </table>
-      {tracking_block}
-      <p style="font-size:13px;color:#444;margin-top:24px;">
-        商品到着後、問題がございましたら注文番号を添えてお問い合わせください。
-      </p>
-      <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
-      <p style="font-size:12px;color:#666;">
-        お問い合わせ: <a href="mailto:{MAIL_REPLY_TO}">{MAIL_REPLY_TO}</a><br>
-        ※お問い合わせの際は注文番号（{order.order_number or ''}）をお書き添えください。
-      </p>
-      <p style="font-size:11px;color:#999;">&copy; KRX TCG</p>
-    </div>
-    """
-
-
-def send_shipping_completion_email(
-    db: Session,
-    order_id: int,
-    *,
-    force: bool = False,
-) -> tuple[bool, str | None]:
-    """
-    Send shipping completion email with tracking info.
-    Requires tracking_number for trackable shipping methods.
-    """
-    order = _load_order_for_email(db, order_id)
-    if not order:
-        return False, "注文が見つかりません"
-
-    if order.payment_status != "paid":
-        return False, "支払い済みの注文のみ送信できます"
-
-    if not order.order_number:
-        return False, "注文番号が未発行です"
-
-    tracking = (order.tracking_number or "").strip()
-    if is_trackable_shipping_method(order.shipping_method) and not tracking:
-        return False, "追跡番号を入力してから送信してください"
-
-    if order.shipping_email_sent_at and not force:
-        return True, None
-
-    buyer = order.user
-    if not buyer or not buyer.email:
-        return False, "購入者メールアドレスがありません"
-
-    buyer_name = buyer.name or buyer.email.split("@")[0]
-    html_body = _build_shipping_completion_html(order, buyer_name)
-    subject = f"【KRX TCG】商品を発送しました（注文番号: {order.order_number}）"
-    tracking = (order.tracking_number or "").strip()
-    tracking_url = build_tracking_url(
-        tracking,
-        shipping_method=order.shipping_method,
-        shipping_carrier=order.shipping_carrier,
-    ) or ""
-    carrier_label = carrier_display_name(order.shipping_method, order.shipping_carrier)
-    shipped_at = _format_datetime_jst(order.shipped_at or datetime.utcnow())
-    variables = {
-        "name": buyer_name,
-        "email": buyer.email,
-        "orderNo": order.order_number or "",
-        "carrier": carrier_label,
-        "tracking": tracking,
-        "url": tracking_url,
-        "date": shipped_at,
-        "content": "ご注文の商品を発送いたしました。",
-        "itemsTable": _build_order_items_table_html(order),
-    }
-
-    ok, err = _dispatch_order_email(
-        db,
-        template_key="order_shipped",
-        to_email=buyer.email,
-        variables=variables,
-        fallback_subject=subject,
-        fallback_html=html_body,
-        reference_id=str(order.id),
-        raw_variable_keys={"itemsTable"},
-    )
-    now = datetime.utcnow()
-    if ok:
-        order.shipping_email_sent_at = now
-        order.email_send_status = "shipping_ok"
-        if order.shipping_status not in ("shipped", "delivered"):
-            order.shipping_status = "shipped"
-            if not order.shipped_at:
-                order.shipped_at = now
-            order.status = models.OrderStatus.shipped
-    else:
-        order.email_send_status = f"shipping_failed:{err or 'unknown'}"
-    db.commit()
-    return ok, err

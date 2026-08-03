@@ -23,6 +23,7 @@ type BrandSettings = {
   company_address?: string | null
   contact_email?: string | null
   contact_phone?: string | null
+  email_signature_html?: string | null
 }
 
 export default function AdminEmailBrandPage() {
@@ -116,6 +117,16 @@ export default function AdminEmailBrandPage() {
             className="w-full min-h-[80px] rounded-md border border-gray-200 p-3 text-sm"
             value={brand.footer_text || ''}
             onChange={(e) => setBrand({ ...brand, footer_text: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <Label>メール署名（HTML）</Label>
+          <textarea
+            className="w-full min-h-[80px] rounded-md border border-gray-200 p-3 text-sm font-mono"
+            value={brand.email_signature_html || ''}
+            onChange={(e) => setBrand({ ...brand, email_signature_html: e.target.value })}
+            placeholder="（署名 — {{signatureBlock}} に反映）"
           />
         </div>
 

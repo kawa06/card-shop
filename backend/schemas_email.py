@@ -21,6 +21,7 @@ class EmailBrandSettingsOut(BaseModel):
     company_address: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    email_signature_html: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     class Config:
@@ -40,6 +41,19 @@ class EmailBrandSettingsUpdate(BaseModel):
     company_address: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    email_signature_html: Optional[str] = None
+
+
+class EmailTemplateCreate(BaseModel):
+    template_key: str = Field(..., min_length=3, max_length=64, pattern=r"^[a-z][a-z0-9_]*$")
+    category: str = Field(..., min_length=2, max_length=32)
+    name: str = Field(..., min_length=1, max_length=128)
+    subject: str = Field(..., min_length=1, max_length=255)
+    preheader: Optional[str] = None
+    html_body: str = Field(..., min_length=1)
+    text_body: Optional[str] = None
+    variables_hint: Optional[str] = None
+    is_active: bool = True
 
 
 class EmailTemplateOut(BaseModel):
@@ -48,6 +62,7 @@ class EmailTemplateOut(BaseModel):
     category: str
     name: str
     subject: str
+    preheader: Optional[str] = None
     html_body: str
     text_body: Optional[str] = None
     variables_hint: Optional[str] = None
@@ -74,6 +89,7 @@ class EmailTemplateListItem(BaseModel):
 class EmailTemplateUpdate(BaseModel):
     name: Optional[str] = None
     subject: Optional[str] = None
+    preheader: Optional[str] = None
     html_body: Optional[str] = None
     text_body: Optional[str] = None
     variables_hint: Optional[str] = None
@@ -83,11 +99,15 @@ class EmailTemplateUpdate(BaseModel):
 class EmailTemplatePreviewIn(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
     subject: Optional[str] = None
+    preheader: Optional[str] = None
     html_body: Optional[str] = None
+    text_body: Optional[str] = None
+    force_dark: bool = False
 
 
 class EmailTemplatePreviewOut(BaseModel):
     subject: str
+    preheader: Optional[str] = None
     html: str
 
 

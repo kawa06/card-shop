@@ -779,6 +779,9 @@ def _migrate_email_auth_schema() -> None:
     for col, col_type in brand_cols:
         _add_column_if_missing("email_brand_settings", col, col_type)
 
+    _add_column_if_missing("email_brand_settings", "email_signature_html", "TEXT")
+    _add_column_if_missing("email_templates", "preheader", "VARCHAR(255)")
+
     log_cols = [
         ("campaign_id", "INTEGER"),
         ("html_body_snapshot", "TEXT"),
@@ -829,3 +832,23 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("email template seed failed")
+        try:
+            from services.order_email_templates_seed import upgrade_order_payment_templates
+
+            upgraded = upgrade_order_payment_templates(db)
+            if upgraded:
+                db.commit()
+                logger.info("Upgraded %s order/payment email templates", upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("order payment template upgrade failed")
+        try:
+            from services.shipping_email_templates_seed import upgrade_shipping_email_templates
+
+            shipping_upgraded = upgrade_shipping_email_templates(db)
+            if shipping_upgraded:
+                db.commit()
+                logger.info("Upgraded %s shipping email templates", shipping_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("shipping email template upgrade failed")

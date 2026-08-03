@@ -17,9 +17,23 @@ import models_email
 from config import settings
 from services.email_events import normalize_variable_key, sample_variables_for_template
 from services.email_html import wrap_with_brand
+from services.email_order_layout import build_preheader_html
+from services.shipping_email_registry import normalize_template_key
 from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
+
+DARK_MODE_PREVIEW_STYLE = """
+<style>
+  .email-bg { background-color: #0f172a !important; }
+  .email-card { background-color: #1e293b !important; border-color: #334155 !important; }
+  .email-text { color: #e2e8f0 !important; }
+  .email-muted { color: #94a3b8 !important; }
+  .email-hr { border-color: #334155 !important; }
+  body.email-bg { background-color: #0f172a !important; }
+  h1, h2, h3, p, td, th, div, span, a { color-scheme: dark; }
+</style>
+"""
 
 VAR_PATTERN = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
 
@@ -35,7 +49,9 @@ def _effective_from_address(*, via_smtp: bool = False) -> str:
     return f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
 
 
-def _send_smtp(*, to: str, subject: str, html_body: str) -> tuple[bool, str | None, str | None]:
+def _send_smtp(
+    *, to: str, subject: str, html_body: str, text_body: str | None = None
+) -> tuple[bool, str | None, str | None]:
     if not smtp_configured():
         return False, "SMTP is not configured", None
     import smtplib
@@ -51,6 +67,8 @@ def _send_smtp(*, to: str, subject: str, html_body: str) -> tuple[bool, str | No
     if reply_to:
         msg["Reply-To"] = reply_to
     msg.attach(MIMEText(html_body, "html", "utf-8"))
+    if text_body:
+        msg.attach(MIMEText(text_body, "plain", "utf-8"))
 
     smtp_timeout = 5 if not settings.DEBUG else 30
     try:
@@ -161,14 +179,36 @@ def get_brand_settings(db: Session) -> models_email.EmailBrandSettings:
     return row
 
 
+def _find_active_template(db: Session, template_key: str) -> models_email.EmailTemplate | None:
+    keys: list[str] = []
+    normalized = normalize_template_key(template_key)
+    for key in (normalized, template_key):
+        if key and key not in keys:
+            keys.append(key)
+    for key in keys:
+        tpl = (
+            db.query(models_email.EmailTemplate)
+            .filter(
+                models_email.EmailTemplate.template_key == key,
+                models_email.EmailTemplate.is_active.is_(True),
+            )
+            .first()
+        )
+        if tpl:
+            return tpl
+    return None
+
+
 def preview_draft(
     db: Session,
     *,
     template_key: Optional[str] = None,
     subject: str,
     html_body: str,
+    preheader: Optional[str] = None,
     variables: Optional[dict[str, Any]] = None,
     raw_variable_keys: Optional[set[str]] = None,
+    force_dark: bool = False,
 ) -> dict[str, str]:
     """Preview unsaved template content with brand wrapper."""
     variables = {**sample_variables_for_template(template_key or ""), **(variables or {})}
@@ -178,9 +218,13 @@ def preview_draft(
     if brand.terms_url:
         variables.setdefault("termsUrl", brand.terms_url)
     rendered_subject = render_template_string(subject, variables, raw_keys=raw_variable_keys)
+    rendered_preheader = render_template_string(preheader or "", variables) if preheader else ""
     body = render_template_string(html_body, variables, raw_keys=raw_variable_keys)
-    full_html = wrap_with_brand(body, brand, variables)
-    return {"subject": rendered_subject, "html": full_html}
+    preheader_html = build_preheader_html(rendered_preheader)
+    full_html = wrap_with_brand(preheader_html + body, brand, variables)
+    if force_dark:
+        full_html = full_html.replace("<head>", f"<head>{DARK_MODE_PREVIEW_STYLE}", 1)
+    return {"subject": rendered_subject, "preheader": rendered_preheader, "html": full_html}
 
 
 def preview_template(
@@ -190,6 +234,8 @@ def preview_template(
     variables: Optional[dict[str, Any]] = None,
     subject_override: Optional[str] = None,
     html_body_override: Optional[str] = None,
+    preheader_override: Optional[str] = None,
+    force_dark: bool = False,
 ) -> dict[str, str]:
     variables = {**sample_variables_for_template(template_key), **(variables or {})}
     brand = get_brand_settings(db)
@@ -202,17 +248,20 @@ def preview_template(
         raise ValueError("Template not found")
     subject = subject_override or (tpl.subject if tpl else "")
     html_body = html_body_override or (tpl.html_body if tpl else "")
+    preheader = preheader_override if preheader_override is not None else (tpl.preheader if tpl else "")
     return preview_draft(
         db,
         template_key=template_key,
         subject=subject,
         html_body=html_body,
+        preheader=preheader,
         variables=variables,
+        force_dark=force_dark,
     )
 
 
 def _send_resend(
-    *, to: str, subject: str, html_body: str
+    *, to: str, subject: str, html_body: str, text_body: str | None = None
 ) -> tuple[bool, str | None, str | None, str | None, str | None]:
     """Returns ok, technical_error, message_id, error_code, user_message."""
     if not settings.RESEND_API_KEY:
@@ -226,6 +275,8 @@ def _send_resend(
     from_address = _effective_from_address()
     reply_to = (settings.MAIL_REPLY_TO or MAIL_REPLY_TO_FALLBACK).strip()
     payload: dict = {"from": from_address, "to": [to], "subject": subject, "html": html_body}
+    if text_body:
+        payload["text"] = text_body
     if reply_to:
         payload["reply_to"] = reply_to
 
@@ -258,7 +309,9 @@ def _send_resend(
             technical,
         )
         if error_code in {"mail_domain_unverified", "mail_forbidden"} and smtp_configured():
-            smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+            smtp_ok, smtp_err, smtp_id = _send_smtp(
+                to=to, subject=subject, html_body=html_body, text_body=text_body
+            )
             if smtp_ok:
                 return True, None, smtp_id, None, None
             technical = f"{technical}; SMTP fallback failed: {smtp_err}"
@@ -275,31 +328,35 @@ def _send_resend(
 
 
 def _send_email(
-    *, to: str, subject: str, html_body: str
+    *, to: str, subject: str, html_body: str, text_body: str | None = None
 ) -> tuple[bool, str | None, str | None, str | None, str | None]:
     """Prefer Resend on cloud hosts; SMTP is often blocked (e.g. Railway port 465)."""
     if settings.RESEND_API_KEY:
         ok, err, msg_id, error_code, user_message = _send_resend(
-            to=to, subject=subject, html_body=html_body
+            to=to, subject=subject, html_body=html_body, text_body=text_body
         )
         if ok:
             return ok, err, msg_id, error_code, user_message
         if smtp_configured() and error_code in {"mail_domain_unverified", "mail_forbidden"}:
-            smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+            smtp_ok, smtp_err, smtp_id = _send_smtp(
+                to=to, subject=subject, html_body=html_body, text_body=text_body
+            )
             if smtp_ok:
                 return True, None, smtp_id, None, None
             err = f"{err}; SMTP fallback failed: {smtp_err}"
         return False, err, msg_id, error_code, user_message
 
     if smtp_configured():
-        smtp_ok, smtp_err, smtp_id = _send_smtp(to=to, subject=subject, html_body=html_body)
+        smtp_ok, smtp_err, smtp_id = _send_smtp(
+            to=to, subject=subject, html_body=html_body, text_body=text_body
+        )
         if smtp_ok:
             return True, None, smtp_id, None, None
         return False, smtp_err, None, "mail_send_failed", (
             "メールの送信に失敗しました。Gmail の設定を確認してください。"
         )
 
-    return _send_resend(to=to, subject=subject, html_body=html_body)
+    return _send_resend(to=to, subject=subject, html_body=html_body, text_body=text_body)
 
 
 def _log_send(
@@ -352,6 +409,7 @@ def send_templated_email(
     is_test: bool = False,
     fallback_subject: Optional[str] = None,
     fallback_html: Optional[str] = None,
+    fallback_text: Optional[str] = None,
     raw_variable_keys: Optional[set[str]] = None,
     html_snapshot: bool = False,
 ) -> SendResult:
@@ -365,21 +423,20 @@ def send_templated_email(
     used_template = False
     subject = fallback_subject or f"【{settings.SITE_NAME}】お知らせ"
     body_html = fallback_html or "<p>{{content}}</p>"
+    text_body = fallback_text
+    preheader = ""
 
     use_db_template = getattr(settings, "EMAIL_TEMPLATES_ENABLED", True)
     if use_db_template and not force:
-        tpl = (
-            db.query(models_email.EmailTemplate)
-            .filter(
-                models_email.EmailTemplate.template_key == template_key,
-                models_email.EmailTemplate.is_active.is_(True),
-            )
-            .first()
-        )
+        tpl = _find_active_template(db, template_key)
         if tpl:
             used_template = True
             subject = render_template_string(tpl.subject, variables, raw_keys=raw_variable_keys)
             body_html = render_template_string(tpl.html_body, variables, raw_keys=raw_variable_keys)
+            if tpl.preheader:
+                preheader = render_template_string(tpl.preheader, variables, raw_keys=raw_variable_keys)
+            if tpl.text_body:
+                text_body = render_template_string(tpl.text_body, variables, raw_keys=raw_variable_keys)
 
     if not used_template and fallback_html is None:
         _log_send(
@@ -407,9 +464,10 @@ def send_templated_email(
         )
         body_html = render_template_string(body_html, variables, raw_keys=raw_variable_keys)
 
-    full_html = wrap_with_brand(body_html, brand, variables)
+    preheader_html = build_preheader_html(preheader)
+    full_html = wrap_with_brand(preheader_html + body_html, brand, variables)
     ok, err, msg_id, error_code, user_message = _send_email(
-        to=to_email, subject=subject, html_body=full_html
+        to=to_email, subject=subject, html_body=full_html, text_body=text_body
     )
     _log_send(
         db,

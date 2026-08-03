@@ -27,7 +27,7 @@ def test_send_purchase_confirmation_dedup(mock_send, db, paid_order):
     mock_send.assert_called_once()
 
 
-@patch("services.order_emails.send_templated_email")
+@patch("services.shipping_emails.send_templated_email")
 def test_send_shipping_email_requires_tracking_for_trackable_method(mock_send, db, paid_order):
     paid_order.tracking_number = None
     db.commit()
@@ -38,7 +38,7 @@ def test_send_shipping_email_requires_tracking_for_trackable_method(mock_send, d
     mock_send.assert_not_called()
 
 
-@patch("services.order_emails.send_templated_email")
+@patch("services.shipping_emails.send_templated_email")
 def test_send_shipping_email_success(mock_send, db, paid_order):
     from services.email_delivery import SendResult
 
@@ -54,12 +54,15 @@ def test_send_shipping_email_success(mock_send, db, paid_order):
     assert paid_order.shipping_email_sent_at is not None
     assert paid_order.shipping_status == "shipped"
     assert paid_order.email_send_status == "shipping_ok"
-    html = mock_send.call_args.kwargs["fallback_html"]
-    assert "12345678901" in html
-    assert "trackings.post.japanpost.jp" in html
+    assert mock_send.call_args.kwargs["template_key"] == "shipping_shipped"
+    variables = mock_send.call_args.kwargs["variables"]
+    assert variables["trackingNo"] == "12345678901"
+    assert "trackings.post.japanpost.jp" in variables["trackingUrl"]
+    fallback = mock_send.call_args.kwargs["fallback_html"]
+    assert "12345678901" in fallback
 
 
-@patch("services.order_emails.send_templated_email")
+@patch("services.shipping_emails.send_templated_email")
 def test_send_shipping_email_allows_teikei_without_tracking(mock_send, db, paid_order):
     from services.email_delivery import SendResult
 

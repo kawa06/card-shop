@@ -17,6 +17,7 @@ from services.email_delivery import get_brand_settings, preview_template, send_t
 from services.email_events import EMAIL_EVENTS, VARIABLE_ALIASES, get_event_by_template, sample_variables_for_template
 from services.email_broadcast import retry_failed_sends
 from services.email_rate_limit import check_rate_limit
+from services.shipping_email_variables import shipping_variables_for_template
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -74,6 +75,26 @@ def list_events(
     ]
 
 
+@router.post("/templates", response_model=schemas_email.EmailTemplateOut, status_code=status.HTTP_201_CREATED)
+def create_template(
+    payload: schemas_email.EmailTemplateCreate,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    existing = (
+        db.query(models_email.EmailTemplate)
+        .filter(models_email.EmailTemplate.template_key == payload.template_key)
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="同じキーのテンプレートが既に存在します")
+    tpl = models_email.EmailTemplate(**payload.model_dump())
+    db.add(tpl)
+    safe_commit(db)
+    db.refresh(tpl)
+    return tpl
+
+
 @router.get("/templates", response_model=list[schemas_email.EmailTemplateListItem])
 def list_templates(
     category: Optional[str] = Query(None),
@@ -119,7 +140,12 @@ def get_template_variables(
     if not tpl:
         raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
     event = get_event_by_template(template_key)
-    variables = event.variables if event else []
+    if event:
+        variables = event.variables
+    elif template_key.startswith("shipping_"):
+        variables = shipping_variables_for_template(template_key)
+    else:
+        variables = []
     return schemas_email.EmailTemplateVariablesOut(
         variables=variables,
         aliases=VARIABLE_ALIASES,
@@ -168,6 +194,23 @@ def toggle_template_active(
     return tpl
 
 
+@router.get("/carriers")
+def list_carriers(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+):
+    from services.carrier_registry import CARRIER_REGISTRY
+
+    return [
+        {
+            "carrier_id": c.carrier_id,
+            "display_name": c.display_name,
+            "tracking_url_template": c.tracking_url_template,
+            "method_keys": sorted(c.method_keys),
+        }
+        for c in CARRIER_REGISTRY.values()
+    ]
+
+
 @router.post("/templates/{template_key}/preview", response_model=schemas_email.EmailTemplatePreviewOut)
 def preview(
     template_key: str,
@@ -182,6 +225,8 @@ def preview(
             variables=payload.variables,
             subject_override=payload.subject,
             html_body_override=payload.html_body,
+            preheader_override=payload.preheader,
+            force_dark=payload.force_dark,
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
@@ -209,10 +254,11 @@ def test_send(
         to_email=payload.to_email,
         variables=variables,
         is_test=True,
-        force=True,
+        force=False,
         sent_by_user_id=ctx.user.id,
         fallback_subject="テスト送信",
-        fallback_html="<p>テストメールです。</p>",
+        fallback_html="<p>{{bodyTitle}}</p><p>{{bodyDescription}}</p>",
+        raw_variable_keys={"shippingInfoBlock", "orderSummaryBlock", "itemsTable", "buttonsBlock", "notesBlock", "contactBlock", "signatureBlock"},
     )
     safe_commit(db)
     if not result.ok:

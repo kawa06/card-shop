@@ -35,6 +35,7 @@ class EmailBrandSettings(Base):
     company_address = Column(Text, nullable=True)
     contact_email = Column(String(255), nullable=True)
     contact_phone = Column(String(32), nullable=True)
+    email_signature_html = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -47,6 +48,7 @@ class EmailTemplate(Base):
     category = Column(String(32), nullable=False, index=True)
     name = Column(String(128), nullable=False)
     subject = Column(String(255), nullable=False)
+    preheader = Column(String(255), nullable=True)
     html_body = Column(Text, nullable=False)
     text_body = Column(Text, nullable=True)
     variables_hint = Column(Text, nullable=True)
