@@ -17,7 +17,11 @@ from config import settings
 from services.buyback_age import requires_guardian_consent_for_user
 from services.buyback_emails import notify_guardian_consent_requested
 from services.buyback_identity import ALLOWED_DOCUMENT_TYPES
-from services.buyback_kyc_storage import delete_kyc_object, upload_guardian_document
+from services.buyback_kyc_storage import (
+    KYC_STORAGE_USER_MESSAGE,
+    delete_kyc_object,
+    upload_guardian_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +211,7 @@ def upload_guardian_consent_document(
         raise HTTPException(
             status_code=503,
             detail=_upload_error_detail(
-                message=f"保護者本人確認書類の{side_label}を保存できませんでした。時間をおいて再度お試しください。",
+                message=KYC_STORAGE_USER_MESSAGE,
                 error_code="kyc_storage_unavailable",
                 technical_detail=_safe_technical_detail(exc),
             ),

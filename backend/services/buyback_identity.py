@@ -10,7 +10,11 @@ from sqlalchemy.orm import Session
 
 import models
 import models_buyback
-from services.buyback_kyc_storage import delete_kyc_object, upload_kyc_document
+from services.buyback_kyc_storage import (
+    KYC_STORAGE_USER_MESSAGE,
+    delete_kyc_object,
+    upload_kyc_document,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +29,88 @@ EDITABLE_STATUSES = {
     models_buyback.IdentityVerificationStatus.not_submitted.value,
     models_buyback.IdentityVerificationStatus.rejected.value,
     models_buyback.IdentityVerificationStatus.resubmit_requested.value,
+    models_buyback.IdentityVerificationStatus.expired.value,
 }
 
 _SIDE_LABELS = {"front": "表面", "back": "裏面"}
+
+
+def _normalize_identity_status(raw: str | None) -> str:
+    value = (raw or "").strip().lower()
+    if not value:
+        return models_buyback.IdentityVerificationStatus.not_submitted.value
+    known = {item.value for item in models_buyback.IdentityVerificationStatus}
+    if value in known:
+        return value
+    logger.warning("identity_unknown_status raw=%r", raw)
+    return value
+
+
+def _repair_identity_row(db: Session, row: models_buyback.IdentityVerification) -> None:
+    """Fix inconsistent rows that block first-time submission."""
+    normalized = _normalize_identity_status(row.status)
+    changed = False
+
+    if normalized != row.status:
+        row.status = normalized
+        changed = True
+
+    pending = models_buyback.IdentityVerificationStatus.pending.value
+    not_submitted = models_buyback.IdentityVerificationStatus.not_submitted.value
+
+    if row.status == pending and not row.submitted_at:
+        logger.info(
+            "identity_repair_pending_without_submit verification_id=%s user_id=%s",
+            row.id,
+            row.user_id,
+        )
+        row.status = not_submitted
+        changed = True
+
+    if changed:
+        row.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(row)
+
+
+def _document_upload_blocked_message(status: str) -> str:
+    if status == models_buyback.IdentityVerificationStatus.pending.value:
+        return "現在審査中のため書類を更新できません。"
+    if status == models_buyback.IdentityVerificationStatus.approved.value:
+        return "承認済みのため書類を更新できません。管理者から再提出依頼が届いた場合のみ再提出できます。"
+    return "管理者から再提出依頼が届いた場合のみ再提出できます。"
+
+
+def _submit_blocked_message(status: str) -> str:
+    if status == models_buyback.IdentityVerificationStatus.pending.value:
+        return "現在審査中のため再提出できません。"
+    if status == models_buyback.IdentityVerificationStatus.approved.value:
+        return "承認済みのため再提出できません。管理者から再提出依頼が届いた場合のみ再提出できます。"
+    return "管理者から再提出依頼が届いた場合のみ再提出できます。"
+
+
+def _ensure_editable_identity(
+    identity: models_buyback.IdentityVerification,
+    *,
+    action: str,
+) -> None:
+    status = _normalize_identity_status(identity.status)
+    if status in EDITABLE_STATUSES:
+        return
+
+    message = (
+        _document_upload_blocked_message(status)
+        if action == "upload"
+        else _submit_blocked_message(status)
+    )
+    logger.info(
+        "identity_%s_blocked verification_id=%s user_id=%s status=%s",
+        action,
+        identity.id,
+        identity.user_id,
+        status,
+    )
+    raise HTTPException(status_code=400, detail=message)
 
 
 def get_or_create_identity(db: Session, user_id: int) -> models_buyback.IdentityVerification:
@@ -38,6 +121,7 @@ def get_or_create_identity(db: Session, user_id: int) -> models_buyback.Identity
         .first()
     )
     if row:
+        _repair_identity_row(db, row)
         return row
     row = models_buyback.IdentityVerification(
         user_id=user_id,
@@ -61,11 +145,7 @@ def upload_identity_document(
         raise HTTPException(status_code=400, detail="side は front または back を指定してください")
 
     identity = get_or_create_identity(db, user_id)
-    if identity.status not in EDITABLE_STATUSES:
-        raise HTTPException(
-            status_code=400,
-            detail="現在の本人確認ステータスでは書類を更新できません",
-        )
+    _ensure_editable_identity(identity, action="upload")
 
     side_label = _SIDE_LABELS.get(side, side)
     previous_key = identity.storage_key_front if side == "front" else identity.storage_key_back
@@ -80,27 +160,27 @@ def upload_identity_document(
         )
     except ValueError as exc:
         logger.warning(
-            "identity_upload_rejected user_id=%s verification_id=%s side=%s size=%s mime=%s",
+            "identity_upload_rejected user_id=%s verification_id=%s side=%s size=%s mime=%s detail=%s",
             user_id,
             identity.id,
             side,
             len(data or b""),
             (content_type or "")[:64],
+            exc,
         )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         logger.error(
-            "identity_upload_failed user_id=%s verification_id=%s side=%s size=%s mime=%s",
+            "identity_upload_storage_failed user_id=%s verification_id=%s side=%s size=%s mime=%s detail=%s",
             user_id,
             identity.id,
             side,
             len(data or b""),
             (content_type or "")[:64],
+            exc,
+            exc_info=True,
         )
-        raise HTTPException(
-            status_code=503,
-            detail=f"本人確認書類の{side_label}をアップロードできませんでした。時間をおいて再度お試しください。",
-        ) from exc
+        raise HTTPException(status_code=503, detail=KYC_STORAGE_USER_MESSAGE) from exc
 
     if side == "front":
         identity.storage_key_front = key
@@ -127,11 +207,7 @@ def submit_identity_verification(
         raise HTTPException(status_code=400, detail="本人確認書類の種類が不正です")
 
     identity = get_or_create_identity(db, user_id)
-    if identity.status not in EDITABLE_STATUSES:
-        raise HTTPException(
-            status_code=400,
-            detail="現在の本人確認ステータスでは再提出できません",
-        )
+    _ensure_editable_identity(identity, action="submit")
     if not identity.storage_key_front:
         raise HTTPException(status_code=400, detail="本人確認書類（表面）をアップロードしてください")
     if doc_type != "my_number_card" and not identity.storage_key_back:
