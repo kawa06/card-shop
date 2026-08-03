@@ -241,6 +241,16 @@ class BuybackRequestCreate(BaseModel):
         return self
 
 
+class AssessmentLineOut(BaseModel):
+    quantity: int
+    unit_price: int
+
+
+class AssessmentLineIn(BaseModel):
+    quantity: int = Field(..., ge=1)
+    unit_price: int = Field(..., ge=0)
+
+
 class BuybackRequestItemOut(BaseModel):
     id: int
     product_id: Optional[int] = None
@@ -250,6 +260,7 @@ class BuybackRequestItemOut(BaseModel):
     listed_unit_price: int
     assessed_unit_price: Optional[int] = None
     accepted_unit_price: Optional[int] = None
+    assessment_lines: List["AssessmentLineOut"] = []
     line_status: Optional[str] = None
     line_status_label: Optional[str] = None
     rejection_reason_code: Optional[str] = None
@@ -273,6 +284,7 @@ class BuybackRequestSummaryOut(BaseModel):
     inbound_mgmt_id: Optional[str] = None
     status: str
     status_label: str
+    status_color: Optional[str] = None
     estimated_total: Optional[int] = None
     item_count: int = 0
     submitted_at: Optional[datetime] = None
@@ -280,6 +292,13 @@ class BuybackRequestSummaryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BuybackProgressStepOut(BaseModel):
+    code: str
+    label: str
+    description: Optional[str] = None
+    state: str
 
 
 class BuybackRequestDetailOut(BaseModel):
@@ -292,6 +311,10 @@ class BuybackRequestDetailOut(BaseModel):
     inbound_status_label: Optional[str] = None
     status: str
     status_label: str
+    status_description: Optional[str] = None
+    status_color: Optional[str] = None
+    customer_status_note: Optional[str] = None
+    progress_steps: List[BuybackProgressStepOut] = []
     shipping_method: Optional[str] = None
     tracking_number: Optional[str] = None
     customer_note: Optional[str] = None
@@ -497,6 +520,7 @@ class AdminBuybackStatusHistoryOut(BaseModel):
     from_status_label: Optional[str] = None
     to_status: str
     to_status_label: str
+    changed_by_name: Optional[str] = None
     note: Optional[str] = None
     created_at: datetime
 
@@ -506,6 +530,9 @@ class AdminBuybackRequestDetailOut(BaseModel):
     request_number: Optional[str] = None
     status: str
     status_label: str
+    status_description: Optional[str] = None
+    status_color: Optional[str] = None
+    buyback_method: Optional[str] = None
     user_id: int
     user_email: str
     user_name: str
@@ -513,6 +540,7 @@ class AdminBuybackRequestDetailOut(BaseModel):
     tracking_number: Optional[str] = None
     customer_note: Optional[str] = None
     admin_note: Optional[str] = None
+    customer_status_note: Optional[str] = None
     estimated_total: Optional[int] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
@@ -526,6 +554,7 @@ class AdminBuybackRequestDetailOut(BaseModel):
     items: List[BuybackRequestItemOut] = []
     status_history: List[AdminBuybackStatusHistoryOut] = []
     allowed_next_statuses: List[str] = []
+    allowed_next_status_labels: List[dict[str, str]] = []
     payout_account: Optional[AdminPayoutAccountOut] = None
     ready_for_payout: bool = False
     payout_email_sent: bool = False
@@ -537,6 +566,7 @@ class AdminBuybackRequestItemUpdateIn(BaseModel):
     id: int
     line_status: Optional[str] = None
     assessed_unit_price: Optional[int] = None
+    assessment_lines: Optional[List[AssessmentLineIn]] = None
     accepted_unit_price: Optional[int] = None
     rejection_reason_code: Optional[str] = None
     rejection_reason_text: Optional[str] = None
@@ -580,6 +610,7 @@ class AdminFirestoreImportOut(BaseModel):
 class AdminBuybackRequestUpdateIn(BaseModel):
     status: str
     admin_note: Optional[str] = None
+    customer_status_note: Optional[str] = None
     tracking_number: Optional[str] = None
     assessed_total: Optional[int] = None
     payout_total: Optional[int] = None
@@ -997,3 +1028,19 @@ class BuybackStoreReservationOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BuybackShopSettingsOut(BaseModel):
+    id: str
+    name: str
+    slug: str
+    notice_text: str = ""
+    show_notice: bool = True
+    updated_at: Optional[datetime] = None
+
+
+class BuybackShopSettingsUpdateIn(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    notice_text: Optional[str] = None
+    show_notice: Optional[bool] = None

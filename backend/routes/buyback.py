@@ -15,7 +15,12 @@ from services.buyback_cart import (
     remove_cart_item,
     update_cart_item_quantity,
 )
-from services.buyback_emails import STATUS_LABELS
+from services.buyback_request_status import (
+    STATUS_LABELS,
+    build_progress_payload,
+    status_color,
+    status_description,
+)
 from services.buyback_serializers import (
     rejected_item_handling_label,
     serialize_request_item,
@@ -57,6 +62,7 @@ from services.buyback_channel import (
     _banner_is_active,
     now_utc_naive,
 )
+from services.buyback_shop_settings import get_or_create_shop_settings, serialize_shop_settings
 from services.user_linking import LinkResult, resolve_clerk_user
 import models
 import models_buyback
@@ -270,6 +276,12 @@ def buyback_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.get("/shop", response_model=schemas_buyback.BuybackShopSettingsOut)
+def get_public_shop_settings(db: Session = Depends(get_db)):
+    settings = get_or_create_shop_settings(db)
+    return schemas_buyback.BuybackShopSettingsOut(**serialize_shop_settings(settings))
+
+
 @router.get("/products", response_model=list[schemas_buyback.BuybackProductOut])
 def list_buyback_products(db: Session = Depends(get_db)):
     products = (
@@ -376,6 +388,7 @@ def _serialize_request_summary(
         inbound_mgmt_id=request.inbound_mgmt_id,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
+        status_color=status_color(request.status),
         estimated_total=request.estimated_total,
         item_count=item_count,
         submitted_at=request.submitted_at,
@@ -404,6 +417,13 @@ def _serialize_request_detail(
         else None,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
+        status_description=status_description(request.status),
+        status_color=status_color(request.status),
+        customer_status_note=request.customer_status_note,
+        progress_steps=[
+            schemas_buyback.BuybackProgressStepOut(**step)
+            for step in build_progress_payload(request.status, request.buyback_method)
+        ],
         shipping_method=request.shipping_method,
         tracking_number=request.tracking_number,
         customer_note=request.customer_note,

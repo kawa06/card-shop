@@ -38,6 +38,7 @@ def run_schema_upgrades() -> None:
     _migrate_buyback_schema()
     _migrate_buyback_logistics_schema()
     _migrate_buyback_channel_schema()
+    _migrate_buyback_shop_settings_schema()
     _migrate_announcements_schema()
     _migrate_admin_security_schema()
     _migrate_order_pricing_snapshots()
@@ -158,9 +159,12 @@ def _migrate_buyback_request_columns() -> None:
         ("return_status", "VARCHAR(32)"),
         ("return_tracking_number", "VARCHAR(128)"),
         ("return_shipping_cost", "INTEGER"),
+        ("assessment_lines_json", "TEXT"),
     ]
     for col, col_type in item_cols:
         _add_column_if_missing("buyback_request_items", col, col_type)
+
+    _add_column_if_missing("buyback_requests", "customer_status_note", "TEXT")
 
 
 def _migrate_buyback_logistics_schema() -> None:
@@ -267,6 +271,25 @@ def _migrate_buyback_channel_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("buyback channel settings seed failed")
+
+
+def _migrate_buyback_shop_settings_schema() -> None:
+    """Buylist shop display settings (notice text, name, slug)."""
+    import models_buyback  # noqa: F401
+    from services.buyback_shop_settings import get_or_create_shop_settings
+
+    _create_table_if_missing("buyback_shop_settings", models_buyback.BuybackShopSettings)
+
+    from sqlalchemy.orm import sessionmaker
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            get_or_create_shop_settings(db)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.error("buyback shop settings seed failed")
 
 
 def _migrate_announcements_schema() -> None:

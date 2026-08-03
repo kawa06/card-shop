@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 import models_buyback
 
 
-MAX_CART_QUANTITY = 99
+MAX_CART_QUANTITY = 999
 
 
 def get_or_create_cart(db: Session, user_id: int) -> models_buyback.BuybackCart:

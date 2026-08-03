@@ -12,27 +12,13 @@ import models
 import models_buyback
 from config import settings
 from services.email_delivery import send_templated_email
+from services.buyback_request_status import STATUS_DESCRIPTIONS, STATUS_LABELS
 from services.verification import email_configured
 
 logger = logging.getLogger(__name__)
 
 BUYLIST_BASE = settings.BUYLIST_URL.rstrip("/")
 ADMIN_EMAIL = settings.MAIL_REPLY_TO or "oripakawa@gmail.com"
-
-STATUS_LABELS: dict[str, str] = {
-    "draft": "下書き",
-    "submitted": "申込受付",
-    "received": "商品到着",
-    "assessing": "査定中",
-    "assessed": "査定完了",
-    "awaiting_customer": "ご確認待ち",
-    "accepted": "買取成立",
-    "rejected": "買取不可",
-    "payout_pending": "振込準備中",
-    "paid": "振込完了",
-    "returned": "返送",
-    "cancelled": "キャンセル",
-}
 
 
 def _format_jpy(amount: int | None) -> str:
@@ -187,7 +173,7 @@ def notify_buyback_request_submitted(
 
     customer_body = f"""
       <p>{user.name or 'お客'} 様</p>
-      <p>買取申込を受け付けました。</p>
+      <p>買取申請を受け付けました。</p>
       <ul>
         <li>申込番号：{request_number}</li>
         <li>ステータス：{status_label}</li>
@@ -206,7 +192,7 @@ def notify_buyback_request_submitted(
       <p><a href="{link}">申込詳細を確認</a></p>
     """
     customer_html = _wrap_email(customer_body)
-    customer_subject = f"【KRX TCG】買取申込を受け付けました（{request_number}）"
+    customer_subject = f"【KRX TCG】買取申請を受け付けました（{request_number}）"
 
     if not email_configured():
         if settings.DEBUG:
@@ -245,7 +231,7 @@ def notify_buyback_request_submitted(
     )
 
     admin_body = f"""
-      <p>新しい買取申込が届きました。</p>
+      <p>新しい買取申請が届きました。</p>
       <ul>
         <li>申込番号：{request_number}</li>
         <li>申込者：{user.name}（{user.email}）</li>
@@ -256,7 +242,7 @@ def notify_buyback_request_submitted(
       {_items_table_html(request)}
     """
     admin_html = _wrap_email(admin_body)
-    admin_subject = f"【KRX TCG 管理】新規買取申込 {request_number}"
+    admin_subject = f"【KRX TCG 管理】新規買取申請 {request_number}"
 
     admin_result = send_templated_email(
         db,
@@ -621,3 +607,47 @@ def notify_buyback_payout_completed(
         error=err,
     )
     return ok, err
+
+
+def notify_buyback_status_changed(
+    db: Session,
+    request: models_buyback.BuybackRequest,
+    user: models.User,
+    *,
+    previous_status: str | None = None,
+) -> tuple[bool, str | None]:
+    """Generic customer email when request status changes."""
+    request_number = request.request_number or str(request.id)
+    status_label = STATUS_LABELS.get(request.status, request.status)
+    desc = STATUS_DESCRIPTIONS.get(request.status, "")
+    link = _request_link(request.id)
+    note_html = ""
+    if request.customer_status_note:
+        note_html = f"<p>{html.escape(request.customer_status_note)}</p>"
+    body = f"""
+      <p>{html.escape(user.name or 'お客')} 様</p>
+      <p>買取申請のステータスが更新されました。</p>
+      <ul>
+        {_public_codes(request)}
+        <li>ステータス：{html.escape(status_label)}</li>
+        {f'<li>{html.escape(desc)}</li>' if desc else ''}
+      </ul>
+      {note_html}
+      <p><a href="{link}">申請詳細を確認</a></p>
+    """
+    subject = f"【KRX TCG】買取申請ステータス更新（{request_number}）"
+    return _send_customer_template(
+        db,
+        user=user,
+        template_key="buyback_status_changed",
+        variables={
+            "name": user.name or "お客",
+            "buyNo": request_number,
+            "statusLabel": status_label,
+            "content": body,
+        },
+        fallback_subject=subject,
+        fallback_html=body,
+        reference_type="buyback_request",
+        reference_id=str(request.id),
+    )

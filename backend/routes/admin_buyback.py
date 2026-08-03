@@ -16,7 +16,6 @@ from database import get_db
 from services.admin_auth import AdminAccessError, AdminContext, require_permission
 from services.buyback_admin import (
     DOCUMENT_TYPE_LABELS,
-    REQUEST_TRANSITIONS,
     approve_identity,
     complete_request_payout,
     get_admin_request,
@@ -37,6 +36,12 @@ from services.buyback_serializers import (
 )
 from services.buyback_compliance import IDENTITY_STATUS_LABELS
 from services.buyback_emails import STATUS_LABELS
+from services.buyback_request_status import (
+    STATUS_DESCRIPTIONS,
+    allowed_next_statuses,
+    status_color,
+    status_description,
+)
 from services.buyback_kyc_storage import fetch_kyc_document
 from services.buyback_firestore_import import import_firestore_buylist_export, validate_import_counts
 from services.buyback_logistics_logs import write_buyback_audit
@@ -315,6 +320,13 @@ def _request_detail_out(
     ctx: AdminContext,
 ) -> schemas_buyback.AdminBuybackRequestDetailOut:
     include_pii = "admin.pii.read" in ctx.permissions
+    actor_ids = {
+        h.changed_by_user_id for h in (request.status_history or []) if h.changed_by_user_id
+    }
+    actors = {}
+    if actor_ids and include_pii:
+        rows = db.query(models.User).filter(models.User.id.in_(actor_ids)).all()
+        actors = {row.id: row.name or row.email for row in rows}
     history = [
         schemas_buyback.AdminBuybackStatusHistoryOut(
             id=h.id,
@@ -324,6 +336,7 @@ def _request_detail_out(
             else None,
             to_status=h.to_status,
             to_status_label=STATUS_LABELS.get(h.to_status, h.to_status),
+            changed_by_name=actors.get(h.changed_by_user_id) if include_pii else None,
             note=h.note if include_pii else None,
             created_at=h.created_at,
         )
@@ -331,26 +344,16 @@ def _request_detail_out(
     ]
     payout_ctx = get_request_payout_context(db, request) if include_pii else {}
     payout_account = payout_ctx.get("payout_account")
-    next_statuses = set(REQUEST_TRANSITIONS.get(request.status, set()))
-    next_statuses -= {
-        models_buyback.BuybackRequestStatus.received.value,
-        models_buyback.BuybackRequestStatus.returned.value,
-        models_buyback.BuybackRequestStatus.paid.value,
-    }
-    if "buyback.request.status.write" not in ctx.permissions:
-        if "buyback.assessment.write" in ctx.permissions:
-            next_statuses &= {
-                models_buyback.BuybackRequestStatus.assessing.value,
-                models_buyback.BuybackRequestStatus.assessed.value,
-            }
-        else:
-            next_statuses.clear()
+    next_statuses = allowed_next_statuses(request, permissions=set(ctx.permissions))
     handling = request.rejected_item_handling
     return schemas_buyback.AdminBuybackRequestDetailOut(
         id=request.id,
         request_number=request.request_number,
         status=request.status,
         status_label=STATUS_LABELS.get(request.status, request.status),
+        status_description=status_description(request.status),
+        status_color=status_color(request.status),
+        buyback_method=request.buyback_method,
         user_id=request.user_id,
         user_email=user.email if include_pii and user else "",
         user_name=user.name if include_pii and user else "",
@@ -358,6 +361,7 @@ def _request_detail_out(
         tracking_number=request.tracking_number if include_pii else None,
         customer_note=request.customer_note if include_pii else None,
         admin_note=request.admin_note if include_pii else None,
+        customer_status_note=request.customer_status_note if include_pii else None,
         estimated_total=request.estimated_total,
         assessed_total=request.assessed_total,
         payout_total=request.payout_total,
@@ -370,7 +374,11 @@ def _request_detail_out(
         created_at=request.created_at,
         items=[serialize_request_item(item) for item in (request.items or [])],
         status_history=history,
-        allowed_next_statuses=sorted(next_statuses),
+        allowed_next_statuses=next_statuses,
+        allowed_next_status_labels=[
+            {"code": code, "label": STATUS_LABELS.get(code, code), "description": STATUS_DESCRIPTIONS.get(code, "")}
+            for code in next_statuses
+        ],
         payout_account=schemas_buyback.AdminPayoutAccountOut(**payout_account)
         if payout_account
         else None,
@@ -695,6 +703,7 @@ def patch_request(
         admin_user=ctx.user,
         new_status=body.status,
         admin_note=body.admin_note,
+        customer_status_note=body.customer_status_note,
         tracking_number=body.tracking_number,
         assessed_total=body.assessed_total,
         payout_total=body.payout_total,

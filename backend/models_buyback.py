@@ -25,7 +25,12 @@ from database import Base
 class BuybackRequestStatus(str, enum.Enum):
     draft = "draft"
     submitted = "submitted"
+    identity_pending = "identity_pending"
+    awaiting_shipment = "awaiting_shipment"
+    awaiting_visit = "awaiting_visit"
+    shipped = "shipped"
     received = "received"
+    store_visited = "store_visited"
     assessing = "assessing"
     assessed = "assessed"
     awaiting_customer = "awaiting_customer"
@@ -33,8 +38,12 @@ class BuybackRequestStatus(str, enum.Enum):
     rejected = "rejected"
     payout_pending = "payout_pending"
     paid = "paid"
+    return_preparing = "return_preparing"
     returned = "returned"
+    completed = "completed"
     cancelled = "cancelled"
+    sent_back = "sent_back"
+    on_hold = "on_hold"
 
 
 class IdentityVerificationStatus(str, enum.Enum):
@@ -226,6 +235,7 @@ class BuybackRequest(Base):
     tracking_number = Column(String(128), nullable=True)
     customer_note = Column(Text, nullable=True)
     admin_note = Column(Text, nullable=True)
+    customer_status_note = Column(Text, nullable=True)
     estimated_total = Column(Integer, nullable=True)
     assessed_total = Column(Integer, nullable=True)
     payout_total = Column(Integer, nullable=True)
@@ -269,6 +279,7 @@ class BuybackRequestItem(Base):
     listed_unit_price = Column(Integer, nullable=False, default=0)
     assessed_unit_price = Column(Integer, nullable=True)
     accepted_unit_price = Column(Integer, nullable=True)
+    assessment_lines_json = Column(Text, nullable=True)
     line_status = Column(String(32), nullable=True)
     rejection_reason_code = Column(String(64), nullable=True)
     rejection_reason_text = Column(Text, nullable=True)
@@ -546,6 +557,20 @@ class BuybackAuditLog(Base):
     entity_id = Column(String(64), nullable=True, index=True)
     details_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class BuybackShopSettings(Base):
+    """Singleton (id=1): buylist public shop display settings."""
+
+    __tablename__ = "buyback_shop_settings"
+
+    id = Column(Integer, primary_key=True)
+    shop_key = Column(String(64), nullable=False, default="main")
+    name = Column(String(128), nullable=False, default="KRX TCG")
+    slug = Column(String(128), nullable=False, default="card-vault")
+    notice_text = Column(Text, nullable=True)
+    show_notice = Column(Boolean, default=True, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class BuybackChannelSettings(Base):

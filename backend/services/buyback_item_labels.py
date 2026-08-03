@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
+
 import models_buyback
 
 LINE_STATUS_LABELS: dict[str, str] = {
     "pending": "査定待ち",
-    "buyable": "買取可能",
+    "buyable": "満額買取",
     "reduced": "減額買取",
     "rejected": "買取不可",
 }
@@ -37,19 +39,57 @@ def format_rejection_reason(
     return None
 
 
+def parse_assessment_lines(item: models_buyback.BuybackRequestItem) -> list[dict[str, int]]:
+    raw = getattr(item, "assessment_lines_json", None)
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    lines: list[dict[str, int]] = []
+    for row in parsed:
+        if not isinstance(row, dict):
+            continue
+        qty = row.get("quantity")
+        price = row.get("unit_price")
+        if qty is None or price is None:
+            continue
+        try:
+            qty_int = int(qty)
+            price_int = int(price)
+        except (TypeError, ValueError):
+            continue
+        if qty_int <= 0 or price_int < 0:
+            continue
+        lines.append({"quantity": qty_int, "unit_price": price_int})
+    return lines
+
+
+def item_assessed_subtotal(item: models_buyback.BuybackRequestItem) -> int:
+    status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
+    if status == models_buyback.BuybackItemLineStatus.rejected.value:
+        return 0
+
+    lines = parse_assessment_lines(item)
+    if lines:
+        return sum(row["quantity"] * row["unit_price"] for row in lines)
+
+    unit = item.assessed_unit_price
+    if unit is None:
+        if status == models_buyback.BuybackItemLineStatus.buyable.value:
+            unit = item.listed_unit_price
+        else:
+            unit = 0
+    return max(int(unit), 0) * item.quantity
+
+
 def compute_assessed_total(items: list[models_buyback.BuybackRequestItem]) -> int:
     total = 0
     for item in items:
-        status = item.line_status or models_buyback.BuybackItemLineStatus.pending.value
-        if status == models_buyback.BuybackItemLineStatus.rejected.value:
-            continue
-        unit = item.assessed_unit_price
-        if unit is None:
-            if status == models_buyback.BuybackItemLineStatus.buyable.value:
-                unit = item.listed_unit_price
-            else:
-                unit = 0
-        total += max(int(unit), 0) * item.quantity
+        total += item_assessed_subtotal(item)
     return total
 
 

@@ -122,3 +122,49 @@ def test_update_request_items_reduced_price(mock_notify, db):
 
     assert updated.assessed_total == 1500
     assert updated.items[0].line_status == "reduced"
+
+
+@patch("services.buyback_requests.notify_buyback_request_submitted")
+def test_update_request_items_assessment_lines(mock_notify, db):
+    admin = _create_admin(db)
+    user = _create_user(db)
+    add_cart_item(
+        db,
+        user_id=user.id,
+        firestore_item_id="fs_003",
+        product_name="複数枚テストカード",
+        category="raw",
+        condition_code="A",
+        unit_price=1000,
+        quantity=5,
+    )
+    request = submit_request_from_cart(
+        db,
+        user=user,
+        rejected_item_handling="return_rejected_only",
+        agreed_prepaid_shipping=True,
+        agreed_cod_consequence=True,
+        agreed_condition_rejection=True,
+    )
+    item_id = request.items[0].id
+
+    updated = update_request_items(
+        db,
+        request_id=request.id,
+        admin_user=admin,
+        item_updates=[
+            {
+                "id": item_id,
+                "line_status": "buyable",
+                "assessment_lines": [
+                    {"quantity": 3, "unit_price": 1000},
+                    {"quantity": 2, "unit_price": 800},
+                ],
+            }
+        ],
+    )
+
+    assert updated.assessed_total == 4600
+    item = updated.items[0]
+    assert item.assessed_unit_price == 920
+    assert item.assessment_lines_json is not None

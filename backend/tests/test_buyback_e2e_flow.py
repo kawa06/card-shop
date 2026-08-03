@@ -112,7 +112,7 @@ def test_buyback_full_api_flow(mock_payout_email, mock_request_email, api_client
     )
     assert request_res.status_code == 201
     request_id = request_res.json()["id"]
-    assert request_res.json()["status"] == "submitted"
+    assert request_res.json()["status"] == "awaiting_shipment"
     assert request_res.json()["estimated_total"] == 3000
 
     empty_cart = api_client.get("/api/buyback/cart", headers=headers)
@@ -203,6 +203,7 @@ def test_buyback_full_api_flow(mock_payout_email, mock_request_email, api_client
     transitions = [
         ("assessing", {}),
         ("assessed", {"assessed_total": 2800}),
+        ("awaiting_customer", {}),
         ("accepted", {}),
         ("payout_pending", {"payout_total": 2800}),
     ]

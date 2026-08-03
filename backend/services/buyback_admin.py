@@ -15,19 +15,26 @@ import models
 import models_buyback
 from services.buyback_compliance import get_compliance_status
 from services.buyback_emails import (
-    STATUS_LABELS,
     notify_buyback_assessment_ready,
     notify_buyback_decision,
     notify_buyback_payout_completed,
+    notify_buyback_status_changed,
     payout_email_already_sent,
 )
 from services.buyback_item_labels import (
     apply_rejected_item_handling,
     compute_assessed_total,
     format_rejection_reason,
+    parse_assessment_lines,
 )
 from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
 from services.buyback_logistics_logs import write_buyback_audit
+from services.buyback_request_status import (
+    BARCODE_ONLY_STATUSES,
+    DEDICATED_PAYOUT_STATUS,
+    STATUS_LABELS,
+    validate_transition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +43,6 @@ DOCUMENT_TYPE_LABELS = {
     "my_number_card": "マイナンバーカード",
     "passport": "パスポート",
     "residence_card": "在留カード",
-}
-
-REQUEST_TRANSITIONS: dict[str, set[str]] = {
-    "submitted": {"received", "cancelled"},
-    "received": {"assessing", "cancelled"},
-    "assessing": {"assessed", "cancelled"},
-    "assessed": {"awaiting_customer", "accepted", "rejected", "cancelled"},
-    "awaiting_customer": {"accepted", "rejected", "returned", "cancelled"},
-    "accepted": {"payout_pending", "cancelled"},
-    "payout_pending": {"paid"},
-    "rejected": {"returned"},
 }
 
 VALID_LINE_STATUSES = {
@@ -228,7 +224,7 @@ def get_admin_request(db: Session, request_id: int) -> models_buyback.BuybackReq
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
     return request
 
 
@@ -239,6 +235,7 @@ def update_request_status(
     admin_user: models.User,
     new_status: str,
     admin_note: Optional[str] = None,
+    customer_status_note: Optional[str] = None,
     tracking_number: Optional[str] = None,
     assessed_total: Optional[int] = None,
     payout_total: Optional[int] = None,
@@ -246,10 +243,7 @@ def update_request_status(
 ) -> models_buyback.BuybackRequest:
     request = get_admin_request(db, request_id)
     current = request.status
-    if new_status in {
-        models_buyback.BuybackRequestStatus.received.value,
-        models_buyback.BuybackRequestStatus.returned.value,
-    }:
+    if new_status in BARCODE_ONLY_STATUSES:
         _audit(
             db,
             actor_user_id=admin_user.id,
@@ -265,7 +259,7 @@ def update_request_status(
         db.commit()
         raise HTTPException(status_code=400, detail="無効なバーコードです")
     if (
-        new_status == models_buyback.BuybackRequestStatus.paid.value
+        new_status == DEDICATED_PAYOUT_STATUS
         and not allow_payout_completion
     ):
         _audit(
@@ -283,8 +277,7 @@ def update_request_status(
         db.commit()
         raise HTTPException(status_code=400, detail="専用の振込完了処理を使用してください")
 
-    allowed = REQUEST_TRANSITIONS.get(current, set())
-    if new_status not in allowed:
+    if not validate_transition(current, new_status, request.buyback_method):
         raise HTTPException(
             status_code=400,
             detail=f"ステータスを {STATUS_LABELS.get(current, current)} から {STATUS_LABELS.get(new_status, new_status)} に変更できません",
@@ -294,6 +287,8 @@ def update_request_status(
     request.status = new_status
     if admin_note is not None:
         request.admin_note = admin_note.strip() or None
+    if customer_status_note is not None:
+        request.customer_status_note = customer_status_note.strip() or None
     if tracking_number is not None:
         request.tracking_number = tracking_number.strip() or None
     if assessed_total is not None:
@@ -342,6 +337,8 @@ def update_request_status(
                 models_buyback.BuybackRequestStatus.rejected.value,
             }:
                 notify_buyback_decision(db, request, user)
+            else:
+                notify_buyback_status_changed(db, request, user, previous_status=current)
     except Exception:
         logger.warning(
             "Status-change notification failed",
@@ -399,6 +396,48 @@ def update_request_items(
 
         if "assessed_unit_price" in payload:
             item.assessed_unit_price = payload["assessed_unit_price"]
+        if "assessment_lines" in payload:
+            lines = payload["assessment_lines"]
+            if lines is None:
+                item.assessment_lines_json = None
+            elif lines == []:
+                item.assessment_lines_json = None
+            else:
+                if not isinstance(lines, list):
+                    raise HTTPException(status_code=400, detail="査定内訳の形式が不正です")
+                normalized: list[dict[str, int]] = []
+                line_total_qty = 0
+                for row in lines:
+                    if not isinstance(row, dict):
+                        raise HTTPException(status_code=400, detail="査定内訳の形式が不正です")
+                    qty = row.get("quantity")
+                    unit_price = row.get("unit_price")
+                    try:
+                        qty_int = int(qty)
+                        price_int = int(unit_price)
+                    except (TypeError, ValueError):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"「{item.product_name_snapshot}」の査定内訳（枚数・単価）を確認してください",
+                        )
+                    if qty_int <= 0 or price_int < 0:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"「{item.product_name_snapshot}」の査定内訳（枚数・単価）を確認してください",
+                        )
+                    normalized.append({"quantity": qty_int, "unit_price": price_int})
+                    line_total_qty += qty_int
+                if line_total_qty != item.quantity:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            f"「{item.product_name_snapshot}」の査定枚数合計（{line_total_qty}枚）が"
+                            f"申請枚数（{item.quantity}枚）と一致しません"
+                        ),
+                    )
+                item.assessment_lines_json = json.dumps(normalized, ensure_ascii=False)
+                subtotal = sum(row["quantity"] * row["unit_price"] for row in normalized)
+                item.assessed_unit_price = subtotal // item.quantity if item.quantity else 0
         if "accepted_unit_price" in payload:
             item.accepted_unit_price = payload["accepted_unit_price"]
         if "rejection_reason_code" in payload:
@@ -417,11 +456,15 @@ def update_request_items(
                     detail=f"「{item.product_name_snapshot}」の買取不可理由を入力してください",
                 )
         elif item.line_status == models_buyback.BuybackItemLineStatus.reduced.value:
-            if item.assessed_unit_price is None or item.assessed_unit_price < 0:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"「{item.product_name_snapshot}」の減額査定単価を入力してください",
-                )
+            if not parse_assessment_lines(item):
+                if item.assessed_unit_price is None or item.assessed_unit_price < 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"「{item.product_name_snapshot}」の減額査定単価を入力してください",
+                    )
+        elif item.line_status == models_buyback.BuybackItemLineStatus.buyable.value:
+            if not parse_assessment_lines(item) and item.assessed_unit_price is None:
+                item.assessed_unit_price = item.listed_unit_price
 
     if apply_handling_policy:
         apply_rejected_item_handling(request)

@@ -131,9 +131,15 @@ def submit_request_from_cart(
 
     planned_ship_date = customer_planned_ship_date
 
+    initial_status = (
+        models_buyback.BuybackRequestStatus.awaiting_visit.value
+        if method == "store"
+        else models_buyback.BuybackRequestStatus.awaiting_shipment.value
+    )
+
     request = models_buyback.BuybackRequest(
         user_id=user.id,
-        status=models_buyback.BuybackRequestStatus.submitted.value,
+        status=initial_status,
         buyback_method=method,
         store_visit_at=store_visit_at if method == "store" else None,
         shipping_method=(shipping_method or "").strip() or None if method == "mail" else None,
@@ -189,7 +195,7 @@ def submit_request_from_cart(
         models_buyback.BuybackStatusHistory(
             request_id=request.id,
             from_status=None,
-            to_status=models_buyback.BuybackRequestStatus.submitted.value,
+            to_status=initial_status,
             changed_by_user_id=user.id,
             note="カートから申込",
         )
@@ -268,6 +274,6 @@ def get_user_request(
     if not request:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="買取申込が見つかりません",
+            detail="買取申請が見つかりません",
         )
     return request

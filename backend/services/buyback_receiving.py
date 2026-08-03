@@ -32,6 +32,14 @@ INBOUND_STATUS_LABELS = {
     "received": "受付済み",
 }
 
+RECEIVABLE_REQUEST_STATUSES = frozenset(
+    {
+        models_buyback.BuybackRequestStatus.submitted.value,
+        models_buyback.BuybackRequestStatus.awaiting_shipment.value,
+        models_buyback.BuybackRequestStatus.shipped.value,
+    }
+)
+
 
 def _log_scan(
     db: Session,
@@ -111,7 +119,7 @@ def build_inbound_scan_payload(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
 
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
     compliance = get_compliance_status(db, user_id=request.user_id, requires_guardian=False)
@@ -186,8 +194,7 @@ def build_inbound_scan_payload(
         },
         "is_cancelled": request.status
         == models_buyback.BuybackRequestStatus.cancelled.value,
-        "can_receive": request.status
-        == models_buyback.BuybackRequestStatus.submitted.value
+        "can_receive": request.status in RECEIVABLE_REQUEST_STATUSES
         and inbound.status
         != models_buyback.BuybackInboundShipmentStatus.received.value,
         "status_history": [
@@ -369,7 +376,7 @@ def receive_inbound_package(
         .first()
     )
     if not request:
-        raise HTTPException(status_code=404, detail="買取申込が見つかりません")
+        raise HTTPException(status_code=404, detail="買取申請が見つかりません")
 
     db.refresh(inbound)
 
@@ -395,7 +402,7 @@ def receive_inbound_package(
     if request.status == models_buyback.BuybackRequestStatus.cancelled.value:
         raise HTTPException(status_code=400, detail="キャンセル済みの申込は受付できません")
 
-    if request.status != models_buyback.BuybackRequestStatus.submitted.value:
+    if request.status not in RECEIVABLE_REQUEST_STATUSES:
         raise HTTPException(
             status_code=400,
             detail=f"現在のステータス（{STATUS_LABELS.get(request.status, request.status)}）では受付できません",
