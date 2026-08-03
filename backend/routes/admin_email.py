@@ -25,6 +25,11 @@ from services.kyc_email_auto_send import (
     update_auto_send_settings as update_kyc_auto_send_settings,
 )
 from services.kyc_email_variables import kyc_variables_for_template
+from services.member_email_variables import member_variables_for_template
+from services.member_email_auto_send import (
+    get_auto_send_settings as get_member_auto_send_settings,
+    update_auto_send_settings as update_member_auto_send_settings,
+)
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -155,6 +160,14 @@ def get_template_variables(
         variables = buyback_variables_for_template(template_key)
     elif template_key.startswith("kyc_") or template_key.startswith("buyback_identity_") or template_key == "buyback_guardian_consent":
         variables = kyc_variables_for_template(template_key)
+    elif (
+        template_key.startswith("member_")
+        or template_key.startswith("login_")
+        or template_key.startswith("password_")
+        or template_key.startswith("security_")
+        or template_key in {"member_register", "member_login_notify", "member_2fa_otp", "member_password_reset", "member_password_change", "member_email_change"}
+    ):
+        variables = member_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -243,6 +256,53 @@ def update_kyc_auto_send(
     return schemas_email.KycEmailAutoSendOut(settings=updated)
 
 
+@router.get("/member/auto-send", response_model=schemas_email.MemberEmailAutoSendOut)
+def get_member_auto_send(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return schemas_email.MemberEmailAutoSendOut(settings=get_member_auto_send_settings(db))
+
+
+@router.put("/member/auto-send", response_model=schemas_email.MemberEmailAutoSendOut)
+def update_member_auto_send(
+    payload: schemas_email.MemberEmailAutoSendUpdateIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    updated = update_member_auto_send_settings(db, payload.settings)
+    safe_commit(db)
+    return schemas_email.MemberEmailAutoSendOut(settings=updated)
+
+
+@router.post("/member/users/{user_id}/resend")
+def resend_member_email_route(
+    user_id: int,
+    body: schemas_email.AdminMemberResendEmailIn,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    import models
+    from services.member_email_registry import get_member_email_event
+    from services.member_emails import resend_member_email
+
+    if not get_member_email_event(body.event_key):
+        raise HTTPException(status_code=400, detail="不明なイベントキーです")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    ok, err = resend_member_email(
+        db,
+        event_key=body.event_key,
+        user=user,
+        verify_url=body.verify_url,
+        reset_url=body.reset_url,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
+    return {"message": "メールを再送しました", "event_key": body.event_key}
+
+
 @router.get("/carriers")
 def list_carriers(
     ctx: AdminContext = Depends(_require_perm("admin.email.read")),
@@ -310,7 +370,7 @@ def test_send(
         raw_variable_keys={
             "shippingInfoBlock", "orderSummaryBlock", "itemsTable", "buttonsBlock",
             "notesBlock", "contactBlock", "signatureBlock",
-            "kycInfoBlock", "buybackInfoBlock", "assessmentDetail",
+            "kycInfoBlock", "buybackInfoBlock", "assessmentDetail", "memberInfoBlock",
         },
     )
     safe_commit(db)

@@ -276,8 +276,22 @@ def sample_variables_for_template(template_key: str) -> dict[str, str]:
         return {k: v for k, v in sample.items() if not str(k).startswith("_")}
 
     from services.buyback_email_variables import build_buyback_sample_variables
+    from services.member_email_registry import normalize_template_key as normalize_member_template_key
     from services.kyc_email_registry import normalize_template_key as normalize_kyc_template_key
     from services.kyc_email_variables import build_kyc_sample_variables
+    from services.member_email_variables import build_member_sample_variables
+
+    member_normalized = normalize_member_template_key(template_key)
+    if (
+        member_normalized.startswith("member_")
+        or member_normalized.startswith("login_")
+        or member_normalized.startswith("password_")
+        or member_normalized.startswith("security_")
+        or template_key.startswith("member_")
+        or template_key in {"member_register", "member_login_notify", "member_2fa_otp"}
+    ):
+        sample = build_member_sample_variables(member_normalized)
+        return {k: v for k, v in sample.items() if not str(k).startswith("_")}
 
     kyc_normalized = normalize_kyc_template_key(template_key)
     if kyc_normalized.startswith("kyc_") or template_key.startswith("kyc_") or template_key.startswith("buyback_identity_") or template_key == "buyback_guardian_consent":

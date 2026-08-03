@@ -782,7 +782,9 @@ def _migrate_email_auth_schema() -> None:
         _add_column_if_missing("email_brand_settings", col, col_type)
 
     _add_column_if_missing("email_brand_settings", "email_signature_html", "TEXT")
+    _add_column_if_missing("email_brand_settings", "member_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_templates", "preheader", "VARCHAR(255)")
+    _add_column_if_missing("user_otp_challenges", "link_token_hash", "VARCHAR(128)")
 
     log_cols = [
         ("campaign_id", "INTEGER"),
@@ -874,3 +876,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("KYC email template upgrade failed")
+        try:
+            from services.member_email_templates_seed import upgrade_member_email_templates
+
+            member_upgraded = upgrade_member_email_templates(db)
+            if member_upgraded:
+                db.commit()
+                logger.info("Upgraded %s member email templates", member_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("member email template upgrade failed")

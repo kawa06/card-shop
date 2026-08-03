@@ -126,6 +126,37 @@ KYC_VARIABLES_HINT = (
 )
 
 
+MEMBER_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{memberInfoBlock}}
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+MEMBER_VARIABLES_HINT = (
+    "{{name}} / {{ユーザー名}}, {{email}} / {{メールアドレス}}, {{date}} / {{日時}}, "
+    "{{eventAt}} / {{発生日時}}, {{expiresAt}} / {{有効期限}}, "
+    "{{ipAddress}} / {{IPアドレス}}, {{deviceName}} / {{端末名}}, "
+    "{{browser}} / {{ブラウザ}}, {{os}} / {{OS}}, {{region}} / {{地域}}, "
+    "{{verifyUrl}} / {{認証URL}}, {{resetUrl}} / {{再設定URL}}, "
+    "{{contactUrl}} / {{お問い合わせURL}}, {{accountUrl}}, "
+    "{{bodyTitle}}, {{bodyDescription}}, {{memberInfoBlock}}, {{buttonsBlock}}, "
+    "{{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -257,6 +288,14 @@ def build_buyback_info_block(rows: list[tuple[str, str]]) -> str:
 
 def build_kyc_info_block(rows: list[tuple[str, str]]) -> str:
     """Dynamic KYC info table — only non-empty rows; no document URLs or PII."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_member_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic member/security info table — no passwords or auth codes."""
     visible = [(label, value) for label, value in rows if value and str(value).strip()]
     if not visible:
         return ""

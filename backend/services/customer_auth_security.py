@@ -14,7 +14,13 @@ import models
 import models_email
 from config import settings
 from services.admin_rbac import LOGIN_LOCKOUT_MINUTES, MAX_FAILED_LOGIN_ATTEMPTS
-from services.email_delivery import send_templated_email
+from services.member_emails import (
+    notify_2fa_otp_sent,
+    notify_account_locked,
+    notify_account_unlocked,
+    notify_login_failed,
+    notify_login_success,
+)
 
 OTP_EXPIRE_MINUTES = 10
 
@@ -75,11 +81,46 @@ def record_login_history(
     )
 
 
+def _is_new_device(
+    db: Session,
+    user_id: int,
+    *,
+    ip: str | None,
+    user_agent: str | None,
+) -> bool:
+    if not ip and not user_agent:
+        return False
+    recent = (
+        db.query(models_email.LoginHistory)
+        .filter(
+            models_email.LoginHistory.user_id == user_id,
+            models_email.LoginHistory.success.is_(True),
+        )
+        .order_by(models_email.LoginHistory.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    if len(recent) < 2:
+        return False
+    for row in recent[1:]:
+        if row.ip_address == ip and (row.user_agent or "") == (user_agent or ""):
+            return False
+    return True
+
+
 def record_login_failure(db: Session, user: models.User, request: Optional[Request] = None) -> None:
-    user.failed_login_attempts = int(user.failed_login_attempts or 0) + 1
+    was_locked = is_user_locked(user)
+    prev_attempts = int(user.failed_login_attempts or 0)
+    user.failed_login_attempts = prev_attempts + 1
+    just_locked = False
     if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
         user.locked_until = _utcnow() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+        just_locked = not was_locked
+    ip = _client_ip(request)
     record_login_history(db, user_id=user.id, success=False, method="legacy", request=request)
+    notify_login_failed(db, user, ip=ip, repeated=prev_attempts >= 2)
+    if just_locked:
+        notify_account_locked(db, user, locked_until=user.locked_until)
 
 
 def record_login_success(
@@ -92,51 +133,28 @@ def record_login_success(
     user_agent: Optional[str] = None,
     send_notify: bool = True,
 ) -> None:
+    was_locked = is_user_locked(user)
+    ip_val = ip or _client_ip(request)
+    ua_val = user_agent or _client_ua(request)
+    new_device = _is_new_device(db, user.id, ip=ip_val, user_agent=ua_val)
+
     user.failed_login_attempts = 0
     user.locked_until = None
     user.last_login_at = _utcnow()
-    user.last_login_ip = ip or _client_ip(request)
+    user.last_login_ip = ip_val
     record_login_history(
         db,
         user_id=user.id,
         success=True,
         method=method,
         request=request,
-        ip=ip,
-        user_agent=user_agent,
+        ip=ip_val,
+        user_agent=ua_val,
     )
+    if was_locked:
+        notify_account_unlocked(db, user)
     if send_notify:
-        notify_login(db, user, ip=ip or _client_ip(request), user_agent=user_agent or _client_ua(request))
-
-
-def notify_login(
-    db: Session,
-    user: models.User,
-    *,
-    ip: Optional[str] = None,
-    user_agent: Optional[str] = None,
-) -> None:
-    send_templated_email(
-        db,
-        template_key="member_login_notify",
-        to_email=user.email,
-        variables={
-            "name": user.name,
-            "email": user.email,
-            "ip": ip or "—",
-            "userAgent": user_agent or "—",
-            "date": _utcnow().strftime("%Y/%m/%d %H:%M"),
-            "content": f"ログインが検出されました。心当たりがない場合はパスワードを変更してください。",
-        },
-        reference_type="user",
-        reference_id=str(user.id),
-        fallback_subject=f"【{settings.SITE_NAME}】ログインのお知らせ",
-        fallback_html=(
-            "<p>{{name}} 様</p>"
-            "<p>アカウントへのログインを検知しました。</p>"
-            "<p>日時: {{date}}<br>IP: {{ip}}</p>"
-        ),
-    )
+        notify_login_success(db, user, ip=ip_val, user_agent=ua_val, new_device=new_device)
 
 
 def _hash_otp(code: str) -> str:
@@ -145,33 +163,34 @@ def _hash_otp(code: str) -> str:
 
 def create_login_otp_challenge(db: Session, user: models.User) -> tuple[int, str]:
     code = f"{secrets.randbelow(1_000_000):06d}"
+    link_token = secrets.token_urlsafe(32)
+    expires_at = _utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES)
     challenge = models_email.UserOtpChallenge(
         user_id=user.id,
         code_hash=_hash_otp(code),
+        link_token_hash=_hash_otp(link_token),
         purpose="login_2fa",
-        expires_at=_utcnow() + timedelta(minutes=OTP_EXPIRE_MINUTES),
+        expires_at=expires_at,
     )
     db.add(challenge)
     db.flush()
-    send_templated_email(
+    base = (settings.FRONTEND_URL or "").rstrip("/")
+    verify_url = f"{base}/login/2fa?challenge={challenge.id}&token={link_token}" if base else ""
+    notify_2fa_otp_sent(
         db,
-        template_key="member_2fa_otp",
-        to_email=user.email,
-        variables={
-            "name": user.name,
-            "email": user.email,
-            "code": code,
-            "content": f"認証コード: {code}（{OTP_EXPIRE_MINUTES}分間有効）",
-        },
-        reference_type="otp_challenge",
-        reference_id=str(challenge.id),
-        fallback_subject=f"【{settings.SITE_NAME}】認証コード",
-        fallback_html="<p>{{name}} 様</p><p>認証コード: <strong>{{code}}</strong></p>",
+        user,
+        verify_url=verify_url,
+        expires_at=expires_at,
+        challenge_id=challenge.id,
     )
     return challenge.id, code
 
 
 def verify_login_otp(db: Session, *, challenge_id: int, code: str, user_id: int) -> models.User:
+    raw = (code or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="認証コードが必要です")
+
     challenge = (
         db.query(models_email.UserOtpChallenge)
         .filter(
@@ -185,7 +204,7 @@ def verify_login_otp(db: Session, *, challenge_id: int, code: str, user_id: int)
         raise HTTPException(status_code=400, detail="認証コードが無効です")
     if challenge.expires_at < _utcnow():
         raise HTTPException(status_code=400, detail="認証コードの有効期限が切れています")
-    if challenge.code_hash != _hash_otp(code.strip()):
+    if challenge.code_hash != _hash_otp(raw):
         raise HTTPException(status_code=400, detail="認証コードが正しくありません")
     challenge.consumed_at = _utcnow()
     user = db.query(models.User).filter(models.User.id == user_id).first()

@@ -8,7 +8,10 @@ import { adminEmailApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 
 const CATEGORIES = [
-  { id: 'member', label: '会員' },
+  { id: 'member', label: '会員登録' },
+  { id: 'login', label: 'ログイン' },
+  { id: 'password', label: 'パスワード' },
+  { id: 'security', label: 'セキュリティ' },
   { id: 'order', label: '購入' },
   { id: 'shipping', label: '発送・配送' },
   { id: 'buyback', label: '買取' },
@@ -130,6 +133,39 @@ export default function AdminEmailPage() {
     }
   }
 
+  const handleCreateMemberTemplate = async (category: string) => {
+    const prefix = category === 'member' ? 'member_' : category === 'login' ? 'login_' : category === 'password' ? 'password_' : 'security_'
+    const key = window.prompt(`テンプレートキー（例: ${prefix}custom_notice）`)
+    if (!key) return
+    const name = window.prompt('テンプレート名') || key
+    setCreating(true)
+    try {
+      await adminEmailApi.createTemplate({
+        template_key: key,
+        category,
+        name,
+        subject: '【{{shopName}}】（件名を入力）',
+        preheader: '（プリヘッダーを入力）',
+        html_body: `<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;">{{bodyTitle}}</h1>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+{{memberInfoBlock}}
+{{buttonsBlock}}
+{{notesBlock}}
+{{contactBlock}}
+{{signatureBlock}}`,
+        text_body: '{{name}} 様\\n\\n{{bodyTitle}}\\n\\n{{bodyDescription}}',
+        is_active: false,
+      })
+      toast({ title: 'テンプレートを作成しました' })
+      void load()
+    } catch {
+      toast({ title: 'テンプレートの作成に失敗しました', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -169,6 +205,21 @@ export default function AdminEmailPage() {
             >
               <Plus className="h-4 w-4" /> 新規テンプレート
             </button>
+          )}
+          {(category === 'member' || category === 'login' || category === 'password' || category === 'security') && (
+            <>
+              <Link href="/admin/settings/email/member-notifications" className="text-purple-600 hover:underline">
+                自動送信設定
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleCreateMemberTemplate(category)}
+                disabled={creating}
+                className="inline-flex items-center gap-1 text-emerald-600 hover:underline disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" /> 新規テンプレート
+              </button>
+            </>
           )}
           {category === 'buyback' && (
             <>

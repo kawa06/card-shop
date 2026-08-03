@@ -35,7 +35,10 @@ class _FakeRequest:
 
 
 def test_account_lockout_after_failures(db):
+    from services.member_email_templates_seed import seed_member_email_templates
+
     seed_email_templates(db)
+    seed_member_email_templates(db, force_upgrade=True)
     user = _user(db)
     req = _FakeRequest()
 
@@ -49,12 +52,15 @@ def test_account_lockout_after_failures(db):
 
 
 def test_record_login_success_clears_failures(db):
+    from services.member_email_templates_seed import seed_member_email_templates
+
     seed_email_templates(db)
+    seed_member_email_templates(db, force_upgrade=True)
     user = _user(db)
     user.failed_login_attempts = 3
     db.commit()
 
-    with patch("services.customer_auth_security.send_templated_email") as mock_send:
+    with patch("services.member_emails.send_templated_email") as mock_send:
         from services.email_delivery import SendResult
 
         mock_send.return_value = SendResult(ok=True)
@@ -66,12 +72,15 @@ def test_record_login_success_clears_failures(db):
 
 
 def test_login_otp_verify(db):
+    from services.member_email_templates_seed import seed_member_email_templates
+
     seed_email_templates(db)
+    seed_member_email_templates(db, force_upgrade=True)
     user = _user(db)
     user.two_factor_enabled = True
     db.commit()
 
-    with patch("services.customer_auth_security.send_templated_email") as mock_send:
+    with patch("services.member_emails.send_templated_email") as mock_send:
         from services.email_delivery import SendResult
 
         mock_send.return_value = SendResult(ok=True)

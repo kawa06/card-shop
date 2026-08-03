@@ -36,6 +36,7 @@ class EmailBrandSettings(Base):
     contact_email = Column(String(255), nullable=True)
     contact_phone = Column(String(32), nullable=True)
     email_signature_html = Column(Text, nullable=True)
+    member_email_auto_send_json = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -138,6 +139,7 @@ class UserOtpChallenge(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     code_hash = Column(String(128), nullable=False)
+    link_token_hash = Column(String(128), nullable=True)
     purpose = Column(String(32), nullable=False, default="login_2fa")
     expires_at = Column(DateTime, nullable=False, index=True)
     consumed_at = Column(DateTime, nullable=True)

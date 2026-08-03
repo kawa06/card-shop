@@ -144,6 +144,9 @@ async def register(
                 status_code=502,
                 detail=f"認証メールの送信に失敗しました。Resendのドメイン設定を確認してください。 ({error})",
             )
+        from services.member_emails import notify_register_completed
+
+        notify_register_completed(db, user=user)
     else:
         db.delete(user)
         db.commit()
@@ -248,8 +251,9 @@ def update_profile(
     db: Session = Depends(get_db),
 ):
     from services.user_profile import update_customer_profile
+    from services.member_emails import notify_profile_updated
 
-    return update_customer_profile(
+    updated = update_customer_profile(
         db,
         user=current_user,
         name=payload.name,
@@ -266,6 +270,8 @@ def update_profile(
         address_line2=payload.address_line2,
         phone_number=payload.phone_number,
     )
+    notify_profile_updated(db, current_user)
+    return updated
 
 
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
@@ -281,6 +287,9 @@ def change_password(
         )
     current_user.password_hash = hash_password(payload.new_password)
     db.commit()
+    from services.member_emails import notify_password_changed
+
+    notify_password_changed(db, current_user)
     return None
 
 
@@ -328,6 +337,10 @@ def verify_email(
     user.is_verified = True
     user.verification_token = None
     db.commit()
+
+    from services.member_emails import notify_email_verify_completed
+
+    notify_email_verify_completed(db, user=user)
     return {"message": "メール認証が完了しました"}
 
 
@@ -356,6 +369,9 @@ async def verify_phone_otp(
         current_user.phone_number = phone
         current_user.phone_verified = True
         db.commit()
+        from services.member_emails import notify_phone_verify_completed
+
+        notify_phone_verify_completed(db, user=current_user)
 
     return {"message": "電話番号の認証が完了しました"}
 
@@ -397,6 +413,12 @@ def update_two_factor_settings(
     current_user.two_factor_method = "email" if payload.enabled else None
     db.commit()
     db.refresh(current_user)
+    from services.member_emails import notify_2fa_disabled, notify_2fa_enabled
+
+    if payload.enabled:
+        notify_2fa_enabled(db, current_user)
+    else:
+        notify_2fa_disabled(db, current_user)
     return schemas_email.TwoFactorSettingsOut(
         enabled=bool(current_user.two_factor_enabled),
         method=current_user.two_factor_method,
@@ -416,9 +438,13 @@ def delete_account(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from services.member_emails import notify_withdrawal_completed, notify_withdrawal_received
+
+    notify_withdrawal_received(db, current_user)
     db.query(models.CartItem).filter(models.CartItem.user_id == current_user.id).delete()
     db.query(models.Order).filter(models.Order.user_id == current_user.id).delete()
 
+    notify_withdrawal_completed(db, current_user)
     db.delete(current_user)
     db.commit()
     return None

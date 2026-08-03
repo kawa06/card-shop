@@ -181,6 +181,20 @@ class KycEmailAutoSendUpdateIn(BaseModel):
     settings: dict[str, bool] = Field(default_factory=dict)
 
 
+class MemberEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class MemberEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
+class AdminMemberResendEmailIn(BaseModel):
+    event_key: str
+    verify_url: str | None = None
+    reset_url: str | None = None
+
+
 class AdminIdentityResendEmailIn(BaseModel):
     event_key: str
     force: bool = True

@@ -30,14 +30,7 @@ DEFAULT_BRAND = {
 VARIABLES_COMMON = "{{name}} / {{名前}}, {{email}}, {{orderNo}} / {{注文番号}}, {{shopName}}, {{url}}, {{date}} / {{日付}}"
 
 TEMPLATE_DEFS: list[dict] = [
-    # member
-    {"key": "member_register", "category": "member", "name": "会員登録", "subject": "【{{shopName}}】会員登録ありがとうございます"},
-    {"key": "member_email_verify", "category": "member", "name": "メール認証", "subject": "【{{shopName}}】メールアドレス認証のお願い"},
-    {"key": "member_email_change", "category": "member", "name": "メール変更", "subject": "【{{shopName}}】メールアドレス変更の確認"},
-    {"key": "member_password_change", "category": "member", "name": "パスワード変更", "subject": "【{{shopName}}】パスワードが変更されました"},
-    {"key": "member_password_reset", "category": "member", "name": "パスワード再設定", "subject": "【{{shopName}}】パスワード再設定のご案内"},
-    {"key": "member_login_notify", "category": "member", "name": "ログイン通知", "subject": "【{{shopName}}】ログインのお知らせ"},
-    {"key": "member_2fa_otp", "category": "member", "name": "2段階認証コード", "subject": "【{{shopName}}】認証コード"},
+    # member templates seeded via member_email_templates_seed.py
     # order
     {"key": "order_completed", "category": "order", "name": "注文完了", "subject": "【{{shopName}}】ご注文ありがとうございます（{{orderNo}}）"},
     {"key": "order_bank_transfer", "category": "order", "name": "銀行振込案内", "subject": "【{{shopName}}】銀行振込のご案内（{{orderNo}}）"},
