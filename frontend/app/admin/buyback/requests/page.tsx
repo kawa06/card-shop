@@ -7,6 +7,7 @@ import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminBuybackApi } from '@/lib/api'
 import { AdminBuybackRequestListItem } from '@/lib/types'
 import { Input } from '@/components/ui/input'
+import { BUYBACK_STATUS_FILTER_OPTIONS } from '@/lib/buyback-status-labels'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -23,7 +24,7 @@ export default function AdminBuybackRequestsPage() {
   const [items, setItems] = useState<AdminBuybackRequestListItem[]>([])
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('submitted')
+  const [statusFilter, setStatusFilter] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -65,7 +66,7 @@ export default function AdminBuybackRequestsPage() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <Package className="h-6 w-6 text-yellow-400" />
-            <h1 className="text-2xl font-bold text-gray-900">買取申込管理</h1>
+            <h1 className="text-2xl font-bold text-gray-900">買取申請管理</h1>
           </div>
           <div className="flex gap-4 text-sm">
             <Link href="/admin/buyback/receiving" className="text-amber-700 hover:underline">
@@ -98,13 +99,11 @@ export default function AdminBuybackRequestsPage() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">すべて</option>
-            <option value="submitted">申込受付</option>
-            <option value="received">商品到着</option>
-            <option value="assessing">査定中</option>
-            <option value="assessed">査定完了</option>
-            <option value="payout_pending">振込準備中</option>
-            <option value="paid">振込完了</option>
+            {BUYBACK_STATUS_FILTER_OPTIONS.map((opt) => (
+              <option key={opt.value || 'all'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         </div>
 

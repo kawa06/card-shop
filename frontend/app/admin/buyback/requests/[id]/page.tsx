@@ -15,23 +15,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-const STATUS_LABELS: Record<string, string> = {
-  submitted: '申込受付',
-  received: '商品到着',
-  assessing: '査定中',
-  assessed: '査定完了',
-  awaiting_customer: 'ご確認待ち',
-  accepted: '買取成立',
-  rejected: '買取不可',
-  payout_pending: '振込準備中',
-  paid: '振込完了',
-  returned: '返送',
-  cancelled: 'キャンセル',
-}
+import {
+  BUYBACK_STATUS_FILTER_OPTIONS,
+  buybackStatusLabel,
+} from '@/lib/buyback-status-labels'
 
 const LINE_STATUS_OPTIONS = [
   { value: 'pending', label: '査定待ち' },
-  { value: 'buyable', label: '買取可能' },
+  { value: 'buyable', label: '満額買取' },
   { value: 'reduced', label: '減額買取' },
   { value: 'rejected', label: '買取不可' },
 ]
@@ -302,7 +293,7 @@ export default function AdminBuybackRequestDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <Package className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-bold text-gray-900">買取申込詳細</h1>
+          <h1 className="text-2xl font-bold text-gray-900">買取申請詳細</h1>
         </div>
 
         {isLoading ? (
@@ -322,7 +313,7 @@ export default function AdminBuybackRequestDetailPage() {
               </p>
               <p>
                 <span className="text-gray-500">ステータス：</span>
-                {detail.status_label}
+                {buybackStatusLabel(detail.status, detail.status_label)}
               </p>
               <p>
                 <span className="text-gray-500">見積 / 査定 / 振込：</span>
@@ -688,11 +679,17 @@ export default function AdminBuybackRequestDetailPage() {
                   value={nextStatus}
                   onChange={(e) => setNextStatus(e.target.value)}
                 >
-                  {detail.allowed_next_statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {STATUS_LABELS[status] || status}
-                    </option>
-                  ))}
+                  {detail.allowed_next_status_labels?.length
+                    ? detail.allowed_next_status_labels.map((opt) => (
+                        <option key={opt.code} value={opt.code}>
+                          {buybackStatusLabel(opt.code, opt.label)}
+                        </option>
+                      ))
+                    : detail.allowed_next_statuses.map((status) => (
+                        <option key={status} value={status}>
+                          {buybackStatusLabel(status)}
+                        </option>
+                      ))}
                 </select>
                 <Input
                   placeholder="追跡番号"

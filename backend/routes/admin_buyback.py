@@ -35,9 +35,9 @@ from services.buyback_serializers import (
     serialize_request_item,
 )
 from services.buyback_compliance import IDENTITY_STATUS_LABELS
-from services.buyback_emails import STATUS_LABELS
 from services.buyback_request_status import (
     STATUS_DESCRIPTIONS,
+    STATUS_LABELS,
     allowed_next_statuses,
     status_color,
     status_description,

@@ -554,6 +554,7 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   items: AdminBuybackRequestItem[]
   status_history: AdminBuybackStatusHistoryItem[]
   allowed_next_statuses: string[]
+  allowed_next_status_labels?: { code: string; label: string; description?: string }[]
   payout_account: AdminPayoutAccount | null
   ready_for_payout: boolean
   payout_email_sent: boolean
