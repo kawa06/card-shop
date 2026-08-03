@@ -8,7 +8,7 @@ import { adminEmailApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 import { Button } from '@/components/ui/button'
 
-type AutoSendSettings = Record<string, bool>
+type AutoSendSettings = Record<string, boolean>
 type ChannelSettings = Record<string, string>
 type RecipientSettings = Record<string, { mode: string; permission_codes: string[]; custom_emails: string[] }>
 

@@ -5,7 +5,30 @@ from __future__ import annotations
 from auth import create_access_token, hash_password
 import models
 from services.admin_seed import seed_admin_rbac
+from services.admin_notify_email_templates_seed import upgrade_admin_notify_email_templates
+from services.broadcast_email_templates_seed import upgrade_broadcast_email_templates
+from services.buyback_email_templates_seed import upgrade_buyback_email_templates
 from services.email_template_seed import seed_email_templates
+from services.inquiry_email_templates_seed import upgrade_inquiry_email_templates
+from services.kyc_email_templates_seed import upgrade_kyc_email_templates
+from services.loyalty_email_templates_seed import upgrade_loyalty_email_templates
+from services.member_email_templates_seed import upgrade_member_email_templates
+from services.order_email_templates_seed import upgrade_order_payment_templates
+from services.shipping_email_templates_seed import upgrade_shipping_email_templates
+
+
+def _seed_all_email_templates(db) -> None:
+    seed_email_templates(db)
+    upgrade_order_payment_templates(db)
+    upgrade_shipping_email_templates(db)
+    upgrade_buyback_email_templates(db)
+    upgrade_kyc_email_templates(db)
+    upgrade_member_email_templates(db)
+    upgrade_loyalty_email_templates(db)
+    upgrade_broadcast_email_templates(db)
+    upgrade_inquiry_email_templates(db)
+    upgrade_admin_notify_email_templates(db)
+    db.commit()
 
 
 def _admin_headers(db):
@@ -25,22 +48,22 @@ def _admin_headers(db):
 
 
 def test_admin_email_templates_list(api_client, db):
-    seed_email_templates(db)
+    _seed_all_email_templates(db)
     headers = _admin_headers(db)
 
     res = api_client.get("/api/admin/email/templates", headers=headers)
     assert res.status_code == 200
     data = res.json()
     assert len(data) >= 40
-    assert any(item["template_key"] == "member_login_notify" for item in data)
+    assert any(item["template_key"] == "login_success" for item in data)
 
 
 def test_admin_email_template_update(api_client, db):
-    seed_email_templates(db)
+    _seed_all_email_templates(db)
     headers = _admin_headers(db)
 
     res = api_client.put(
-        "/api/admin/email/templates/member_login_notify",
+        "/api/admin/email/templates/login_success",
         headers=headers,
         json={"name": "ログイン通知", "subject": "【TEST】ログイン", "html_body": "<p>{{name}} 様</p>"},
     )
@@ -49,7 +72,7 @@ def test_admin_email_template_update(api_client, db):
 
 
 def test_admin_email_requires_permission(api_client, db):
-    seed_email_templates(db)
+    _seed_all_email_templates(db)
     user = models.User(
         email="noperm@example.com",
         name="No Perm",

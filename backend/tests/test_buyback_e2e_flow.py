@@ -6,6 +6,7 @@ against an isolated in-memory database.
 
 from __future__ import annotations
 
+from datetime import date
 from io import BytesIO
 from unittest.mock import patch
 
@@ -52,6 +53,13 @@ def _create_customer(db) -> models.User:
         name="E2E Customer",
         password_hash=hash_password("secret123"),
         is_verified=True,
+        birth_date=date(1990, 1, 15),
+        family_name="E2E",
+        given_name="Customer",
+        postal_code="6500001",
+        region="兵庫県",
+        city="神戸市",
+        address_line1="テスト1-1",
     )
     db.add(user)
     db.commit()

@@ -61,7 +61,9 @@ def authenticate_internal_admin(request: Request, db: Session) -> Optional[model
     if user is None:
         return None
 
-    if get_admin_user_for_user(db, user, require_active=True) is None:
+    # Allow inactive admins through proxy auth only on login so the route can return 403.
+    is_login_request = request.url.path.rstrip("/") == "/api/admin/security/session/login"
+    if get_admin_user_for_user(db, user, require_active=not is_login_request) is None:
         return None
 
     return user

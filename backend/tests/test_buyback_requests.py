@@ -59,7 +59,7 @@ def test_submit_request_from_cart(mock_notify, db):
     assert request.request_number.startswith("KBB-")
     assert request.public_buyback_code.startswith("KRX-BUY-")
     assert request.inbound_mgmt_id.startswith("KRX-PKG-")
-    assert request.status == models_buyback.BuybackRequestStatus.submitted.value
+    assert request.status == models_buyback.BuybackRequestStatus.awaiting_shipment.value
     assert request.estimated_total == 3000
     assert request.customer_note == "テスト備考"
     assert request.rejected_item_handling == "return_rejected_only"

@@ -59,23 +59,23 @@ def _request(db, user: models.User, **kwargs) -> models_buyback.BuybackRequest:
     return request
 
 
+@patch("services.admin_notify_emails.send_admin_notify_event")
 @patch("services.buyback_emails.email_configured", return_value=True)
 @patch("services.buyback_emails.send_templated_email")
-def test_notify_buyback_request_submitted(mock_send, mock_configured, db):
+def test_notify_buyback_request_submitted(mock_send, mock_configured, mock_admin_notify, db):
     mock_send.return_value = SendResult(ok=True)
     user = _create_user(db)
     request = _request(db, user)
 
     notify_buyback_request_submitted(db, request, user)
 
-    assert mock_send.call_count == 2
-    subjects = [call.kwargs["fallback_subject"] for call in mock_send.call_args_list]
-    assert any("買取申請を受け付けました" in s for s in subjects)
-    assert any("新規買取申請" in s for s in subjects)
+    assert mock_send.call_count == 1
+    assert "買取申請を受け付けました" in mock_send.call_args.kwargs["fallback_subject"]
+    mock_admin_notify.assert_called_once()
 
     deliveries = db.query(models_buyback.NotificationDelivery).all()
-    assert len(deliveries) == 2
-    assert all(d.status == "sent" for d in deliveries)
+    assert len(deliveries) == 1
+    assert deliveries[0].status == "sent"
 
 
 @patch("services.buyback_emails.email_configured", return_value=True)

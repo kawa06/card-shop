@@ -159,11 +159,12 @@ def test_claim_stripe_event_prevents_duplicate_processing(db):
 def test_bank_transfer_pending_email_mock(db, test_user, monkeypatch):
     order = _create_bank_transfer_order(db, test_user, stock_reserved=True)
 
-    monkeypatch.setattr(
-        "services.order_emails.email_configured",
-        lambda: False,
-    )
-    monkeypatch.setattr("services.order_emails.settings.DEBUG", True)
+    def _fake_send(*args, **kwargs):
+        from services.email_delivery import SendResult
+
+        return SendResult(ok=True)
+
+    monkeypatch.setattr("services.order_emails.send_templated_email", _fake_send)
 
     ok, err = send_bank_transfer_pending_email(db, order.id)
     db.refresh(order)
@@ -176,8 +177,12 @@ def test_bank_transfer_pending_email_mock(db, test_user, monkeypatch):
 def test_bank_transfer_cancel_email_mock(db, test_user, monkeypatch):
     order = _create_bank_transfer_order(db, test_user, stock_reserved=True)
 
-    monkeypatch.setattr("services.order_emails.email_configured", lambda: False)
-    monkeypatch.setattr("services.order_emails.settings.DEBUG", True)
+    def _fake_send(*args, **kwargs):
+        from services.email_delivery import SendResult
+
+        return SendResult(ok=True)
+
+    monkeypatch.setattr("services.order_emails.send_templated_email", _fake_send)
 
     cancel_unpaid_order(db, order, as_expired=True)
     db.refresh(order)
@@ -192,18 +197,19 @@ def test_purchase_email_includes_payment_method(db, test_user, paid_order, monke
 
     captured: dict[str, str] = {}
 
-    def _fake_send(**kwargs):
+    def _fake_send(*args, **kwargs):
         captured["html"] = kwargs.get("fallback_html", "")
+        captured["variables"] = kwargs.get("variables", {})
         from services.email_delivery import SendResult
 
         return SendResult(ok=True)
 
     monkeypatch.setattr("services.order_emails.send_templated_email", _fake_send)
-    monkeypatch.setattr("services.order_emails.email_configured", lambda: True)
 
     ok, err = send_purchase_confirmation_email(db, paid_order.id, force=True)
     assert ok is True
-    assert "銀行振込（Stripe）" in captured["html"]
+    payment_label = captured.get("variables", {}).get("paymentMethod", "")
+    assert payment_label == "銀行振込"
 
 
 def test_bank_transfer_methods_constant():
