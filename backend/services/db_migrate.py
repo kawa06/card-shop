@@ -783,6 +783,7 @@ def _migrate_email_auth_schema() -> None:
 
     _add_column_if_missing("email_brand_settings", "email_signature_html", "TEXT")
     _add_column_if_missing("email_brand_settings", "member_email_auto_send_json", "TEXT")
+    _add_column_if_missing("email_brand_settings", "loyalty_email_auto_send_json", "TEXT")
     _add_column_if_missing("email_templates", "preheader", "VARCHAR(255)")
     _add_column_if_missing("user_otp_challenges", "link_token_hash", "VARCHAR(128)")
 
@@ -886,3 +887,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("member email template upgrade failed")
+        try:
+            from services.loyalty_email_templates_seed import upgrade_loyalty_email_templates
+
+            loyalty_upgraded = upgrade_loyalty_email_templates(db)
+            if loyalty_upgraded:
+                db.commit()
+                logger.info("Upgraded %s loyalty email templates", loyalty_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("loyalty email template upgrade failed")

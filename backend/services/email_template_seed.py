@@ -64,11 +64,7 @@ TEMPLATE_DEFS: list[dict] = [
     {"key": "buyback_payout_completed", "category": "buyback", "name": "振込完了", "subject": "【{{shopName}}】振込が完了しました（{{buyNo}}）"},
     {"key": "buyback_request_admin_alert", "category": "buyback", "name": "買取申請（管理者）", "subject": "【{{shopName}}】新規買取申請"},
     {"key": "buyback_guardian_consent", "category": "buyback", "name": "保護者同意依頼", "subject": "【{{shopName}}】保護者同意のお願い"},
-    # point
-    {"key": "point_granted", "category": "point", "name": "ポイント付与", "subject": "【{{shopName}}】ポイント付与のお知らせ"},
-    {"key": "point_expired", "category": "point", "name": "ポイント失効", "subject": "【{{shopName}}】ポイント失効のお知らせ"},
-    {"key": "point_referral", "category": "point", "name": "紹介ポイント付与", "subject": "【{{shopName}}】紹介ポイント付与"},
-    {"key": "coupon_issued", "category": "point", "name": "クーポン発行", "subject": "【{{shopName}}】クーポン発行のお知らせ"},
+    # point/coupon/rank templates seeded via loyalty_email_templates_seed.py
     # ops
     {"key": "inquiry_received", "category": "ops", "name": "お問い合わせ受付", "subject": "【{{shopName}}】お問い合わせを受け付けました"},
     {"key": "inquiry_reply", "category": "ops", "name": "お問い合わせ返信", "subject": "【{{shopName}}】お問い合わせへの返信"},

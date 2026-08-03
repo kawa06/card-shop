@@ -12,11 +12,15 @@ const CATEGORIES = [
   { id: 'login', label: 'ログイン' },
   { id: 'password', label: 'パスワード' },
   { id: 'security', label: 'セキュリティ' },
+  { id: 'point', label: 'ポイント' },
+  { id: 'coupon', label: 'クーポン' },
+  { id: 'rank', label: '会員ランク' },
+  { id: 'campaign', label: 'キャンペーン' },
+  { id: 'other', label: 'その他' },
   { id: 'order', label: '購入' },
   { id: 'shipping', label: '発送・配送' },
   { id: 'buyback', label: '買取' },
   { id: 'kyc', label: '本人確認・保護者同意' },
-  { id: 'point', label: 'ポイント' },
   { id: 'ops', label: '運営' },
 ]
 
@@ -117,6 +121,46 @@ export default function AdminEmailPage() {
 <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;">{{bodyTitle}}</h1>
 <p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
 {{kycInfoBlock}}
+{{buttonsBlock}}
+{{notesBlock}}
+{{contactBlock}}
+{{signatureBlock}}`,
+        text_body: '{{name}} 様\\n\\n{{bodyTitle}}\\n\\n{{bodyDescription}}',
+        is_active: false,
+      })
+      toast({ title: 'テンプレートを作成しました' })
+      void load()
+    } catch {
+      toast({ title: 'テンプレートの作成に失敗しました', variant: 'destructive' })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleCreateLoyaltyTemplate = async (category: string) => {
+    const prefixMap: Record<string, string> = {
+      point: 'point_',
+      coupon: 'coupon_',
+      rank: 'rank_',
+      campaign: 'campaign_',
+      other: 'loyalty_',
+    }
+    const prefix = prefixMap[category] || 'point_'
+    const key = window.prompt(`テンプレートキー（例: ${prefix}custom_notice）`)
+    if (!key) return
+    const name = window.prompt('テンプレート名') || key
+    setCreating(true)
+    try {
+      await adminEmailApi.createTemplate({
+        template_key: key,
+        category,
+        name,
+        subject: '【{{shopName}}】（件名を入力）',
+        preheader: '（プリヘッダーを入力）',
+        html_body: `<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;">{{bodyTitle}}</h1>
+<p style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+{{loyaltyInfoBlock}}
 {{buttonsBlock}}
 {{notesBlock}}
 {{contactBlock}}
@@ -244,6 +288,21 @@ export default function AdminEmailPage() {
               <button
                 type="button"
                 onClick={() => void handleCreateKycTemplate()}
+                disabled={creating}
+                className="inline-flex items-center gap-1 text-emerald-600 hover:underline disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" /> 新規テンプレート
+              </button>
+            </>
+          )}
+          {(category === 'point' || category === 'coupon' || category === 'rank' || category === 'campaign' || category === 'other') && (
+            <>
+              <Link href="/admin/settings/email/loyalty-notifications" className="text-purple-600 hover:underline">
+                自動送信設定
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleCreateLoyaltyTemplate(category)}
                 disabled={creating}
                 className="inline-flex items-center gap-1 text-emerald-600 hover:underline disabled:opacity-50"
               >

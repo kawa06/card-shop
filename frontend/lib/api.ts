@@ -840,6 +840,12 @@ export const adminEmailApi = {
     apiClient.put('/admin/email/member/auto-send', { settings }),
   resendMemberEmail: (userId: number, data: { event_key: string; verify_url?: string; reset_url?: string }) =>
     apiClient.post(`/admin/email/member/users/${userId}/resend`, data),
+  getLoyaltyAutoSend: () =>
+    apiClient.get<{ settings: Record<string, boolean> }>('/admin/email/loyalty/auto-send'),
+  updateLoyaltyAutoSend: (settings: Record<string, boolean>) =>
+    apiClient.put('/admin/email/loyalty/auto-send', { settings }),
+  resendLoyaltyEmail: (userId: number, data: { event_key: string }) =>
+    apiClient.post(`/admin/email/loyalty/users/${userId}/resend`, data),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
   getTemplateVariables: (key: string) =>
     apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(

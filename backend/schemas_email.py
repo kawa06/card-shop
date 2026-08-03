@@ -195,6 +195,18 @@ class AdminMemberResendEmailIn(BaseModel):
     reset_url: str | None = None
 
 
+class LoyaltyEmailAutoSendOut(BaseModel):
+    settings: dict[str, bool]
+
+
+class LoyaltyEmailAutoSendUpdateIn(BaseModel):
+    settings: dict[str, bool] = Field(default_factory=dict)
+
+
+class AdminLoyaltyResendEmailIn(BaseModel):
+    event_key: str
+
+
 class AdminIdentityResendEmailIn(BaseModel):
     event_key: str
     force: bool = True

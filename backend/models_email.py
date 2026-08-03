@@ -37,6 +37,7 @@ class EmailBrandSettings(Base):
     contact_phone = Column(String(32), nullable=True)
     email_signature_html = Column(Text, nullable=True)
     member_email_auto_send_json = Column(Text, nullable=True)
+    loyalty_email_auto_send_json = Column(Text, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
