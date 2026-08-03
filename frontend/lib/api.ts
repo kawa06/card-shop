@@ -620,6 +620,43 @@ export const adminBuybackApi = {
     }),
   getRequest: (id: number) =>
     apiClient.get<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`),
+  getAssessmentLogs: (id: number) =>
+    apiClient.get<import('./types').AdminBuybackAssessmentLog[]>(
+      `/admin/buyback/requests/${id}/assessment-logs`
+    ),
+  presentAssessment: (id: number, data: { customer_status_note?: string }) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/present-assessment`,
+      data
+    ),
+  storeCheckIn: (id: number) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/store/check-in`
+    ),
+  storeStartAssessment: (id: number) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/store/start-assessment`
+    ),
+  storeAppraisalEstimate: (
+    id: number,
+    data: { estimated_minutes: number; message?: string }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/store/appraisal-estimate`,
+      data
+    ),
+  storeCompletePayment: (
+    id: number,
+    data: { payment_method: string; payment_amount?: number; payment_note?: string }
+  ) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/store/complete-payment`,
+      data
+    ),
+  storeCompleteTransaction: (id: number) =>
+    apiClient.post<import('./types').AdminBuybackRequestDetail>(
+      `/admin/buyback/requests/${id}/store/complete-transaction`
+    ),
   updateRequest: (
     id: number,
     data: {
@@ -640,10 +677,12 @@ export const adminBuybackApi = {
       items: Array<{
         id: number
         line_status?: string
+        condition_code?: string
         assessed_unit_price?: number | null
         accepted_unit_price?: number | null
         rejection_reason_code?: string | null
         rejection_reason_text?: string | null
+        assessment_comment?: string | null
         is_return_target?: boolean
         is_disposal_target?: boolean
         return_status?: string

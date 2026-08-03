@@ -1,0 +1,7 @@
+'use client'
+
+import { BuybackRequestListView } from '@/components/admin/buyback/BuybackRequestListView'
+
+export default function StoreBuybackRequestsPage() {
+  return <BuybackRequestListView channel="store" />
+}

@@ -37,6 +37,7 @@ from services.kyc_emails import (
 from services.buyback_item_labels import (
     apply_rejected_item_handling,
     compute_assessed_total,
+    CONDITION_CODE_LABELS,
     format_rejection_reason,
     parse_assessment_lines,
 )
@@ -768,6 +769,13 @@ def update_request_items(
                 raise HTTPException(status_code=400, detail=f"無効な査定区分: {line_status}")
             item.line_status = line_status
 
+        if "condition_code" in payload and payload["condition_code"] is not None:
+            code = str(payload["condition_code"]).strip()
+            if code and code not in CONDITION_CODE_LABELS:
+                raise HTTPException(status_code=400, detail=f"無効な状態コード: {code}")
+            if code:
+                item.condition_code = code
+
         if "assessed_unit_price" in payload:
             item.assessed_unit_price = payload["assessed_unit_price"]
         if "assessment_lines" in payload:
@@ -818,6 +826,9 @@ def update_request_items(
             item.rejection_reason_code = payload["rejection_reason_code"] or None
         if "rejection_reason_text" in payload:
             item.rejection_reason_text = (payload["rejection_reason_text"] or "").strip() or None
+        if "assessment_comment" in payload:
+            comment = payload["assessment_comment"]
+            item.assessment_comment = (comment or "").strip() or None
         if "is_return_target" in payload and payload["is_return_target"] is not None:
             item.is_return_target = bool(payload["is_return_target"])
         if "is_disposal_target" in payload and payload["is_disposal_target"] is not None:
@@ -858,6 +869,81 @@ def update_request_items(
     )
     db.commit()
     return get_admin_request(db, request_id)
+
+
+ASSESSMENT_AUDIT_ACTIONS = frozenset(
+    {
+        "request_items_updated",
+        "assessment_presented",
+        "status_changed",
+        "store_check_in",
+        "assessment_started",
+        "appraisal_estimate_sent",
+        "store_payment_completed",
+        "transaction_completed",
+        "store_visit_rescheduled",
+    }
+)
+
+ASSESSMENT_ACTION_LABELS: dict[str, str] = {
+    "request_items_updated": "商品査定を更新",
+    "assessment_presented": "査定結果を提示",
+    "status_changed": "ステータス変更",
+    "store_check_in": "来店チェックイン",
+    "assessment_started": "査定開始",
+    "appraisal_estimate_sent": "査定待ち時間を通知",
+    "store_payment_completed": "店舗支払い完了",
+    "transaction_completed": "店舗取引完了",
+    "store_visit_rescheduled": "来店日時変更",
+}
+
+
+def list_request_assessment_logs(
+    db: Session,
+    *,
+    request_id: int,
+    limit: int = 50,
+) -> list[dict]:
+    get_admin_request(db, request_id)
+    logs = (
+        db.query(models_buyback.BuybackAuditLog)
+        .filter(
+            models_buyback.BuybackAuditLog.entity_type == "buyback_request",
+            models_buyback.BuybackAuditLog.entity_id == str(request_id),
+        )
+        .order_by(models_buyback.BuybackAuditLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    actor_ids = {log.actor_user_id for log in logs if log.actor_user_id}
+    actors: dict[int, models.User] = {}
+    if actor_ids:
+        for user in db.query(models.User).filter(models.User.id.in_(actor_ids)).all():
+            actors[user.id] = user
+
+    rows: list[dict] = []
+    for log in logs:
+        action = log.action or ""
+        if action not in ASSESSMENT_AUDIT_ACTIONS:
+            continue
+        actor = actors.get(log.actor_user_id) if log.actor_user_id else None
+        details = None
+        if log.details_json:
+            try:
+                details = json.loads(log.details_json)
+            except json.JSONDecodeError:
+                details = {"raw": log.details_json}
+        rows.append(
+            {
+                "id": log.id,
+                "action": action,
+                "action_label": ASSESSMENT_ACTION_LABELS.get(action, action),
+                "actor_name": (actor.name or actor.email) if actor else None,
+                "details": details,
+                "created_at": log.created_at,
+            }
+        )
+    return rows
 
 
 def identity_stats(db: Session) -> dict[str, int]:

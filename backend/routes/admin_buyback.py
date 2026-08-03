@@ -35,6 +35,7 @@ from services.buyback_admin import (
     update_identity_admin_memo,
     update_request_items,
     update_request_status,
+    list_request_assessment_logs,
 )
 from services.buyback_age import age_profile_for_user, requires_guardian_consent_for_user
 from services.buyback_guardian import get_latest_guardian_consent
@@ -42,6 +43,7 @@ from services.buyback_identity_compare import build_profile_comparison
 from services.buyback_kyc_storage import fetch_kyc_document
 from services.user_profile import legal_full_name, legal_name_kana
 from services.buyback_serializers import (
+    condition_code_options,
     rejection_reason_options,
     rejected_item_handling_label,
     serialize_appraisal_estimate,
@@ -666,6 +668,7 @@ def _request_detail_out(
         guardian_status_label=payout_ctx.get("guardian_status_label") if include_contact else None,
         guardian_ready=bool(payout_ctx.get("guardian_ready")),
         rejection_reason_options=rejection_reason_options(),
+        condition_code_options=condition_code_options(),
     )
 
 
@@ -1082,6 +1085,19 @@ def resend_request_email(
     if not ok:
         raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
     return {"message": "メールを再送しました", "event_key": body.event_key}
+
+
+@router.get(
+    "/requests/{request_id}/assessment-logs",
+    response_model=list[schemas_buyback.AdminBuybackAssessmentLogOut],
+)
+def get_request_assessment_logs(
+    request_id: int,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("buyback.request.read")),
+):
+    rows = list_request_assessment_logs(db, request_id=request_id)
+    return [schemas_buyback.AdminBuybackAssessmentLogOut(**row) for row in rows]
 
 
 @router.patch(

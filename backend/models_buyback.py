@@ -306,6 +306,7 @@ class BuybackRequestItem(Base):
     line_status = Column(String(32), nullable=True)
     rejection_reason_code = Column(String(64), nullable=True)
     rejection_reason_text = Column(Text, nullable=True)
+    assessment_comment = Column(Text, nullable=True)
     is_return_target = Column(Boolean, default=False, nullable=False)
     is_disposal_target = Column(Boolean, default=False, nullable=False)
     return_status = Column(String(32), nullable=True)

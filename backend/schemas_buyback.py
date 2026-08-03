@@ -302,6 +302,7 @@ class BuybackRequestItemOut(BaseModel):
     rejection_reason_code: Optional[str] = None
     rejection_reason_text: Optional[str] = None
     rejection_reason_label: Optional[str] = None
+    assessment_comment: Optional[str] = None
     is_return_target: bool = False
     is_disposal_target: bool = False
     return_status: Optional[str] = None
@@ -721,6 +722,15 @@ class AdminBuybackStatusHistoryOut(BaseModel):
     created_at: datetime
 
 
+class AdminBuybackAssessmentLogOut(BaseModel):
+    id: int
+    action: str
+    action_label: str
+    actor_name: Optional[str] = None
+    details: Optional[dict] = None
+    created_at: datetime
+
+
 class AdminBuybackRequestDetailOut(BaseModel):
     id: int
     request_number: Optional[str] = None
@@ -775,16 +785,19 @@ class AdminBuybackRequestDetailOut(BaseModel):
     is_store_purchase: bool = False
     store_visit_overdue: bool = False
     rejection_reason_options: List[dict[str, str]] = []
+    condition_code_options: List[dict[str, str]] = []
 
 
 class AdminBuybackRequestItemUpdateIn(BaseModel):
     id: int
     line_status: Optional[str] = None
+    condition_code: Optional[str] = None
     assessed_unit_price: Optional[int] = None
     assessment_lines: Optional[List[AssessmentLineIn]] = None
     accepted_unit_price: Optional[int] = None
     rejection_reason_code: Optional[str] = None
     rejection_reason_text: Optional[str] = None
+    assessment_comment: Optional[str] = None
     is_return_target: Optional[bool] = None
     is_disposal_target: Optional[bool] = None
     return_status: Optional[str] = None

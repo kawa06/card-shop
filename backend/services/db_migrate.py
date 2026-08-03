@@ -181,6 +181,7 @@ def _migrate_buyback_request_columns() -> None:
     _add_column_if_missing("buyback_requests", "customer_status_note", "TEXT")
     _add_column_if_missing("buyback_request_items", "customer_decision", "VARCHAR(32)")
     _add_column_if_missing("buyback_request_items", "customer_decision_lines_json", "TEXT")
+    _add_column_if_missing("buyback_request_items", "assessment_comment", "TEXT")
     _add_column_if_missing("buyback_requests", "customer_confirmed_at", "DATETIME")
     _add_column_if_missing("buyback_requests", "customer_confirmed_by_user_id", "INTEGER")
     store_workflow_cols = [

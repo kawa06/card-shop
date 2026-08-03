@@ -72,6 +72,7 @@ def serialize_request_item(
             item.rejection_reason_code,
             item.rejection_reason_text,
         ),
+        assessment_comment=item.assessment_comment,
         is_return_target=bool(item.is_return_target),
         is_disposal_target=bool(item.is_disposal_target),
         return_status=return_status,
@@ -116,6 +117,12 @@ def rejection_reason_options() -> list[dict[str, str]]:
         {"code": code, "label": label}
         for code, label in models_buyback.REJECTION_REASON_CODES.items()
     ]
+
+
+def condition_code_options() -> list[dict[str, str]]:
+    from services.buyback_item_labels import CONDITION_CODE_LABELS
+
+    return [{"code": code, "label": label} for code, label in CONDITION_CODE_LABELS.items()]
 
 
 def rejected_item_handling_label(value: str | None) -> str | None:

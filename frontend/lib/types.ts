@@ -602,6 +602,32 @@ export interface AdminBuybackRequestItem {
   return_status_label?: string | null
   return_tracking_number?: string | null
   return_shipping_cost?: number | null
+  condition_code_label?: string | null
+  assessment_comment?: string | null
+  assessment_lines?: { quantity: number; unit_price: number }[]
+}
+
+export interface AdminBuybackConditionOption {
+  code: string
+  label: string
+}
+
+export interface AdminBuybackAppraisalEstimate {
+  estimated_minutes: number
+  message?: string | null
+  sent_at: string
+  revision_count: number
+  expected_completion_at?: string | null
+  is_overdue?: boolean
+}
+
+export interface AdminBuybackAssessmentLog {
+  id: number
+  action: string
+  action_label: string
+  actor_name?: string | null
+  details?: Record<string, unknown> | null
+  created_at: string
 }
 
 export interface AdminBuybackRejectionReasonOption {
@@ -634,7 +660,17 @@ export interface AdminBuybackRequestDetail extends AdminBuybackRequestListItem {
   payout_transfer_status_label: string | null
   identity_approved_at: string | null
   assessment_approved_at: string | null
+  customer_status_note?: string | null
+  store_visit_at?: string | null
+  store_checked_in_at?: string | null
+  assessment_started_at?: string | null
+  assessment_presented_at?: string | null
+  assessment_result_version?: number
+  latest_appraisal_estimate?: AdminBuybackAppraisalEstimate | null
+  is_store_purchase?: boolean
+  store_visit_overdue?: boolean
   rejection_reason_options?: AdminBuybackRejectionReasonOption[]
+  condition_code_options?: AdminBuybackConditionOption[]
 }
 
 export interface AdminRole {
