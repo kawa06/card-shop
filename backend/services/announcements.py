@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
@@ -139,6 +140,9 @@ def create_announcement(
     image_urls: list[str] | None = None,
     show_on_site: bool = True,
     send_email: bool = False,
+    email_template_key: str | None = None,
+    email_audience_key: str | None = None,
+    email_audience_params: dict | None = None,
 ) -> models.Announcement:
     title_ja = title_ja.strip()
     content_ja = sanitize_announcement_html(content_ja)
@@ -158,6 +162,11 @@ def create_announcement(
         priority=max(0, int(priority)),
         show_on_site=show_on_site,
         send_email=send_email,
+        email_template_key=email_template_key or "broadcast_notice_important",
+        email_audience_key=email_audience_key or "all_verified",
+        email_audience_params_json=(
+            json.dumps(email_audience_params, ensure_ascii=False) if email_audience_params else None
+        ),
         email_send_status="none",
         title=title_ja,
         content=content_ja,
@@ -190,6 +199,9 @@ def update_announcement(
     clear_publish_at: bool = False,
     show_on_site: bool | None = None,
     send_email: bool | None = None,
+    email_template_key: str | None = None,
+    email_audience_key: str | None = None,
+    email_audience_params: dict | None = None,
 ) -> models.Announcement:
     was_published = announcement.status == "published"
     ja_updated = False
@@ -216,6 +228,14 @@ def update_announcement(
         announcement.show_on_site = show_on_site
     if send_email is not None:
         announcement.send_email = send_email
+    if email_template_key is not None:
+        announcement.email_template_key = email_template_key
+    if email_audience_key is not None:
+        announcement.email_audience_key = email_audience_key
+    if email_audience_params is not None:
+        announcement.email_audience_params_json = (
+            json.dumps(email_audience_params, ensure_ascii=False) if email_audience_params else None
+        )
     if status_value is not None:
         announcement.status = _normalize_status(status_value, publish_at=announcement.publish_at)
 

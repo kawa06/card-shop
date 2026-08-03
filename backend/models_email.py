@@ -69,6 +69,8 @@ class EmailCampaign(Base):
     reference_type = Column(String(64), nullable=True, index=True)
     reference_id = Column(String(64), nullable=True, index=True)
     target_description = Column(String(255), nullable=True)
+    audience_key = Column(String(64), nullable=True)
+    audience_params_json = Column(Text, nullable=True)
     recipient_count = Column(Integer, default=0, nullable=False)
     success_count = Column(Integer, default=0, nullable=False)
     failed_count = Column(Integer, default=0, nullable=False)

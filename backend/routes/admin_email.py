@@ -35,6 +35,8 @@ from services.loyalty_email_auto_send import (
     get_auto_send_settings as get_loyalty_auto_send_settings,
     update_auto_send_settings as update_loyalty_auto_send_settings,
 )
+from services.broadcast_email_variables import broadcast_variables_for_template
+from services.broadcast_audience_registry import list_audience_segments
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -182,6 +184,11 @@ def get_template_variables(
         or template_key in {"coupon_issued", "point_referral"}
     ):
         variables = loyalty_variables_for_template(template_key)
+    elif (
+        template_key.startswith("broadcast_")
+        or template_key in {"announcement_broadcast", "maintenance_notice", "incident_notice", "incident_resolved"}
+    ):
+        variables = broadcast_variables_for_template(template_key)
     else:
         variables = []
     return schemas_email.EmailTemplateVariablesOut(
@@ -356,6 +363,13 @@ def resend_loyalty_email_route(
     if not ok:
         raise HTTPException(status_code=502, detail=err or "メール送信に失敗しました")
     return {"message": "メールを再送しました", "event_key": body.event_key}
+
+
+@router.get("/broadcast/audiences")
+def list_broadcast_audiences(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+):
+    return {"segments": list_audience_segments()}
 
 
 @router.get("/carriers")

@@ -322,6 +322,9 @@ def _normalize_create_payload(payload: schemas.AnnouncementCreate) -> dict:
         "image_urls": payload.image_urls,
         "show_on_site": payload.show_on_site,
         "send_email": payload.send_email,
+        "email_template_key": payload.email_template_key,
+        "email_audience_key": payload.email_audience_key,
+        "email_audience_params": payload.email_audience_params,
     }
 
 
@@ -342,6 +345,9 @@ def _serialize_admin(row: models.Announcement) -> schemas.AnnouncementAdminOut:
         thumbnail=row.thumbnail,
         show_on_site=getattr(row, "show_on_site", True),
         send_email=getattr(row, "send_email", False),
+        email_template_key=getattr(row, "email_template_key", None),
+        email_audience_key=getattr(row, "email_audience_key", None),
+        email_audience_params_json=getattr(row, "email_audience_params_json", None),
         email_campaign_id=getattr(row, "email_campaign_id", None),
         email_send_status=getattr(row, "email_send_status", "none") or "none",
         email_scheduled_at=getattr(row, "email_scheduled_at", None),
@@ -474,17 +480,24 @@ def admin_delete_announcement(
 @router.get("/announcements/{ann_id}/email-preview", response_model=schemas_email.AnnouncementEmailPreviewOut)
 def admin_announcement_email_preview(
     ann_id: int,
+    audience_key: Optional[str] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
+    from sqlalchemy.orm import joinedload
     from services.email_broadcast import build_announcement_email_preview
 
-    ann = db.query(models.Announcement).filter(models.Announcement.id == ann_id).first()
+    ann = (
+        db.query(models.Announcement)
+        .options(joinedload(models.Announcement.images))
+        .filter(models.Announcement.id == ann_id)
+        .first()
+    )
     if not ann:
         raise HTTPException(status_code=404, detail="お知らせが見つかりません")
     if not ann.send_email:
         raise HTTPException(status_code=400, detail="このお知らせはメール配信が有効になっていません")
-    return build_announcement_email_preview(db, ann)
+    return build_announcement_email_preview(db, ann, audience_key=audience_key)
 
 
 @router.post("/announcements/{ann_id}/send-email")
@@ -516,6 +529,9 @@ def admin_announcement_send_email(
             send_mode=payload.send_mode,
             scheduled_at=payload.scheduled_at,
             idempotency_key=payload.idempotency_key,
+            audience_key=payload.audience_key,
+            audience_params=payload.audience_params or None,
+            template_key=payload.template_key,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

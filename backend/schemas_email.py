@@ -148,9 +148,14 @@ class EmailCampaignDetailOut(EmailCampaignOut):
 class AnnouncementEmailPreviewOut(BaseModel):
     subject: str
     html: str
+    text: str = ""
     recipient_count: int
     target_description: str
     recipients_sample: list[str] = Field(default_factory=list)
+    template_key: str = "broadcast_notice_important"
+    template_name: str = ""
+    audience_key: str = "all_verified"
+    image_urls: list[str] = Field(default_factory=list)
 
 
 class AnnouncementEmailSendIn(BaseModel):
@@ -158,6 +163,9 @@ class AnnouncementEmailSendIn(BaseModel):
     scheduled_at: Optional[datetime] = None
     idempotency_key: Optional[str] = None
     confirm: bool = False
+    audience_key: Optional[str] = None
+    audience_params: dict[str, Any] = Field(default_factory=dict)
+    template_key: Optional[str] = None
 
 
 class EmailTestSendIn(BaseModel):

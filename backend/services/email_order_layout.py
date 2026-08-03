@@ -192,6 +192,38 @@ LOYALTY_VARIABLES_HINT = (
 )
 
 
+BROADCAST_EMAIL_BODY_SKELETON = """
+<p style="margin:0 0 20px;font-size:15px;color:#475569;">{{name}} 様</p>
+
+<h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#0f172a;letter-spacing:0.01em;line-height:1.4;">{{bodyTitle}}</h1>
+
+<p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#475569;">{{bodyDescription}}</p>
+
+{{broadcastInfoBlock}}
+
+{{imageBlock}}
+
+<div style="margin:0 0 24px;font-size:15px;line-height:1.75;color:#475569;">{{noticeContent}}</div>
+
+{{buttonsBlock}}
+
+{{notesBlock}}
+
+{{contactBlock}}
+
+{{signatureBlock}}
+""".strip()
+
+
+BROADCAST_VARIABLES_HINT = (
+    "{{name}} / {{ユーザー名}}, {{email}} / {{メールアドレス}}, {{noticeTitle}} / {{お知らせタイトル}}, "
+    "{{noticeContent}} / {{content}}, {{publishedAt}} / {{公開日時}}, {{startAt}} / {{開始日時}}, "
+    "{{endAt}} / {{終了日時}}, {{url}} / {{URL}}, {{contactUrl}} / {{お問い合わせURL}}, "
+    "{{bodyTitle}}, {{bodyDescription}}, {{broadcastInfoBlock}}, {{imageBlock}}, {{buttonsBlock}}, "
+    "{{notesBlock}}, {{contactBlock}}, {{signatureBlock}}"
+)
+
+
 SHIPPING_VARIABLES_HINT = (
     "{{name}} / {{ユーザー名}}, {{orderNo}} / {{注文番号}}, {{itemsTable}} / {{注文商品}}, "
     "{{carrier}} / {{配送会社}}, {{trackingNo}} / {{送り状番号}}, {{shippedDate}} / {{発送日}}, "
@@ -343,6 +375,27 @@ def build_loyalty_info_block(rows: list[tuple[str, str]]) -> str:
     if not visible:
         return ""
     return build_order_summary_block(visible)
+
+
+def build_broadcast_info_block(rows: list[tuple[str, str]]) -> str:
+    """Dynamic announcement/campaign info table."""
+    visible = [(label, value) for label, value in rows if value and str(value).strip()]
+    if not visible:
+        return ""
+    return build_order_summary_block(visible)
+
+
+def build_image_block(image_urls: list[str]) -> str:
+    """Responsive image block for announcement emails."""
+    visible = [url.strip() for url in image_urls if url and str(url).strip()]
+    if not visible:
+        return ""
+    parts = [
+        f'<img src="{_esc(url)}" alt="" '
+        f'style="display:block;max-width:100%;height:auto;margin:12px auto;border-radius:12px;" />'
+        for url in visible
+    ]
+    return f'<div style="margin:0 0 20px;text-align:center;">{"".join(parts)}</div>'
 
 
 def build_preheader_html(preheader: str) -> str:

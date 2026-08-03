@@ -801,12 +801,22 @@ def _migrate_email_auth_schema() -> None:
     for col, col_type in sched_cols:
         _add_column_if_missing("email_scheduled_sends", col, col_type)
 
+    campaign_cols = [
+        ("audience_key", "VARCHAR(64)"),
+        ("audience_params_json", "TEXT"),
+    ]
+    for col, col_type in campaign_cols:
+        _add_column_if_missing("email_campaigns", col, col_type)
+
     ann_cols = [
         ("show_on_site", "BOOLEAN DEFAULT 1"),
         ("send_email", "BOOLEAN DEFAULT 0"),
         ("email_campaign_id", "INTEGER"),
         ("email_send_status", "VARCHAR(16) DEFAULT 'none'"),
         ("email_scheduled_at", "DATETIME"),
+        ("email_template_key", "VARCHAR(64)"),
+        ("email_audience_key", "VARCHAR(64)"),
+        ("email_audience_params_json", "TEXT"),
     ]
     for col, col_type in ann_cols:
         _add_column_if_missing("announcements", col, col_type)
@@ -897,3 +907,13 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("loyalty email template upgrade failed")
+        try:
+            from services.broadcast_email_templates_seed import upgrade_broadcast_email_templates
+
+            broadcast_upgraded = upgrade_broadcast_email_templates(db)
+            if broadcast_upgraded:
+                db.commit()
+                logger.info("Upgraded %s broadcast email templates", broadcast_upgraded)
+        except Exception:
+            db.rollback()
+            logger.error("broadcast email template upgrade failed")

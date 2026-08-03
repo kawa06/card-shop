@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date, datetime
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from models import OrderStatus, CARD_RARITIES
 from services.pokemon_names import translate_pokemon_name
 
@@ -644,6 +644,9 @@ class AnnouncementCreate(AnnouncementBase):
     image_urls: List[str] = []
     show_on_site: bool = True
     send_email: bool = False
+    email_template_key: Optional[str] = "broadcast_notice_important"
+    email_audience_key: Optional[str] = "all_verified"
+    email_audience_params: dict = Field(default_factory=dict)
 
 
 class AnnouncementUpdate(BaseModel):
@@ -664,6 +667,9 @@ class AnnouncementUpdate(BaseModel):
     image_urls: Optional[List[str]] = None
     show_on_site: Optional[bool] = None
     send_email: Optional[bool] = None
+    email_template_key: Optional[str] = None
+    email_audience_key: Optional[str] = None
+    email_audience_params: Optional[dict] = None
 
 
 class AnnouncementOut(AnnouncementBase):
@@ -712,6 +718,9 @@ class AnnouncementAdminOut(BaseModel):
     thumbnail: Optional[str] = None
     show_on_site: bool = True
     send_email: bool = False
+    email_template_key: Optional[str] = "broadcast_notice_important"
+    email_audience_key: Optional[str] = "all_verified"
+    email_audience_params_json: Optional[str] = None
     email_campaign_id: Optional[int] = None
     email_send_status: str = "none"
     email_scheduled_at: Optional[datetime] = None

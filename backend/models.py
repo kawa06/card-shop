@@ -397,6 +397,9 @@ class Announcement(Base):
     email_campaign_id = Column(Integer, nullable=True, index=True)
     email_send_status = Column(String(16), nullable=False, default="none", index=True)
     email_scheduled_at = Column(DateTime, nullable=True)
+    email_template_key = Column(String(64), nullable=True)
+    email_audience_key = Column(String(64), nullable=True)
+    email_audience_params_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

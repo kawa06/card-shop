@@ -223,14 +223,19 @@ export const announcementsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
-  emailPreview: (id: number) =>
+  emailPreview: (id: number, params?: { audience_key?: string }) =>
     apiClient.get<{
       subject: string
       html: string
+      text?: string
       recipient_count: number
       target_description: string
       recipients_sample: string[]
-    }>(`/admin/announcements/${id}/email-preview`),
+      template_key?: string
+      template_name?: string
+      audience_key?: string
+      image_urls?: string[]
+    }>(`/admin/announcements/${id}/email-preview`, { params }),
   sendEmail: (
     id: number,
     data: {
@@ -238,6 +243,9 @@ export const announcementsApi = {
       send_mode: 'immediate' | 'scheduled'
       scheduled_at?: string | null
       idempotency_key?: string
+      audience_key?: string
+      audience_params?: Record<string, unknown>
+      template_key?: string
     }
   ) => apiClient.post(`/admin/announcements/${id}/send-email`, data),
 }
@@ -846,6 +854,10 @@ export const adminEmailApi = {
     apiClient.put('/admin/email/loyalty/auto-send', { settings }),
   resendLoyaltyEmail: (userId: number, data: { event_key: string }) =>
     apiClient.post(`/admin/email/loyalty/users/${userId}/resend`, data),
+  getBroadcastAudiences: () =>
+    apiClient.get<{ segments: Array<{ segment_key: string; label: string; description: string; requires_params: boolean }> }>(
+      '/admin/email/broadcast/audiences'
+    ),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
   getTemplateVariables: (key: string) =>
     apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(

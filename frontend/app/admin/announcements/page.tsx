@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { announcementsApi } from '@/lib/api'
+import { announcementsApi, adminEmailApi } from '@/lib/api'
 import { AnnouncementAdmin } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,8 +26,28 @@ import { translateJaToEn } from '@/lib/translate'
 
 type AdminFormState = Pick<
   import('@/lib/types').AnnouncementFormData,
-  'title_ja' | 'content_ja' | 'status' | 'publish_at' | 'expire_at' | 'thumbnail' | 'priority' | 'image_urls' | 'show_on_site' | 'send_email'
+  'title_ja' | 'content_ja' | 'status' | 'publish_at' | 'expire_at' | 'thumbnail' | 'priority' | 'image_urls' | 'show_on_site' | 'send_email' | 'email_template_key' | 'email_audience_key' | 'custom_emails'
 >
+
+const EMAIL_TEMPLATE_OPTIONS = [
+  { value: 'broadcast_notice_important', label: '重要なお知らせ' },
+  { value: 'broadcast_notice_urgent', label: '緊急のお知らせ' },
+  { value: 'broadcast_maintenance_scheduled', label: 'メンテナンス予定' },
+  { value: 'broadcast_maintenance_started', label: 'メンテナンス開始' },
+  { value: 'broadcast_maintenance_ended', label: 'メンテナンス終了' },
+  { value: 'broadcast_service_incident', label: 'サービス障害' },
+  { value: 'broadcast_incident_recovered', label: '障害復旧' },
+  { value: 'broadcast_terms_important', label: '重要な規約変更' },
+  { value: 'broadcast_privacy_important', label: '重要なプライバシーポリシー変更' },
+  { value: 'broadcast_promo_start', label: 'キャンペーン開始' },
+  { value: 'broadcast_promo_ending_soon', label: 'キャンペーン終了間近' },
+  { value: 'broadcast_promo_ended', label: 'キャンペーン終了' },
+  { value: 'broadcast_promo_limited_event', label: '期間限定イベント' },
+  { value: 'broadcast_promo_limited_sale', label: '限定販売' },
+  { value: 'broadcast_promo_new_product', label: '新商品公開' },
+  { value: 'broadcast_promo_new_feature', label: '新機能追加' },
+  { value: 'broadcast_system_error', label: 'システムエラー' },
+]
 
 const EMPTY_FORM: AdminFormState = {
   title_ja: '',
@@ -40,6 +60,9 @@ const EMPTY_FORM: AdminFormState = {
   image_urls: [],
   show_on_site: true,
   send_email: false,
+  email_template_key: 'broadcast_notice_important',
+  email_audience_key: 'all_verified',
+  custom_emails: '',
 }
 
 function toLocalInput(iso: string | null | undefined): string | null {
@@ -79,10 +102,16 @@ export default function AdminAnnouncementsPage() {
   const [emailPreview, setEmailPreview] = useState<{
     subject: string
     html: string
+    text?: string
     recipient_count: number
     target_description: string
     recipients_sample: string[]
+    template_key?: string
+    template_name?: string
+    audience_key?: string
+    image_urls?: string[]
   } | null>(null)
+  const [audienceSegments, setAudienceSegments] = useState<Array<{ segment_key: string; label: string; description: string; requires_params: boolean }>>([])
   const [emailSendMode, setEmailSendMode] = useState<'immediate' | 'scheduled'>('immediate')
   const [emailScheduledAt, setEmailScheduledAt] = useState<string | null>(null)
   const [emailSending, setEmailSending] = useState(false)
@@ -100,6 +129,13 @@ export default function AdminAnnouncementsPage() {
   useEffect(() => {
     if (isReady) fetchAnnouncements()
   }, [isReady, fetchAnnouncements])
+
+  useEffect(() => {
+    if (!isReady) return
+    adminEmailApi.getBroadcastAudiences().then((res) => {
+      setAudienceSegments(res.data.segments || [])
+    }).catch(() => {})
+  }, [isReady])
 
   const openCreate = () => {
     setEditingId(null)
@@ -120,6 +156,9 @@ export default function AdminAnnouncementsPage() {
       image_urls: (row.images || []).map((img) => img.image_url),
       show_on_site: row.show_on_site ?? true,
       send_email: row.send_email ?? false,
+      email_template_key: row.email_template_key || 'broadcast_notice_important',
+      email_audience_key: row.email_audience_key || 'all_verified',
+      custom_emails: '',
     })
     setShowForm(true)
   }
@@ -183,23 +222,37 @@ export default function AdminAnnouncementsPage() {
     return true
   }
 
-  const buildPayload = () => ({
-    title_ja: form.title_ja.trim(),
-    content_ja: form.content_ja,
-    status: form.status,
-    publish_at: toIsoOrNull(form.publish_at),
-    expire_at: toIsoOrNull(form.expire_at),
-    clear_publish_at: !form.publish_at,
-    clear_expire_at: !form.expire_at,
-    thumbnail: form.thumbnail || null,
-    priority: form.priority,
-    image_urls: form.image_urls,
-    show_on_site: form.show_on_site,
-    send_email: form.send_email,
-    title: form.title_ja.trim(),
-    content: form.content_ja,
-    is_active: form.status === 'published',
-  })
+  const buildPayload = () => {
+    const audienceParams =
+      form.email_audience_key === 'custom_emails' && form.custom_emails.trim()
+        ? {
+            emails: form.custom_emails
+              .split(/[\n,]/)
+              .map((v) => v.trim())
+              .filter(Boolean),
+          }
+        : undefined
+    return {
+      title_ja: form.title_ja.trim(),
+      content_ja: form.content_ja,
+      status: form.status,
+      publish_at: toIsoOrNull(form.publish_at),
+      expire_at: toIsoOrNull(form.expire_at),
+      clear_publish_at: !form.publish_at,
+      clear_expire_at: !form.expire_at,
+      thumbnail: form.thumbnail || null,
+      priority: form.priority,
+      image_urls: form.image_urls,
+      show_on_site: form.show_on_site,
+      send_email: form.send_email,
+      email_template_key: form.email_template_key,
+      email_audience_key: form.email_audience_key,
+      email_audience_params: audienceParams,
+      title: form.title_ja.trim(),
+      content: form.content_ja,
+      is_active: form.status === 'published',
+    }
+  }
 
   const openEmailConfirm = async () => {
     if (!editingId) {
@@ -211,7 +264,9 @@ export default function AdminAnnouncementsPage() {
       return
     }
     try {
-      const res = await announcementsApi.emailPreview(editingId)
+      const res = await announcementsApi.emailPreview(editingId, {
+        audience_key: form.email_audience_key,
+      })
       setEmailPreview(res.data)
       setShowEmailConfirm(true)
     } catch {
@@ -230,6 +285,17 @@ export default function AdminAnnouncementsPage() {
           ? new Date(emailScheduledAt).toISOString()
           : null,
         idempotency_key: `ann-${editingId}-${Date.now()}`,
+        audience_key: form.email_audience_key,
+        template_key: form.email_template_key,
+        audience_params:
+          form.email_audience_key === 'custom_emails' && form.custom_emails.trim()
+            ? {
+                emails: form.custom_emails
+                  .split(/[\n,]/)
+                  .map((v) => v.trim())
+                  .filter(Boolean),
+              }
+            : undefined,
       })
       toast({
         title: emailSendMode === 'scheduled' ? 'メール配信を予約しました' : 'メール配信を開始しました',
@@ -354,7 +420,7 @@ export default function AdminAnnouncementsPage() {
                   onChange={(e) => setForm({ ...form, show_on_site: e.target.checked })}
                   className="rounded"
                 />
-                <span className="text-sm">サイト内のみ表示</span>
+                <span className="text-sm">サイト内のみ掲載</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -366,6 +432,46 @@ export default function AdminAnnouncementsPage() {
                 <span className="text-sm">メール配信する（確認画面から送信）</span>
               </label>
             </div>
+
+            {form.send_email && (
+              <div className="grid md:grid-cols-2 gap-4 rounded-lg border border-purple-100 bg-purple-50/40 p-4">
+                <div className="space-y-1">
+                  <Label>メールテンプレート</Label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    value={form.email_template_key}
+                    onChange={(e) => setForm({ ...form, email_template_key: e.target.value })}
+                  >
+                    {EMAIL_TEMPLATE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label>配信対象</Label>
+                  <select
+                    className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    value={form.email_audience_key}
+                    onChange={(e) => setForm({ ...form, email_audience_key: e.target.value })}
+                  >
+                    {(audienceSegments.length ? audienceSegments : [{ segment_key: 'all_verified', label: '全ユーザー', description: '', requires_params: false }]).map((seg) => (
+                      <option key={seg.segment_key} value={seg.segment_key}>{seg.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {form.email_audience_key === 'custom_emails' && (
+                  <div className="md:col-span-2 space-y-1">
+                    <Label>配信メールアドレス（カンマまたは改行区切り）</Label>
+                    <textarea
+                      className="w-full min-h-[80px] rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      value={form.custom_emails}
+                      onChange={(e) => setForm({ ...form, custom_emails: e.target.value })}
+                      placeholder="user@example.com, test@example.com"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-1">
@@ -528,8 +634,20 @@ export default function AdminAnnouncementsPage() {
             <h2 className="text-lg font-bold mb-4">メール配信の確認</h2>
             <dl className="space-y-2 text-sm mb-4">
               <div><dt className="text-gray-500 inline">件名: </dt><dd className="inline font-medium">{emailPreview.subject}</dd></div>
+              <div><dt className="text-gray-500 inline">テンプレート: </dt><dd className="inline">{emailPreview.template_name || emailPreview.template_key}</dd></div>
               <div><dt className="text-gray-500 inline">配信人数: </dt><dd className="inline font-medium">{emailPreview.recipient_count} 人</dd></div>
               <div><dt className="text-gray-500 inline">送信対象: </dt><dd className="inline">{emailPreview.target_description}</dd></div>
+              {(emailPreview.image_urls || []).length > 0 && (
+                <div>
+                  <dt className="text-gray-500">添付画像:</dt>
+                  <dd className="flex flex-wrap gap-2 mt-1">
+                    {emailPreview.image_urls!.map((url) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={url} src={url} alt="" className="h-16 w-16 object-cover rounded border" />
+                    ))}
+                  </dd>
+                </div>
+              )}
             </dl>
             <div className="border rounded-lg overflow-hidden mb-4">
               <iframe title="email-preview" srcDoc={emailPreview.html} className="w-full h-[280px] bg-white" sandbox="" />

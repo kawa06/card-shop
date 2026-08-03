@@ -71,6 +71,9 @@ export interface AnnouncementAdmin extends Announcement {
   status: 'draft' | 'published' | 'scheduled'
   show_on_site?: boolean
   send_email?: boolean
+  email_template_key?: string | null
+  email_audience_key?: string | null
+  email_audience_params_json?: string | null
   email_campaign_id?: number | null
   email_send_status?: string
   email_scheduled_at?: string | null
@@ -94,6 +97,9 @@ export interface AnnouncementFormData {
   image_urls: string[]
   show_on_site: boolean
   send_email: boolean
+  email_template_key: string
+  email_audience_key: string
+  custom_emails: string
 }
 
 export interface User {

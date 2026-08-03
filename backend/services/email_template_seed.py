@@ -66,12 +66,9 @@ TEMPLATE_DEFS: list[dict] = [
     {"key": "buyback_guardian_consent", "category": "buyback", "name": "保護者同意依頼", "subject": "【{{shopName}}】保護者同意のお願い"},
     # point/coupon/rank templates seeded via loyalty_email_templates_seed.py
     # ops
+    # ops broadcast templates seeded via broadcast_email_templates_seed.py
     {"key": "inquiry_received", "category": "ops", "name": "お問い合わせ受付", "subject": "【{{shopName}}】お問い合わせを受け付けました"},
     {"key": "inquiry_reply", "category": "ops", "name": "お問い合わせ返信", "subject": "【{{shopName}}】お問い合わせへの返信"},
-    {"key": "announcement_broadcast", "category": "ops", "name": "お知らせ配信", "subject": "【{{shopName}}】お知らせ"},
-    {"key": "maintenance_notice", "category": "ops", "name": "メンテナンス案内", "subject": "【{{shopName}}】メンテナンスのお知らせ"},
-    {"key": "incident_notice", "category": "ops", "name": "障害発生通知", "subject": "【{{shopName}}】障害発生のお知らせ"},
-    {"key": "incident_resolved", "category": "ops", "name": "復旧通知", "subject": "【{{shopName}}】復旧のお知らせ"},
 ]
 
 
