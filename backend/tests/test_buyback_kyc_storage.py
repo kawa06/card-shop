@@ -19,7 +19,7 @@ def test_storage_prefers_s3_over_api(monkeypatch):
     monkeypatch.setattr(settings, "R2_ACCOUNT_ID", "acct")
     monkeypatch.setattr(settings, "R2_BUCKET_NAME", "bucket")
     monkeypatch.setattr(settings, "R2_API_TOKEN", "token")
-    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "a" * 32)
+    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "a" * 36)
     monkeypatch.setattr(settings, "R2_SECRET_ACCESS_KEY", "s" * 32)
 
     with patch.object(storage, "_upload_r2_s3") as s3_upload, patch.object(
@@ -35,7 +35,7 @@ def test_storage_falls_back_to_api_when_s3_fails(monkeypatch):
     monkeypatch.setattr(settings, "R2_ACCOUNT_ID", "acct")
     monkeypatch.setattr(settings, "R2_BUCKET_NAME", "bucket")
     monkeypatch.setattr(settings, "R2_API_TOKEN", "token")
-    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "a" * 32)
+    monkeypatch.setattr(settings, "R2_ACCESS_KEY_ID", "a" * 36)
     monkeypatch.setattr(settings, "R2_SECRET_ACCESS_KEY", "s" * 32)
 
     with patch.object(

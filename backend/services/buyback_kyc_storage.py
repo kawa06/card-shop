@@ -57,11 +57,17 @@ def _r2_s3_credentials() -> tuple[str, str, str, str]:
     if not all([account_id, access_key, secret_key, bucket]):
         raise RuntimeError("r2_s3_not_configured")
 
-    if len(access_key) != 32:
+    if len(access_key) < 16 or len(access_key) > 128:
         raise RuntimeError("r2_s3_invalid_access_key_length")
 
     if len(secret_key) < 32:
         raise RuntimeError("r2_s3_invalid_secret_key_length")
+
+    if len(access_key) != 32:
+        logger.warning(
+            "r2_s3_unusual_access_key_length len=%s (expected 32 for standard R2 tokens)",
+            len(access_key),
+        )
 
     return account_id, access_key, secret_key, bucket
 

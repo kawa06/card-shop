@@ -19,8 +19,8 @@ def main() -> int:
         print("FAIL config: R2 storage is not configured")
         return 1
 
-    mode = "api" if _use_r2_api() else "s3" if _use_r2_s3() else "unknown"
-    print(f"OK config mode={mode}")
+    mode = "s3" if _use_r2_s3() else "api" if _use_r2_api() else "unknown"
+    print(f"OK config mode={mode} s3={_use_r2_s3()} api={_use_r2_api()}")
 
     raw_key = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
     if raw_key:
