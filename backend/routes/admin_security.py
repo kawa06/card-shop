@@ -89,7 +89,7 @@ def admin_session(
     user: models.User = Depends(get_current_user),
 ):
     try:
-        ctx = resolve_admin_context(db, user, request=request, log_failure=True)
+        ctx = resolve_admin_context(db, user, request=request, log_failure=False)
     except AdminAccessError:
         record_admin_login_failure(
             db,
