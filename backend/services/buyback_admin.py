@@ -44,6 +44,10 @@ from services.buyback_item_labels import (
 from services.buyback_customer_review import sync_item_line_statuses_from_assessment
 from services.buyback_payout_accounts import get_default_payout_account, serialize_payout_account_for_admin
 from services.buyback_logistics_logs import write_buyback_audit
+from services.buyback_pricing import (
+    build_uniform_assessment_lines,
+    resolve_assessment_unit_price_for_condition_change,
+)
 from services.buyback_request_status import (
     BARCODE_ONLY_STATUSES,
     DEDICATED_PAYOUT_STATUS,
@@ -769,16 +773,20 @@ def update_request_items(
                 raise HTTPException(status_code=400, detail=f"無効な査定区分: {line_status}")
             item.line_status = line_status
 
+        previous_condition_code = item.condition_code
+        condition_changed = False
         if "condition_code" in payload and payload["condition_code"] is not None:
             code = str(payload["condition_code"]).strip()
             if code and code not in CONDITION_CODE_LABELS:
                 raise HTTPException(status_code=400, detail=f"無効な状態コード: {code}")
-            if code:
+            if code and code != previous_condition_code:
+                condition_changed = True
                 item.condition_code = code
 
-        if "assessed_unit_price" in payload:
-            item.assessed_unit_price = payload["assessed_unit_price"]
-        if "assessment_lines" in payload:
+        has_manual_lines = "assessment_lines" in payload
+        has_manual_price = "assessed_unit_price" in payload
+
+        if has_manual_lines:
             lines = payload["assessment_lines"]
             if lines is None:
                 item.assessment_lines_json = None
@@ -820,6 +828,23 @@ def update_request_items(
                 item.assessment_lines_json = json.dumps(normalized, ensure_ascii=False)
                 subtotal = sum(row["quantity"] * row["unit_price"] for row in normalized)
                 item.assessed_unit_price = subtotal // item.quantity if item.quantity else 0
+        elif condition_changed:
+            recalculated = resolve_assessment_unit_price_for_condition_change(
+                db,
+                item,
+                previous_condition_code=previous_condition_code,
+                new_condition_code=item.condition_code,
+            )
+            uniform_lines = build_uniform_assessment_lines(
+                quantity=item.quantity,
+                unit_price=recalculated,
+            )
+            item.assessed_unit_price = recalculated
+            item.assessment_lines_json = (
+                json.dumps(uniform_lines, ensure_ascii=False) if uniform_lines else None
+            )
+        elif has_manual_price:
+            item.assessed_unit_price = payload["assessed_unit_price"]
         if "accepted_unit_price" in payload:
             item.accepted_unit_price = payload["accepted_unit_price"]
         if "rejection_reason_code" in payload:
