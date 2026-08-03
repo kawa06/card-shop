@@ -11,14 +11,23 @@ from config import settings
 
 DEFAULT_BRAND = {
     "logo_url": "",
+    "sender_name": "KRX TCG",
+    "brand_color": "#fbbf24",
     "footer_text": "© KRX TCG. All rights reserved.",
-    "sns_links_json": json.dumps([]),
+    "sns_links_json": json.dumps([
+        {"label": "X (Twitter)", "url": ""},
+        {"label": "Instagram", "url": ""},
+    ]),
     "terms_url": "",
     "contact_url": "",
     "privacy_url": "",
+    "company_name": "KRX TCG",
+    "company_address": "",
+    "contact_email": "",
+    "contact_phone": "",
 }
 
-VARIABLES_COMMON = "{{name}}, {{email}}, {{shopName}}, {{url}}, {{date}}"
+VARIABLES_COMMON = "{{name}} / {{名前}}, {{email}}, {{orderNo}} / {{注文番号}}, {{shopName}}, {{url}}, {{date}} / {{日付}}"
 
 TEMPLATE_DEFS: list[dict] = [
     # member
@@ -81,8 +90,11 @@ def _default_html(name: str) -> str:
     return (
         "<p>{{name}} 様</p>"
         f"<p>{name}に関するご案内です。</p>"
-        "<p>{{content}}</p>"
-        "<p>ご不明点は<a href=\"{{contactUrl}}\">お問い合わせ</a>よりご連絡ください。</p>"
+        "<div style=\"background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;"
+        "padding:16px;margin:16px 0;\">{{content}}</div>"
+        "<p style=\"font-size:14px;color:#64748b;\">"
+        "ご不明点は<a href=\"{{contactUrl}}\" style=\"color:#6366f1;\">お問い合わせ</a>"
+        "よりご連絡ください。</p>"
     )
 
 

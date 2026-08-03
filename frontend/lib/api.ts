@@ -223,6 +223,23 @@ export const announcementsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  emailPreview: (id: number) =>
+    apiClient.get<{
+      subject: string
+      html: string
+      recipient_count: number
+      target_description: string
+      recipients_sample: string[]
+    }>(`/admin/announcements/${id}/email-preview`),
+  sendEmail: (
+    id: number,
+    data: {
+      confirm: boolean
+      send_mode: 'immediate' | 'scheduled'
+      scheduled_at?: string | null
+      idempotency_key?: string
+    }
+  ) => apiClient.post(`/admin/announcements/${id}/send-email`, data),
 }
 
 // Auth API
@@ -805,14 +822,26 @@ export const adminEmailApi = {
   listTemplates: (category?: string) =>
     apiClient.get('/admin/email/templates', { params: category ? { category } : {} }),
   getTemplate: (key: string) => apiClient.get(`/admin/email/templates/${encodeURIComponent(key)}`),
+  getTemplateVariables: (key: string) =>
+    apiClient.get<{ variables: string[]; aliases: Record<string, string>; sample: Record<string, string> }>(
+      `/admin/email/templates/${encodeURIComponent(key)}/variables`
+    ),
   updateTemplate: (key: string, data: Record<string, unknown>) =>
     apiClient.put(`/admin/email/templates/${encodeURIComponent(key)}`, data),
-  previewTemplate: (key: string, variables: Record<string, string>) =>
-    apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/preview`, { variables }),
+  previewTemplate: (
+    key: string,
+    payload: { variables?: Record<string, string>; subject?: string; html_body?: string }
+  ) =>
+    apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/preview`, payload),
   testSend: (key: string, to_email: string, variables: Record<string, string>) =>
     apiClient.post(`/admin/email/templates/${encodeURIComponent(key)}/test-send`, { to_email, variables }),
   toggleActive: (key: string, is_active: boolean) =>
     apiClient.patch(`/admin/email/templates/${encodeURIComponent(key)}/active?is_active=${is_active}`),
-  getSendLogs: (params?: { status?: string; template_key?: string; limit?: number }) =>
+  getSendLogs: (params?: { status?: string; template_key?: string; campaign_id?: number; limit?: number }) =>
     apiClient.get('/admin/email/send-logs', { params }),
+  listCampaigns: (limit?: number) =>
+    apiClient.get('/admin/email/campaigns', { params: limit ? { limit } : {} }),
+  getCampaign: (id: number) => apiClient.get(`/admin/email/campaigns/${id}`),
+  retryCampaignFailed: (id: number) => apiClient.post(`/admin/email/campaigns/${id}/retry-failed`),
+  retryAllFailed: () => apiClient.post('/admin/email/retry-failed'),
 }

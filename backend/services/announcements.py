@@ -66,6 +66,8 @@ def _normalize_status(raw: str | None, *, publish_at: datetime | None) -> str:
 
 def is_visible_now(announcement: models.Announcement, at: datetime | None = None) -> bool:
     at = at or now_utc()
+    if getattr(announcement, "show_on_site", True) is False:
+        return False
     if announcement.status == "draft":
         return False
     if announcement.status == "scheduled":
@@ -135,6 +137,8 @@ def create_announcement(
     thumbnail: str | None = None,
     priority: int = 0,
     image_urls: list[str] | None = None,
+    show_on_site: bool = True,
+    send_email: bool = False,
 ) -> models.Announcement:
     title_ja = title_ja.strip()
     content_ja = sanitize_announcement_html(content_ja)
@@ -152,6 +156,9 @@ def create_announcement(
         expire_at=expire_at,
         thumbnail=(thumbnail or "").strip() or None,
         priority=max(0, int(priority)),
+        show_on_site=show_on_site,
+        send_email=send_email,
+        email_send_status="none",
         title=title_ja,
         content=content_ja,
         is_active=status_value == "published",
@@ -181,6 +188,8 @@ def update_announcement(
     image_urls: list[str] | None = None,
     clear_expire_at: bool = False,
     clear_publish_at: bool = False,
+    show_on_site: bool | None = None,
+    send_email: bool | None = None,
 ) -> models.Announcement:
     was_published = announcement.status == "published"
     ja_updated = False
@@ -203,6 +212,10 @@ def update_announcement(
         announcement.thumbnail = (thumbnail or "").strip() or None
     if priority is not None:
         announcement.priority = max(0, int(priority))
+    if show_on_site is not None:
+        announcement.show_on_site = show_on_site
+    if send_email is not None:
+        announcement.send_email = send_email
     if status_value is not None:
         announcement.status = _normalize_status(status_value, publish_at=announcement.publish_at)
 
@@ -375,12 +388,14 @@ def unread_count(db: Session, user_id: int) -> int:
 
 
 def notify_announcement_published(db: Session, announcement: models.Announcement) -> None:
-    """Hook for future email/push delivery channels."""
+    """Site publish hook — email delivery requires explicit admin confirmation."""
     logger.info(
-        "announcement_published id=%s title=%s publish_at=%s",
+        "announcement_published id=%s title=%s publish_at=%s show_on_site=%s send_email=%s",
         announcement.id,
         announcement.title_ja,
         announcement.publish_at,
+        getattr(announcement, "show_on_site", True),
+        getattr(announcement, "send_email", False),
     )
 
 

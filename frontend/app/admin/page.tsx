@@ -114,7 +114,7 @@ export default function AdminPage() {
           { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
           { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },
           ...(hasPermission('admin.email.read')
-            ? [{ href: '/admin/settings/email', icon: Mail, label: 'メール管理', count: 0, color: 'text-cyan-600', bg: 'bg-cyan-500/10 border-cyan-500/20' }]
+            ? [{ href: '/admin/settings/email', icon: Mail, label: 'メールテンプレート管理', count: 0, color: 'text-cyan-600', bg: 'bg-cyan-500/10 border-cyan-500/20' }]
             : []),
         ]
       : []),

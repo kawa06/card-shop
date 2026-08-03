@@ -759,6 +759,7 @@ def _migrate_email_auth_schema() -> None:
     email_tables = [
         ("email_brand_settings", models_email.EmailBrandSettings),
         ("email_templates", models_email.EmailTemplate),
+        ("email_campaigns", models_email.EmailCampaign),
         ("email_send_logs", models_email.EmailSendLog),
         ("email_scheduled_sends", models_email.EmailScheduledSend),
         ("login_histories", models_email.LoginHistory),
@@ -766,6 +767,41 @@ def _migrate_email_auth_schema() -> None:
     ]
     for table_name, model in email_tables:
         _create_table_if_missing(table_name, model)
+
+    brand_cols = [
+        ("sender_name", "VARCHAR(128)"),
+        ("brand_color", "VARCHAR(16)"),
+        ("company_name", "VARCHAR(128)"),
+        ("company_address", "TEXT"),
+        ("contact_email", "VARCHAR(255)"),
+        ("contact_phone", "VARCHAR(32)"),
+    ]
+    for col, col_type in brand_cols:
+        _add_column_if_missing("email_brand_settings", col, col_type)
+
+    log_cols = [
+        ("campaign_id", "INTEGER"),
+        ("html_body_snapshot", "TEXT"),
+        ("sent_by_user_id", "INTEGER"),
+        ("retry_count", "INTEGER DEFAULT 0"),
+        ("next_retry_at", "DATETIME"),
+    ]
+    for col, col_type in log_cols:
+        _add_column_if_missing("email_send_logs", col, col_type)
+
+    sched_cols = [("campaign_id", "INTEGER")]
+    for col, col_type in sched_cols:
+        _add_column_if_missing("email_scheduled_sends", col, col_type)
+
+    ann_cols = [
+        ("show_on_site", "BOOLEAN DEFAULT 1"),
+        ("send_email", "BOOLEAN DEFAULT 0"),
+        ("email_campaign_id", "INTEGER"),
+        ("email_send_status", "VARCHAR(16) DEFAULT 'none'"),
+        ("email_scheduled_at", "DATETIME"),
+    ]
+    for col, col_type in ann_cols:
+        _add_column_if_missing("announcements", col, col_type)
 
     user_cols = [
         ("failed_login_attempts", "INTEGER DEFAULT 0"),

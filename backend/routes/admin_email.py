@@ -14,6 +14,9 @@ from database import get_db
 from services.admin_auth import AdminAccessError, AdminContext, require_permission
 from services.db_persist import PersistDep, safe_commit
 from services.email_delivery import get_brand_settings, preview_template, send_templated_email
+from services.email_events import EMAIL_EVENTS, VARIABLE_ALIASES, get_event_by_template, sample_variables_for_template
+from services.email_broadcast import retry_failed_sends
+from services.email_rate_limit import check_rate_limit
 
 router = APIRouter(
     prefix="/api/admin/email",
@@ -55,6 +58,22 @@ def update_brand(
     return brand
 
 
+@router.get("/events")
+def list_events(
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+):
+    return [
+        {
+            "event_key": key,
+            "template_key": ev.template_key,
+            "category": ev.category,
+            "description": ev.description,
+            "variables": ev.variables,
+        }
+        for key, ev in EMAIL_EVENTS.items()
+    ]
+
+
 @router.get("/templates", response_model=list[schemas_email.EmailTemplateListItem])
 def list_templates(
     category: Optional[str] = Query(None),
@@ -84,6 +103,28 @@ def get_template(
     if not tpl:
         raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
     return tpl
+
+
+@router.get("/templates/{template_key}/variables", response_model=schemas_email.EmailTemplateVariablesOut)
+def get_template_variables(
+    template_key: str,
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    tpl = (
+        db.query(models_email.EmailTemplate)
+        .filter(models_email.EmailTemplate.template_key == template_key)
+        .first()
+    )
+    if not tpl:
+        raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
+    event = get_event_by_template(template_key)
+    variables = event.variables if event else []
+    return schemas_email.EmailTemplateVariablesOut(
+        variables=variables,
+        aliases=VARIABLE_ALIASES,
+        sample=sample_variables_for_template(template_key),
+    )
 
 
 @router.put("/templates/{template_key}", response_model=schemas_email.EmailTemplateOut)
@@ -135,7 +176,13 @@ def preview(
     db: Session = Depends(get_db),
 ):
     try:
-        result = preview_template(db, template_key=template_key, variables=payload.variables)
+        result = preview_template(
+            db,
+            template_key=template_key,
+            variables=payload.variables,
+            subject_override=payload.subject,
+            html_body_override=payload.html_body,
+        )
     except ValueError:
         raise HTTPException(status_code=404, detail="テンプレートが見つかりません")
     return schemas_email.EmailTemplatePreviewOut(**result)
@@ -148,13 +195,22 @@ def test_send(
     ctx: AdminContext = Depends(_require_perm("admin.email.write")),
     db: Session = Depends(get_db),
 ):
+    rl = check_rate_limit(str(ctx.user.id), limit_key="test_send_admin")
+    if not rl.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"テスト送信の上限に達しました。{int(rl.retry_after_seconds)}秒後に再試行してください。",
+        )
+    sample = sample_variables_for_template(template_key)
+    variables = {**sample, **payload.variables}
     result = send_templated_email(
         db,
         template_key=template_key,
         to_email=payload.to_email,
-        variables=payload.variables,
+        variables=variables,
         is_test=True,
         force=True,
+        sent_by_user_id=ctx.user.id,
         fallback_subject="テスト送信",
         fallback_html="<p>テストメールです。</p>",
     )
@@ -168,6 +224,7 @@ def test_send(
 def send_logs(
     status_filter: Optional[str] = Query(None, alias="status"),
     template_key: Optional[str] = Query(None),
+    campaign_id: Optional[int] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     ctx: AdminContext = Depends(_require_perm("admin.email.read")),
     db: Session = Depends(get_db),
@@ -177,4 +234,66 @@ def send_logs(
         q = q.filter(models_email.EmailSendLog.status == status_filter)
     if template_key:
         q = q.filter(models_email.EmailSendLog.template_key == template_key)
+    if campaign_id:
+        q = q.filter(models_email.EmailSendLog.campaign_id == campaign_id)
     return q.limit(limit).all()
+
+
+@router.get("/campaigns", response_model=list[schemas_email.EmailCampaignOut])
+def list_campaigns(
+    limit: int = Query(50, ge=1, le=200),
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(models_email.EmailCampaign)
+        .order_by(models_email.EmailCampaign.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/campaigns/{campaign_id}", response_model=schemas_email.EmailCampaignDetailOut)
+def get_campaign(
+    campaign_id: int,
+    ctx: AdminContext = Depends(_require_perm("admin.email.read")),
+    db: Session = Depends(get_db),
+):
+    campaign = db.query(models_email.EmailCampaign).filter(models_email.EmailCampaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="キャンペーンが見つかりません")
+    logs = (
+        db.query(models_email.EmailSendLog)
+        .filter(models_email.EmailSendLog.campaign_id == campaign_id)
+        .order_by(models_email.EmailSendLog.created_at.desc())
+        .limit(100)
+        .all()
+    )
+    return schemas_email.EmailCampaignDetailOut(
+        **schemas_email.EmailCampaignOut.model_validate(campaign).model_dump(),
+        send_logs=[schemas_email.EmailSendLogOut.model_validate(log) for log in logs],
+    )
+
+
+@router.post("/campaigns/{campaign_id}/retry-failed")
+def retry_campaign_failed(
+    campaign_id: int,
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    campaign = db.query(models_email.EmailCampaign).filter(models_email.EmailCampaign.id == campaign_id).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="キャンペーンが見つかりません")
+    count = retry_failed_sends(db, campaign_id=campaign_id)
+    safe_commit(db)
+    return {"message": f"{count}件の再送を試行しました", "retried": count}
+
+
+@router.post("/retry-failed")
+def retry_all_failed(
+    ctx: AdminContext = Depends(_require_perm("admin.email.write")),
+    db: Session = Depends(get_db),
+):
+    count = retry_failed_sends(db)
+    safe_commit(db)
+    return {"message": f"{count}件の再送を試行しました", "retried": count}

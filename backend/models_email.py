@@ -24,11 +24,17 @@ class EmailBrandSettings(Base):
 
     id = Column(Integer, primary_key=True)
     logo_url = Column(String(512), nullable=True)
+    sender_name = Column(String(128), nullable=True)
+    brand_color = Column(String(16), nullable=True, default="#fbbf24")
     footer_text = Column(Text, nullable=True)
     sns_links_json = Column(Text, nullable=True)
     terms_url = Column(String(512), nullable=True)
     contact_url = Column(String(512), nullable=True)
     privacy_url = Column(String(512), nullable=True)
+    company_name = Column(String(128), nullable=True)
+    company_address = Column(Text, nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    contact_phone = Column(String(32), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -49,19 +55,48 @@ class EmailTemplate(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class EmailCampaign(Base):
+    __tablename__ = "email_campaigns"
+
+    id = Column(Integer, primary_key=True)
+    template_key = Column(String(64), nullable=False, index=True)
+    subject = Column(String(255), nullable=False)
+    html_body = Column(Text, nullable=False)
+    reference_type = Column(String(64), nullable=True, index=True)
+    reference_id = Column(String(64), nullable=True, index=True)
+    target_description = Column(String(255), nullable=True)
+    recipient_count = Column(Integer, default=0, nullable=False)
+    success_count = Column(Integer, default=0, nullable=False)
+    failed_count = Column(Integer, default=0, nullable=False)
+    status = Column(String(16), nullable=False, default="pending", index=True)
+    send_mode = Column(String(16), nullable=False, default="immediate")
+    scheduled_at = Column(DateTime, nullable=True, index=True)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    error_message = Column(Text, nullable=True)
+    idempotency_key = Column(String(64), nullable=True, unique=True, index=True)
+
+
 class EmailSendLog(Base):
     __tablename__ = "email_send_logs"
 
     id = Column(Integer, primary_key=True)
     template_key = Column(String(64), nullable=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("email_campaigns.id"), nullable=True, index=True)
     recipient = Column(String(255), nullable=False, index=True)
     subject = Column(String(255), nullable=False)
+    html_body_snapshot = Column(Text, nullable=True)
     status = Column(String(16), nullable=False, default="pending", index=True)
     provider_message_id = Column(String(128), nullable=True)
     error_message = Column(Text, nullable=True)
     reference_type = Column(String(64), nullable=True, index=True)
     reference_id = Column(String(64), nullable=True, index=True)
     is_test = Column(Boolean, default=False, nullable=False)
+    sent_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    retry_count = Column(Integer, default=0, nullable=False)
+    next_retry_at = Column(DateTime, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
@@ -70,6 +105,7 @@ class EmailScheduledSend(Base):
 
     id = Column(Integer, primary_key=True)
     template_key = Column(String(64), nullable=False, index=True)
+    campaign_id = Column(Integer, ForeignKey("email_campaigns.id"), nullable=True, index=True)
     recipient = Column(String(255), nullable=True)
     variables_json = Column(Text, nullable=True)
     scheduled_at = Column(DateTime, nullable=False, index=True)

@@ -56,12 +56,17 @@ export default function AdminEmailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Mail className="h-6 w-6" /> メール管理
+            <Mail className="h-6 w-6" /> メールテンプレート管理
           </h1>
         </div>
-        <Link href="/admin/settings/email/logs" className="text-sm text-yellow-600 hover:underline">
-          送信履歴
-        </Link>
+        <div className="flex gap-3 text-sm">
+          <Link href="/admin/settings/email/brand" className="text-cyan-600 hover:underline">
+            ブランド設定
+          </Link>
+          <Link href="/admin/settings/email/logs" className="text-yellow-600 hover:underline">
+            送信履歴
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-6">

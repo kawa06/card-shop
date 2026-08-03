@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ArrowLeft, Eye, Loader2, Send } from 'lucide-react'
+import { ArrowLeft, Eye, Loader2, Monitor, Send, Smartphone } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { adminEmailApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
@@ -26,15 +26,27 @@ export default function AdminEmailEditPage() {
   const { isReady } = useAdminGuard()
   const [tpl, setTpl] = useState<Template | null>(null)
   const [previewHtml, setPreviewHtml] = useState('')
+  const [previewSubject, setPreviewSubject] = useState('')
+  const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
+  const [variablesInfo, setVariablesInfo] = useState<{
+    variables: string[]
+    aliases: Record<string, string>
+    sample: Record<string, string>
+  } | null>(null)
   const [testEmail, setTestEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await adminEmailApi.getTemplate(key)
-      setTpl(res.data)
+      const [tplRes, varRes] = await Promise.all([
+        adminEmailApi.getTemplate(key),
+        adminEmailApi.getTemplateVariables(key),
+      ])
+      setTpl(tplRes.data)
+      setVariablesInfo(varRes.data)
     } catch {
       toast({ title: 'テンプレートの取得に失敗しました', variant: 'destructive' })
     } finally {
@@ -45,6 +57,37 @@ export default function AdminEmailEditPage() {
   useEffect(() => {
     if (isReady && key) void load()
   }, [isReady, key, load])
+
+  const refreshPreview = useCallback(async () => {
+    if (!tpl) return
+    setPreviewLoading(true)
+    try {
+      const res = await adminEmailApi.previewTemplate(key, {
+        variables: variablesInfo?.sample,
+        subject: tpl.subject,
+        html_body: tpl.html_body,
+      })
+      setPreviewHtml(res.data.html)
+      setPreviewSubject(res.data.subject)
+    } catch {
+      setPreviewHtml('')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }, [key, tpl, variablesInfo?.sample])
+
+  useEffect(() => {
+    if (tpl) {
+      const timer = setTimeout(() => void refreshPreview(), 400)
+      return () => clearTimeout(timer)
+    }
+  }, [tpl?.subject, tpl?.html_body, refreshPreview, tpl])
+
+  const aliasList = useMemo(() => {
+    if (!variablesInfo) return []
+    const entries = Object.entries(variablesInfo.aliases)
+    return entries.slice(0, 12)
+  }, [variablesInfo])
 
   const handleSave = async () => {
     if (!tpl) return
@@ -64,23 +107,10 @@ export default function AdminEmailEditPage() {
     }
   }
 
-  const handlePreview = async () => {
-    try {
-      const res = await adminEmailApi.previewTemplate(key, {
-        name: 'テスト太郎',
-        email: 'test@example.com',
-        shopName: 'KRX TCG',
-      })
-      setPreviewHtml(res.data.html)
-    } catch {
-      toast({ title: 'プレビューに失敗しました', variant: 'destructive' })
-    }
-  }
-
   const handleTestSend = async () => {
     if (!testEmail) return
     try {
-      await adminEmailApi.testSend(key, testEmail, { name: 'テスト太郎', email: testEmail })
+      await adminEmailApi.testSend(key, testEmail, variablesInfo?.sample || {})
       toast({ title: 'テストメールを送信しました' })
     } catch {
       toast({ title: 'テスト送信に失敗しました', variant: 'destructive' })
@@ -95,61 +125,111 @@ export default function AdminEmailEditPage() {
     )
   }
 
+  const previewWidth = previewMode === 'mobile' ? '375px' : '100%'
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-4 py-8 max-w-6xl">
       <Link href="/admin/settings/email" className="inline-flex items-center gap-2 text-gray-500 mb-4">
         <ArrowLeft className="h-4 w-4" /> 一覧に戻る
       </Link>
       <h1 className="text-xl font-bold mb-1">{tpl.name}</h1>
       <p className="text-sm text-gray-500 mb-6">{tpl.template_key}</p>
 
-      <div className="space-y-4 mb-6">
-        <div>
-          <Label htmlFor="subject">件名</Label>
-          <Input
-            id="subject"
-            value={tpl.subject}
-            onChange={(e) => setTpl({ ...tpl, subject: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label htmlFor="html">HTML本文</Label>
-          <textarea
-            id="html"
-            className="w-full min-h-[280px] rounded-md border border-gray-200 p-3 font-mono text-sm"
-            value={tpl.html_body}
-            onChange={(e) => setTpl({ ...tpl, html_body: e.target.value })}
-          />
-          {tpl.variables_hint && (
-            <p className="text-xs text-gray-500 mt-1">変数: {tpl.variables_hint}</p>
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="subject">件名</Label>
+            <Input
+              id="subject"
+              value={tpl.subject}
+              onChange={(e) => setTpl({ ...tpl, subject: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="html">HTML本文</Label>
+            <textarea
+              id="html"
+              className="w-full min-h-[320px] rounded-md border border-gray-200 p-3 font-mono text-sm"
+              value={tpl.html_body}
+              onChange={(e) => setTpl({ ...tpl, html_body: e.target.value })}
+            />
+          </div>
+
+          {variablesInfo && (
+            <div className="rounded-lg border bg-gray-50 p-3 text-xs space-y-2">
+              <p className="font-medium text-gray-700">使用可能な変数（プレビューはサンプル値で表示）</p>
+              <div className="flex flex-wrap gap-1">
+                {variablesInfo.variables.map((v) => (
+                  <code key={v} className="bg-white border px-1.5 py-0.5 rounded">{`{{${v}}}`}</code>
+                ))}
+              </div>
+              {aliasList.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {aliasList.map(([ja, en]) => (
+                    <code key={ja} className="bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded text-purple-700">{`{{${ja}}}`}</code>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? '保存中…' : '保存'}
+            </Button>
+            <Input
+              placeholder="テスト送信先メール"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button variant="outline" onClick={handleTestSend}>
+              <Send className="h-4 w-4 mr-1" /> テスト送信
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Eye className="h-4 w-4" /> メールプレビュー
+            </h2>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={previewMode === 'desktop' ? 'default' : 'outline'}
+                onClick={() => setPreviewMode('desktop')}
+              >
+                <Monitor className="h-3 w-3 mr-1" /> PC
+              </Button>
+              <Button
+                size="sm"
+                variant={previewMode === 'mobile' ? 'default' : 'outline'}
+                onClick={() => setPreviewMode('mobile')}
+              >
+                <Smartphone className="h-3 w-3 mr-1" /> スマホ
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mb-2">件名: {previewSubject || '—'}</p>
+          <div className="border rounded-lg overflow-hidden bg-gray-100 flex justify-center p-4 min-h-[480px]">
+            {previewLoading ? (
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400 mt-20" />
+            ) : previewHtml ? (
+              <iframe
+                title="preview"
+                srcDoc={previewHtml}
+                style={{ width: previewWidth, maxWidth: '100%', height: '520px' }}
+                className="bg-white border shadow-sm rounded-lg"
+                sandbox=""
+              />
+            ) : (
+              <p className="text-gray-400 text-sm mt-20">プレビューを読み込み中…</p>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">保存前でも編集内容がリアルタイムで反映されます</p>
         </div>
       </div>
-
-      <div className="flex flex-wrap gap-2 mb-8">
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? '保存中…' : '保存'}
-        </Button>
-        <Button variant="outline" onClick={handlePreview}>
-          <Eye className="h-4 w-4 mr-1" /> プレビュー
-        </Button>
-        <Input
-          placeholder="テスト送信先メール"
-          value={testEmail}
-          onChange={(e) => setTestEmail(e.target.value)}
-          className="max-w-xs"
-        />
-        <Button variant="outline" onClick={handleTestSend}>
-          <Send className="h-4 w-4 mr-1" /> テスト送信
-        </Button>
-      </div>
-
-      {previewHtml && (
-        <div className="border rounded-lg overflow-hidden">
-          <p className="text-xs bg-gray-100 px-3 py-2 text-gray-600">プレビュー</p>
-          <iframe title="preview" srcDoc={previewHtml} className="w-full h-[480px] bg-white" sandbox="" />
-        </div>
-      )}
     </div>
   )
 }

@@ -69,6 +69,11 @@ export interface AnnouncementAdmin extends Announcement {
   content_ja: string
   content_en: string
   status: 'draft' | 'published' | 'scheduled'
+  show_on_site?: boolean
+  send_email?: boolean
+  email_campaign_id?: number | null
+  email_send_status?: string
+  email_scheduled_at?: string | null
 }
 
 export interface AnnouncementFeedResponse {
@@ -87,6 +92,8 @@ export interface AnnouncementFormData {
   thumbnail: string | null
   priority: number
   image_urls: string[]
+  show_on_site: boolean
+  send_email: boolean
 }
 
 export interface User {

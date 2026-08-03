@@ -15,11 +15,13 @@ from sqlalchemy.orm import Session
 
 import models_email
 from config import settings
+from services.email_events import normalize_variable_key, sample_variables_for_template
+from services.email_html import wrap_with_brand
 from services.verification import email_configured, smtp_configured
 
 logger = logging.getLogger(__name__)
 
-VAR_PATTERN = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}")
+VAR_PATTERN = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
 
 MAIL_REPLY_TO_FALLBACK = "oripakawa@gmail.com"
 
@@ -142,7 +144,7 @@ def render_template_string(
     raw_keys = raw_keys or set()
 
     def repl(match: re.Match) -> str:
-        key = match.group(1)
+        key = normalize_variable_key(match.group(1))
         if key in raw_keys:
             return merged.get(key, "")
         return html.escape(merged.get(key, ""), quote=True)
@@ -159,41 +161,53 @@ def get_brand_settings(db: Session) -> models_email.EmailBrandSettings:
     return row
 
 
-def wrap_with_brand(body_html: str, brand: models_email.EmailBrandSettings, variables: dict[str, Any]) -> str:
-    logo = brand.logo_url or variables.get("logoUrl", "")
-    footer = brand.footer_text or f"© {settings.SITE_NAME or 'KRX TCG'}"
-    terms = brand.terms_url or variables.get("termsUrl", "")
-    contact = brand.contact_url or variables.get("contactUrl", "")
-    logo_html = (
-        f'<img src="{html.escape(logo)}" alt="logo" style="max-height:48px;margin-bottom:16px;">'
-        if logo
-        else f"<h2 style=\"color:#111;\">{html.escape(settings.SITE_NAME or 'KRX TCG')}</h2>"
+def preview_draft(
+    db: Session,
+    *,
+    template_key: Optional[str] = None,
+    subject: str,
+    html_body: str,
+    variables: Optional[dict[str, Any]] = None,
+    raw_variable_keys: Optional[set[str]] = None,
+) -> dict[str, str]:
+    """Preview unsaved template content with brand wrapper."""
+    variables = {**sample_variables_for_template(template_key or ""), **(variables or {})}
+    brand = get_brand_settings(db)
+    if brand.contact_url:
+        variables.setdefault("contactUrl", brand.contact_url)
+    if brand.terms_url:
+        variables.setdefault("termsUrl", brand.terms_url)
+    rendered_subject = render_template_string(subject, variables, raw_keys=raw_variable_keys)
+    body = render_template_string(html_body, variables, raw_keys=raw_variable_keys)
+    full_html = wrap_with_brand(body, brand, variables)
+    return {"subject": rendered_subject, "html": full_html}
+
+
+def preview_template(
+    db: Session,
+    *,
+    template_key: str,
+    variables: Optional[dict[str, Any]] = None,
+    subject_override: Optional[str] = None,
+    html_body_override: Optional[str] = None,
+) -> dict[str, str]:
+    variables = {**sample_variables_for_template(template_key), **(variables or {})}
+    brand = get_brand_settings(db)
+    tpl = (
+        db.query(models_email.EmailTemplate)
+        .filter(models_email.EmailTemplate.template_key == template_key)
+        .first()
     )
-    links = []
-    if terms:
-        links.append(f'<a href="{html.escape(terms)}">利用規約</a>')
-    if contact:
-        links.append(f'<a href="{html.escape(contact)}">お問い合わせ</a>')
-    if brand.privacy_url:
-        links.append(f'<a href="{html.escape(brand.privacy_url)}">プライバシー</a>')
-    try:
-        sns = json.loads(brand.sns_links_json or "[]")
-    except json.JSONDecodeError:
-        sns = []
-    for link in sns:
-        if isinstance(link, dict) and link.get("url"):
-            links.append(
-                f'<a href="{html.escape(str(link["url"]))}">{html.escape(str(link.get("label", link["url"])))}</a>'
-            )
-    links_html = " | ".join(links)
-    return (
-        '<div style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">'
-        f"{logo_html}"
-        f"{body_html}"
-        f'<hr style="border:0;border-top:1px solid #ddd;margin:24px 0;">'
-        f'<p style="font-size:12px;color:#666;">{html.escape(footer)}</p>'
-        f'<p style="font-size:12px;">{links_html}</p>'
-        "</div>"
+    if not tpl and not (subject_override and html_body_override):
+        raise ValueError("Template not found")
+    subject = subject_override or (tpl.subject if tpl else "")
+    html_body = html_body_override or (tpl.html_body if tpl else "")
+    return preview_draft(
+        db,
+        template_key=template_key,
+        subject=subject,
+        html_body=html_body,
+        variables=variables,
     )
 
 
@@ -292,28 +306,36 @@ def _log_send(
     db: Session,
     *,
     template_key: Optional[str],
+    campaign_id: Optional[int],
     recipient: str,
     subject: str,
+    html_body_snapshot: Optional[str],
     status: str,
     provider_message_id: Optional[str],
     error_message: Optional[str],
     reference_type: Optional[str],
     reference_id: Optional[str],
     is_test: bool,
-) -> None:
-    db.add(
-        models_email.EmailSendLog(
-            template_key=template_key,
-            recipient=recipient,
-            subject=subject,
-            status=status,
-            provider_message_id=provider_message_id,
-            error_message=error_message,
-            reference_type=reference_type,
-            reference_id=reference_id,
-            is_test=is_test,
-        )
+    sent_by_user_id: Optional[int] = None,
+    retry_count: int = 0,
+) -> models_email.EmailSendLog:
+    log = models_email.EmailSendLog(
+        template_key=template_key,
+        campaign_id=campaign_id,
+        recipient=recipient,
+        subject=subject,
+        html_body_snapshot=html_body_snapshot,
+        status=status,
+        provider_message_id=provider_message_id,
+        error_message=error_message,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        is_test=is_test,
+        sent_by_user_id=sent_by_user_id,
+        retry_count=retry_count,
     )
+    db.add(log)
+    return log
 
 
 def send_templated_email(
@@ -324,11 +346,14 @@ def send_templated_email(
     variables: Optional[dict[str, Any]] = None,
     reference_type: Optional[str] = None,
     reference_id: Optional[str] = None,
+    campaign_id: Optional[int] = None,
+    sent_by_user_id: Optional[int] = None,
     force: bool = False,
     is_test: bool = False,
     fallback_subject: Optional[str] = None,
     fallback_html: Optional[str] = None,
     raw_variable_keys: Optional[set[str]] = None,
+    html_snapshot: bool = False,
 ) -> SendResult:
     variables = variables or {}
     brand = get_brand_settings(db)
@@ -360,14 +385,17 @@ def send_templated_email(
         _log_send(
             db,
             template_key=template_key,
+            campaign_id=campaign_id,
             recipient=to_email,
             subject=subject,
+            html_body_snapshot=None,
             status="skipped",
             provider_message_id=None,
             error_message="No template and no fallback",
             reference_type=reference_type,
             reference_id=reference_id,
             is_test=is_test,
+            sent_by_user_id=sent_by_user_id,
         )
         return SendResult(ok=False, error="No template and no fallback", used_template=False)
 
@@ -386,14 +414,17 @@ def send_templated_email(
     _log_send(
         db,
         template_key=template_key,
+        campaign_id=campaign_id,
         recipient=to_email,
         subject=subject,
+        html_body_snapshot=full_html if html_snapshot else body_html,
         status="sent" if ok else "failed",
         provider_message_id=msg_id,
         error_message=err,
         reference_type=reference_type,
         reference_id=reference_id,
         is_test=is_test,
+        sent_by_user_id=sent_by_user_id,
     )
     return SendResult(
         ok=ok,
@@ -404,22 +435,3 @@ def send_templated_email(
         used_template=used_template,
     )
 
-
-def preview_template(
-    db: Session,
-    *,
-    template_key: str,
-    variables: Optional[dict[str, Any]] = None,
-) -> dict[str, str]:
-    variables = variables or {}
-    brand = get_brand_settings(db)
-    tpl = (
-        db.query(models_email.EmailTemplate)
-        .filter(models_email.EmailTemplate.template_key == template_key)
-        .first()
-    )
-    if not tpl:
-        raise ValueError("Template not found")
-    subject = render_template_string(tpl.subject, variables)
-    html_body = wrap_with_brand(render_template_string(tpl.html_body, variables), brand, variables)
-    return {"subject": subject, "html": html_body}

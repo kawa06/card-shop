@@ -26,7 +26,7 @@ import { translateJaToEn } from '@/lib/translate'
 
 type AdminFormState = Pick<
   import('@/lib/types').AnnouncementFormData,
-  'title_ja' | 'content_ja' | 'status' | 'publish_at' | 'expire_at' | 'thumbnail' | 'priority' | 'image_urls'
+  'title_ja' | 'content_ja' | 'status' | 'publish_at' | 'expire_at' | 'thumbnail' | 'priority' | 'image_urls' | 'show_on_site' | 'send_email'
 >
 
 const EMPTY_FORM: AdminFormState = {
@@ -38,6 +38,8 @@ const EMPTY_FORM: AdminFormState = {
   thumbnail: null,
   priority: 0,
   image_urls: [],
+  show_on_site: true,
+  send_email: false,
 }
 
 function toLocalInput(iso: string | null | undefined): string | null {
@@ -73,6 +75,17 @@ export default function AdminAnnouncementsPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [previewEn, setPreviewEn] = useState({ title: '', content: '' })
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [showEmailConfirm, setShowEmailConfirm] = useState(false)
+  const [emailPreview, setEmailPreview] = useState<{
+    subject: string
+    html: string
+    recipient_count: number
+    target_description: string
+    recipients_sample: string[]
+  } | null>(null)
+  const [emailSendMode, setEmailSendMode] = useState<'immediate' | 'scheduled'>('immediate')
+  const [emailScheduledAt, setEmailScheduledAt] = useState<string | null>(null)
+  const [emailSending, setEmailSending] = useState(false)
 
   const fetchAnnouncements = useCallback(async () => {
     setIsLoading(true)
@@ -105,6 +118,8 @@ export default function AdminAnnouncementsPage() {
       thumbnail: row.thumbnail || null,
       priority: row.priority || 0,
       image_urls: (row.images || []).map((img) => img.image_url),
+      show_on_site: row.show_on_site ?? true,
+      send_email: row.send_email ?? false,
     })
     setShowForm(true)
   }
@@ -179,10 +194,54 @@ export default function AdminAnnouncementsPage() {
     thumbnail: form.thumbnail || null,
     priority: form.priority,
     image_urls: form.image_urls,
+    show_on_site: form.show_on_site,
+    send_email: form.send_email,
     title: form.title_ja.trim(),
     content: form.content_ja,
     is_active: form.status === 'published',
   })
+
+  const openEmailConfirm = async () => {
+    if (!editingId) {
+      toast({ title: '先にお知らせを保存してください', variant: 'destructive' })
+      return
+    }
+    if (!form.send_email) {
+      toast({ title: 'メール配信が有効になっていません', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await announcementsApi.emailPreview(editingId)
+      setEmailPreview(res.data)
+      setShowEmailConfirm(true)
+    } catch {
+      toast({ title: 'メールプレビューの取得に失敗しました', variant: 'destructive' })
+    }
+  }
+
+  const handleSendEmail = async () => {
+    if (!editingId || !emailPreview) return
+    setEmailSending(true)
+    try {
+      await announcementsApi.sendEmail(editingId, {
+        confirm: true,
+        send_mode: emailSendMode,
+        scheduled_at: emailSendMode === 'scheduled' && emailScheduledAt
+          ? new Date(emailScheduledAt).toISOString()
+          : null,
+        idempotency_key: `ann-${editingId}-${Date.now()}`,
+      })
+      toast({
+        title: emailSendMode === 'scheduled' ? 'メール配信を予約しました' : 'メール配信を開始しました',
+      })
+      setShowEmailConfirm(false)
+      fetchAnnouncements()
+    } catch {
+      toast({ title: 'メール配信に失敗しました', variant: 'destructive' })
+    } finally {
+      setEmailSending(false)
+    }
+  }
 
   const handleSubmit = async (nextStatus?: AdminFormState['status']) => {
     if (!validateForm()) return
@@ -287,6 +346,27 @@ export default function AdminAnnouncementsPage() {
               onUploadImage={uploadImage}
             />
 
+            <div className="grid md:grid-cols-2 gap-4 p-4 rounded-lg border bg-white">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.show_on_site}
+                  onChange={(e) => setForm({ ...form, show_on_site: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm">サイト内のみ表示</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.send_email}
+                  onChange={(e) => setForm({ ...form, send_email: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm">メール配信する（確認画面から送信）</span>
+              </label>
+            </div>
+
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-1">
                 <Label>ステータス</Label>
@@ -389,6 +469,11 @@ export default function AdminAnnouncementsPage() {
               <Button disabled={saving} variant="outline" onClick={() => handleSubmit('published')}>
                 公開
               </Button>
+              {form.send_email && editingId && (
+                <Button disabled={saving} variant="outline" className="border-purple-300 text-purple-700" onClick={openEmailConfirm}>
+                  メール配信を確認・送信
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -409,6 +494,11 @@ export default function AdminAnnouncementsPage() {
                       <span className="text-[10px] px-2 py-0.5 rounded border bg-white text-gray-600">
                         {statusLabel(row.status)}
                       </span>
+                      {row.send_email && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                          メール {row.email_send_status || 'none'}
+                        </span>
+                      )}
                       <span className="text-[10px] text-gray-400">優先 {row.priority || 0}</span>
                     </div>
                     <p className="text-sm text-gray-500 truncate">{row.title_en}</p>
@@ -431,6 +521,52 @@ export default function AdminAnnouncementsPage() {
           )}
         </div>
       </div>
+
+      {showEmailConfirm && emailPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowEmailConfirm(false)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-4">メール配信の確認</h2>
+            <dl className="space-y-2 text-sm mb-4">
+              <div><dt className="text-gray-500 inline">件名: </dt><dd className="inline font-medium">{emailPreview.subject}</dd></div>
+              <div><dt className="text-gray-500 inline">配信人数: </dt><dd className="inline font-medium">{emailPreview.recipient_count} 人</dd></div>
+              <div><dt className="text-gray-500 inline">送信対象: </dt><dd className="inline">{emailPreview.target_description}</dd></div>
+            </dl>
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <iframe title="email-preview" srcDoc={emailPreview.html} className="w-full h-[280px] bg-white" sandbox="" />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-sm font-medium">送信タイミング</label>
+                <select
+                  className="w-full mt-1 rounded-md border px-3 py-2 text-sm"
+                  value={emailSendMode}
+                  onChange={(e) => setEmailSendMode(e.target.value as 'immediate' | 'scheduled')}
+                >
+                  <option value="immediate">即時送信</option>
+                  <option value="scheduled">予約送信</option>
+                </select>
+              </div>
+              {emailSendMode === 'scheduled' && (
+                <div>
+                  <label className="text-sm font-medium">送信日時</label>
+                  <Input
+                    type="datetime-local"
+                    className="mt-1"
+                    value={emailScheduledAt || ''}
+                    onChange={(e) => setEmailScheduledAt(e.target.value || null)}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowEmailConfirm(false)}>キャンセル</Button>
+              <Button disabled={emailSending} className="bg-purple-600 hover:bg-purple-500" onClick={handleSendEmail}>
+                {emailSending ? '送信中…' : '配信を実行'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showPreview && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowPreview(false)}>

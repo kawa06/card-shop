@@ -392,6 +392,11 @@ class Announcement(Base):
     publish_at = Column(DateTime, nullable=True, index=True)
     expire_at = Column(DateTime, nullable=True, index=True)
     thumbnail = Column(String(500), nullable=True)
+    show_on_site = Column(Boolean, default=True, nullable=False)
+    send_email = Column(Boolean, default=False, nullable=False)
+    email_campaign_id = Column(Integer, nullable=True, index=True)
+    email_send_status = Column(String(16), nullable=False, default="none", index=True)
+    email_scheduled_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

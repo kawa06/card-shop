@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from database import Base, engine, SessionLocal
 from services.shipping_rates import background_shipping_update_task, refresh_all_rates
 from services.order_expiry_task import background_order_expiry_task
+from services.email_scheduler_task import background_email_scheduler_task
 from services.db_migrate import run_schema_upgrades, _pg_column_type
 from services.db_persist import database_info
 from services.image_upload import get_upload_dir
@@ -30,7 +31,6 @@ from routes.admin_security import router as admin_security_router
 from routes.admin_buyback_settings import router as admin_buyback_settings_router
 from routes.buyback import router as buyback_router
 from routes.announcements import router as announcements_router
-from routes.admin_email import router as admin_email_router
 from routes.admin_email import router as admin_email_router
 
 from sqlalchemy import text, inspect
@@ -173,17 +173,23 @@ async def lifespan(app: FastAPI):
     # Start background tasks
     update_task = asyncio.create_task(background_shipping_update_task(SessionLocal))
     expiry_task = asyncio.create_task(background_order_expiry_task(SessionLocal))
+    email_task = asyncio.create_task(background_email_scheduler_task(SessionLocal))
     
     yield
     
     update_task.cancel()
     expiry_task.cancel()
+    email_task.cancel()
     try:
         await update_task
     except asyncio.CancelledError:
         pass
     try:
         await expiry_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await email_task
     except asyncio.CancelledError:
         pass
 

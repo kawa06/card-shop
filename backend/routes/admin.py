@@ -14,6 +14,7 @@ from database import get_db
 from auth import get_current_admin
 import models
 import schemas
+import schemas_email
 from routes.cards import _apply_card_search
 from services.db_persist import PersistDep, safe_commit
 from services.image_upload import save_uploaded_image
@@ -319,6 +320,8 @@ def _normalize_create_payload(payload: schemas.AnnouncementCreate) -> dict:
         "thumbnail": payload.thumbnail,
         "priority": payload.priority,
         "image_urls": payload.image_urls,
+        "show_on_site": payload.show_on_site,
+        "send_email": payload.send_email,
     }
 
 
@@ -337,6 +340,11 @@ def _serialize_admin(row: models.Announcement) -> schemas.AnnouncementAdminOut:
         publish_at=row.publish_at,
         expire_at=row.expire_at,
         thumbnail=row.thumbnail,
+        show_on_site=getattr(row, "show_on_site", True),
+        send_email=getattr(row, "send_email", False),
+        email_campaign_id=getattr(row, "email_campaign_id", None),
+        email_send_status=getattr(row, "email_send_status", "none") or "none",
+        email_scheduled_at=getattr(row, "email_scheduled_at", None),
         created_at=row.created_at,
         updated_at=row.updated_at,
         images=[
@@ -461,6 +469,70 @@ def admin_delete_announcement(
     delete_announcement(db, ann)
     safe_commit(db, action="お知らせ削除")
     logger.info("admin=%s deleted announcement id=%s", admin.id, ann_id)
+
+
+@router.get("/announcements/{ann_id}/email-preview", response_model=schemas_email.AnnouncementEmailPreviewOut)
+def admin_announcement_email_preview(
+    ann_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    from services.email_broadcast import build_announcement_email_preview
+
+    ann = db.query(models.Announcement).filter(models.Announcement.id == ann_id).first()
+    if not ann:
+        raise HTTPException(status_code=404, detail="お知らせが見つかりません")
+    if not ann.send_email:
+        raise HTTPException(status_code=400, detail="このお知らせはメール配信が有効になっていません")
+    return build_announcement_email_preview(db, ann)
+
+
+@router.post("/announcements/{ann_id}/send-email")
+def admin_announcement_send_email(
+    ann_id: int,
+    payload: schemas_email.AnnouncementEmailSendIn,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(get_current_admin),
+):
+    from services.email_broadcast import create_announcement_campaign
+    from services.email_rate_limit import check_rate_limit
+
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="送信前の確認が必要です（confirm=true）")
+
+    rl = check_rate_limit(str(admin.id), limit_key="campaign_confirm")
+    if not rl.allowed:
+        raise HTTPException(status_code=429, detail="送信操作の上限に達しました。しばらく待ってから再試行してください。")
+
+    ann = db.query(models.Announcement).filter(models.Announcement.id == ann_id).first()
+    if not ann:
+        raise HTTPException(status_code=404, detail="お知らせが見つかりません")
+
+    try:
+        campaign = create_announcement_campaign(
+            db,
+            ann,
+            admin_user_id=admin.id,
+            send_mode=payload.send_mode,
+            scheduled_at=payload.scheduled_at,
+            idempotency_key=payload.idempotency_key,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    safe_commit(db, action="お知らせメール配信")
+    if payload.send_mode == "scheduled":
+        return {
+            "message": "メール配信を予約しました",
+            "campaign_id": campaign.id,
+            "scheduled_at": campaign.scheduled_at,
+        }
+    return {
+        "message": "メール配信を開始しました",
+        "campaign_id": campaign.id,
+        "success_count": campaign.success_count,
+        "failed_count": campaign.failed_count,
+    }
 
 
 # ──────────────────────── Orders ─────────────────────────────

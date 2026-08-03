@@ -10,11 +10,17 @@ from pydantic import BaseModel, Field
 
 class EmailBrandSettingsOut(BaseModel):
     logo_url: Optional[str] = None
+    sender_name: Optional[str] = None
+    brand_color: Optional[str] = None
     footer_text: Optional[str] = None
     sns_links_json: Optional[str] = None
     terms_url: Optional[str] = None
     contact_url: Optional[str] = None
     privacy_url: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     class Config:
@@ -23,11 +29,17 @@ class EmailBrandSettingsOut(BaseModel):
 
 class EmailBrandSettingsUpdate(BaseModel):
     logo_url: Optional[str] = None
+    sender_name: Optional[str] = None
+    brand_color: Optional[str] = None
     footer_text: Optional[str] = None
     sns_links_json: Optional[str] = None
     terms_url: Optional[str] = None
     contact_url: Optional[str] = None
     privacy_url: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 
 class EmailTemplateOut(BaseModel):
@@ -70,11 +82,62 @@ class EmailTemplateUpdate(BaseModel):
 
 class EmailTemplatePreviewIn(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
 
 
 class EmailTemplatePreviewOut(BaseModel):
     subject: str
     html: str
+
+
+class EmailTemplateVariablesOut(BaseModel):
+    variables: list[str]
+    aliases: dict[str, str]
+    sample: dict[str, str]
+
+
+class EmailCampaignOut(BaseModel):
+    id: int
+    template_key: str
+    subject: str
+    html_body: str
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    target_description: Optional[str] = None
+    recipient_count: int
+    success_count: int
+    failed_count: int
+    status: str
+    send_mode: str
+    scheduled_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_by_user_id: Optional[int] = None
+    created_at: datetime
+    error_message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class EmailCampaignDetailOut(EmailCampaignOut):
+    send_logs: list["EmailSendLogOut"] = Field(default_factory=list)
+
+
+class AnnouncementEmailPreviewOut(BaseModel):
+    subject: str
+    html: str
+    recipient_count: int
+    target_description: str
+    recipients_sample: list[str] = Field(default_factory=list)
+
+
+class AnnouncementEmailSendIn(BaseModel):
+    send_mode: str = "immediate"
+    scheduled_at: Optional[datetime] = None
+    idempotency_key: Optional[str] = None
+    confirm: bool = False
 
 
 class EmailTestSendIn(BaseModel):
@@ -85,6 +148,7 @@ class EmailTestSendIn(BaseModel):
 class EmailSendLogOut(BaseModel):
     id: int
     template_key: Optional[str] = None
+    campaign_id: Optional[int] = None
     recipient: str
     subject: str
     status: str
@@ -93,6 +157,9 @@ class EmailSendLogOut(BaseModel):
     reference_type: Optional[str] = None
     reference_id: Optional[str] = None
     is_test: bool
+    sent_by_user_id: Optional[int] = None
+    retry_count: int = 0
+    next_retry_at: Optional[datetime] = None
     created_at: datetime
 
     class Config:

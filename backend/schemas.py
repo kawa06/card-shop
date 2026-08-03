@@ -642,6 +642,8 @@ class AnnouncementCreate(AnnouncementBase):
     expire_at: Optional[datetime] = None
     thumbnail: Optional[str] = None
     image_urls: List[str] = []
+    show_on_site: bool = True
+    send_email: bool = False
 
 
 class AnnouncementUpdate(BaseModel):
@@ -660,6 +662,8 @@ class AnnouncementUpdate(BaseModel):
     clear_expire_at: Optional[bool] = None
     thumbnail: Optional[str] = None
     image_urls: Optional[List[str]] = None
+    show_on_site: Optional[bool] = None
+    send_email: Optional[bool] = None
 
 
 class AnnouncementOut(AnnouncementBase):
@@ -706,6 +710,11 @@ class AnnouncementAdminOut(BaseModel):
     publish_at: Optional[datetime] = None
     expire_at: Optional[datetime] = None
     thumbnail: Optional[str] = None
+    show_on_site: bool = True
+    send_email: bool = False
+    email_campaign_id: Optional[int] = None
+    email_send_status: str = "none"
+    email_scheduled_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     images: List[AnnouncementImageOut] = []
