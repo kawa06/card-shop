@@ -19,8 +19,11 @@ class OrderStatus(str, enum.Enum):
 class ShippingStatus(str, enum.Enum):
     unshipped = "unshipped"
     preparing = "preparing"
+    packing = "packing"
     shipped = "shipped"
+    in_transit = "in_transit"
     delivered = "delivered"
+    received = "received"
     cancelled = "cancelled"
 
 
@@ -191,6 +194,10 @@ class Order(Base):
     stock_reserved = Column(Boolean, default=False)
     paid_at = Column(DateTime, nullable=True)
     click_post_csv_exported_at = Column(DateTime, nullable=True)
+    shipping_box_type = Column(String(32), nullable=True)
+    shipping_weight_g = Column(Integer, nullable=True)
+    shipping_size_label = Column(String(32), nullable=True)
+    shipped_by_admin_id = Column(Integer, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -505,6 +512,38 @@ class ShippingRate(Base):
     is_recommended = Column(Boolean, default=False)
     source_url = Column(String(500), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class OrderShipmentLog(Base):
+    """Immutable audit trail for order shipping state changes."""
+
+    __tablename__ = "order_shipment_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+    from_shipping_status = Column(String(32), nullable=True)
+    to_shipping_status = Column(String(32), nullable=True)
+    tracking_number = Column(String(100), nullable=True)
+    shipping_carrier = Column(String(100), nullable=True)
+    admin_user_id = Column(Integer, nullable=True, index=True)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
+class OrderBarcode(Base):
+    """Opaque scan token for order fulfillment barcodes."""
+
+    __tablename__ = "order_barcodes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    scan_token = Column(String(64), unique=True, nullable=False, index=True)
+    barcode_type = Column(String(32), nullable=False, default="order_fulfillment", index=True)
+    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    human_readable = Column(String(64), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 import models_buyback  # noqa: F401, E402 — register buyback tables with Base.metadata

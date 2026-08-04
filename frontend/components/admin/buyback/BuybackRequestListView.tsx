@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Package, Search } from 'lucide-react'
+import { ArrowLeft, Download, Package, Search } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
+import { useAdminPermissions } from '@/hooks/useAdminPermissions'
 import { adminBuybackApi } from '@/lib/api'
 import { AdminBuybackRequestListItem } from '@/lib/types'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,7 @@ type Props = {
 
 export function BuybackRequestListView({ channel }: Props) {
   const { isReady } = useAdminGuard()
+  const { hasPermission } = useAdminPermissions()
   const [items, setItems] = useState<AdminBuybackRequestListItem[]>([])
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -36,6 +38,9 @@ export function BuybackRequestListView({ channel }: Props) {
   const [dateTo, setDateTo] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const canExportCsv = hasPermission('admin.csv.export')
 
   const channelLabel = channel === 'store' ? '店舗買取' : '郵送買取'
   const detailBase = channel === 'store' ? '/admin/buyback/store/requests' : '/admin/buyback/mail/requests'
@@ -81,6 +86,29 @@ export function BuybackRequestListView({ channel }: Props) {
     void fetchAll()
   }, [isMounted, isReady, fetchAll])
 
+  const handleExportCsv = async () => {
+    setExporting(true)
+    try {
+      const params: Record<string, string | boolean> = { buyback_method: channel }
+      if (searchQuery) params.q = searchQuery
+      if (statusFilter) params.status = statusFilter
+      if (payoutFilter) params.payout_transfer_status = payoutFilter
+      if (identityFilter) params.identity_not_approved = true
+      if (dateFrom) params.date_from = `${dateFrom}T00:00:00`
+      if (dateTo) params.date_to = `${dateTo}T23:59:59`
+      const res = await adminBuybackApi.exportRequestsCsv(params)
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `buyback-${channel}-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (!isMounted || !isReady) return null
 
   const today = new Date().toISOString().slice(0, 10)
@@ -96,7 +124,18 @@ export function BuybackRequestListView({ channel }: Props) {
             <Package className={`h-6 w-6 ${channel === 'store' ? 'text-violet-500' : 'text-sky-500'}`} />
             <h1 className="text-2xl font-bold text-gray-900">{channelLabel} — 申込管理</h1>
           </div>
-          <div className="flex gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            {canExportCsv && (
+              <button
+                type="button"
+                onClick={() => void handleExportCsv()}
+                disabled={exporting}
+                className="inline-flex items-center gap-1 text-gray-700 hover:underline disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                {exporting ? 'CSV出力中...' : 'CSV'}
+              </button>
+            )}
             {channel === 'mail' && (
               <>
                 <Link href="/admin/buyback/receiving" className="text-amber-700 hover:underline">
@@ -171,6 +210,19 @@ export function BuybackRequestListView({ channel }: Props) {
                 <tr>
                   <th className="px-4 py-3">申込番号</th>
                   <th className="px-4 py-3">会員</th>
+                  {channel === 'mail' && (
+                    <>
+                      <th className="px-4 py-3">発送状況</th>
+                      <th className="px-4 py-3">到着</th>
+                      <th className="px-4 py-3">送り状</th>
+                      <th className="px-4 py-3">返送</th>
+                    </>
+                  )}
+                  {channel === 'store' && (
+                    <>
+                      <th className="px-4 py-3">来店日時</th>
+                    </>
+                  )}
                   <th className="px-4 py-3">ステータス</th>
                   <th className="px-4 py-3">本人確認</th>
                   <th className="px-4 py-3">振込金額</th>
@@ -194,6 +246,25 @@ export function BuybackRequestListView({ channel }: Props) {
                         <div className="font-medium">{item.user_name}</div>
                         <div className="text-gray-500 text-xs">{item.user_email}</div>
                       </td>
+                      {channel === 'mail' && (
+                        <>
+                          <td className="px-4 py-3 text-xs">
+                            {item.customer_shipped_at ? formatDate(item.customer_shipped_at) : '未発送'}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {item.received_at
+                              ? formatDate(item.received_at)
+                              : item.inbound_shipment_status_label || '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs">{item.tracking_number || '—'}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {item.return_status_summary || item.return_tracking_number || '—'}
+                          </td>
+                        </>
+                      )}
+                      {channel === 'store' && (
+                        <td className="px-4 py-3 text-xs">{formatDate(item.store_visit_at ?? null)}</td>
+                      )}
                       <td className="px-4 py-3">{item.status_label}</td>
                       <td className="px-4 py-3">{item.identity_status_label || '—'}</td>
                       <td className="px-4 py-3">{formatYen(item.payout_total)}</td>

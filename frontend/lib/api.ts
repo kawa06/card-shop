@@ -424,6 +424,9 @@ export const adminApi = {
       tracking_number?: string | null
       shipped_at?: string | null
       admin_note?: string | null
+      shipping_box_type?: string | null
+      shipping_weight_g?: number | null
+      shipping_size_label?: string | null
     }
   ) => apiClient.patch(`/admin/orders/${id}/shipping`, data),
   confirmOrderPayment: (id: number) =>
@@ -444,6 +447,8 @@ export const adminApi = {
       { order_ids: orderIds, mark_exported: markExported },
       { responseType: 'blob' }
     ),
+  getDashboardStats: () =>
+    apiClient.get<import('./types').AdminDashboardStats>('/admin/dashboard/stats'),
 
   // Announcements
   createAnnouncement: (data: {
@@ -617,6 +622,19 @@ export const adminBuybackApi = {
   }) =>
     apiClient.get<import('./types').AdminBuybackRequestListItem[]>('/admin/buyback/requests', {
       params,
+    }),
+  exportRequestsCsv: (params?: {
+    status?: string
+    q?: string
+    buyback_method?: string
+    payout_transfer_status?: string
+    identity_not_approved?: boolean
+    date_from?: string
+    date_to?: string
+  }) =>
+    apiClient.get('/admin/buyback/requests/export.csv', {
+      params,
+      responseType: 'blob',
     }),
   getRequest: (id: number) =>
     apiClient.get<import('./types').AdminBuybackRequestDetail>(`/admin/buyback/requests/${id}`),
@@ -967,4 +985,22 @@ export const adminEmailApi = {
   getCampaign: (id: number) => apiClient.get(`/admin/email/campaigns/${id}`),
   retryCampaignFailed: (id: number) => apiClient.post(`/admin/email/campaigns/${id}/retry-failed`),
   retryAllFailed: () => apiClient.post('/admin/email/retry-failed'),
+}
+
+export const adminNotificationsApi = {
+  getUnreadCount: () =>
+    apiClient.get<{ count: number }>('/admin/notifications/unread-count'),
+  list: (params?: { unread_only?: boolean; limit?: number }) =>
+    apiClient.get<import('./types').AdminInAppNotification[]>('/admin/notifications', { params }),
+  markRead: (id: number) => apiClient.patch(`/admin/notifications/${id}/read`),
+}
+
+export const adminOrderLogisticsApi = {
+  getShipmentLogs: (orderId: number) =>
+    apiClient.get<import('./types').OrderShipmentLog[]>(`/admin/orders/${orderId}/shipment-logs`),
+  scanOrder: (code: string, deviceInfo?: string) =>
+    apiClient.post<import('./types').OrderScanResult>('/admin/orders/scan', {
+      code,
+      device_info: deviceInfo,
+    }),
 }

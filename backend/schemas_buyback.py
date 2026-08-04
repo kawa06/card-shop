@@ -695,6 +695,16 @@ class AdminBuybackRequestListOut(BaseModel):
     paid_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     created_at: datetime
+    tracking_number: Optional[str] = None
+    customer_shipped_at: Optional[datetime] = None
+    received_at: Optional[datetime] = None
+    inbound_shipment_status: Optional[str] = None
+    inbound_shipment_status_label: Optional[str] = None
+    return_status_summary: Optional[str] = None
+    return_tracking_number: Optional[str] = None
+    store_visit_at: Optional[datetime] = None
+    assessed_at: Optional[datetime] = None
+    assessor_name: Optional[str] = None
 
 
 class AdminPayoutAccountOut(BaseModel):

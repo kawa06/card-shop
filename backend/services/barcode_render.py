@@ -64,3 +64,230 @@ def render_code128_svg(
         f'<rect width="{width}" height="{bar_height}" fill="#fff"/>'
         f'{"".join(bars)}</svg>'
     )
+
+
+# --- Phase 2 order fulfillment helpers (barcodes, shipment logs, dashboard KPIs) ---
+
+import re
+import secrets
+from datetime import datetime, timedelta
+from typing import Optional
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+import models
+import models_buyback
+
+
+SCAN_TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{43}$")
+
+
+def generate_order_scan_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def append_order_shipment_log(
+    db: Session,
+    *,
+    order: models.Order,
+    event_type: str,
+    from_shipping_status: Optional[str] = None,
+    to_shipping_status: Optional[str] = None,
+    tracking_number: Optional[str] = None,
+    shipping_carrier: Optional[str] = None,
+    admin_user_id: Optional[int] = None,
+    note: Optional[str] = None,
+) -> models.OrderShipmentLog:
+    row = models.OrderShipmentLog(
+        order_id=order.id,
+        event_type=event_type,
+        from_shipping_status=from_shipping_status,
+        to_shipping_status=to_shipping_status or order.shipping_status,
+        tracking_number=tracking_number or order.tracking_number,
+        shipping_carrier=shipping_carrier or order.shipping_carrier,
+        admin_user_id=admin_user_id,
+        note=note,
+    )
+    db.add(row)
+    db.flush()
+    return row
+
+
+def list_order_shipment_logs(
+    db: Session,
+    order_id: int,
+    *,
+    limit: int = 100,
+) -> list[models.OrderShipmentLog]:
+    return (
+        db.query(models.OrderShipmentLog)
+        .filter(models.OrderShipmentLog.order_id == order_id)
+        .order_by(models.OrderShipmentLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+def ensure_order_barcode(
+    db: Session,
+    *,
+    order: models.Order,
+    barcode_type: str = "order_fulfillment",
+) -> models.OrderBarcode:
+    existing = get_active_order_barcode(db, order_id=order.id, barcode_type=barcode_type)
+    if existing:
+        return existing
+    human = order.order_number or f"ORD-{order.id}"
+    for _ in range(10):
+        token = generate_order_scan_token()
+        exists = (
+            db.query(models.OrderBarcode.id)
+            .filter(models.OrderBarcode.scan_token == token)
+            .first()
+        )
+        if exists:
+            continue
+        row = models.OrderBarcode(
+            scan_token=token,
+            barcode_type=barcode_type,
+            order_id=order.id,
+            human_readable=human,
+        )
+        db.add(row)
+        db.flush()
+        return row
+    raise RuntimeError("Failed to generate unique order scan token")
+
+
+def get_active_order_barcode(
+    db: Session,
+    *,
+    order_id: int,
+    barcode_type: Optional[str] = None,
+) -> models.OrderBarcode | None:
+    query = db.query(models.OrderBarcode).filter(
+        models.OrderBarcode.order_id == order_id,
+        models.OrderBarcode.is_active.is_(True),
+    )
+    if barcode_type:
+        query = query.filter(models.OrderBarcode.barcode_type == barcode_type)
+    return query.order_by(models.OrderBarcode.created_at.desc()).first()
+
+
+def lookup_order_barcode_by_token(
+    db: Session, scan_token: str
+) -> models.OrderBarcode | None:
+    token = (scan_token or "").strip()
+    if not SCAN_TOKEN_PATTERN.fullmatch(token):
+        return None
+    return (
+        db.query(models.OrderBarcode)
+        .filter(
+            models.OrderBarcode.scan_token == token,
+            models.OrderBarcode.is_active.is_(True),
+        )
+        .first()
+    )
+
+
+def resolve_order_by_scan_code(db: Session, code: str) -> models.Order | None:
+    token = (code or "").strip()
+    if not token:
+        return None
+    barcode = lookup_order_barcode_by_token(db, token)
+    if barcode:
+        return db.query(models.Order).filter(models.Order.id == barcode.order_id).first()
+    order = db.query(models.Order).filter(models.Order.order_number == token).first()
+    if order:
+        return order
+    if token.isdigit():
+        return db.query(models.Order).filter(models.Order.id == int(token)).first()
+    return None
+
+
+def _day_bounds_utc(now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or datetime.utcnow()
+    start = datetime(now.year, now.month, now.day)
+    return start, start + timedelta(days=1)
+
+
+def _month_bounds_utc(now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or datetime.utcnow()
+    start = datetime(now.year, now.month, 1)
+    if now.month == 12:
+        end = datetime(now.year + 1, 1, 1)
+    else:
+        end = datetime(now.year, now.month + 1, 1)
+    return start, end
+
+
+def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
+    from services.buyback_admin import identity_stats, request_stats
+
+    today_start, today_end = _day_bounds_utc()
+    month_start, month_end = _month_bounds_utc()
+    paid_filter = models.Order.payment_status == "paid"
+
+    today_sales = (
+        db.query(func.coalesce(func.sum(models.Order.total_amount), 0))
+        .filter(paid_filter, models.Order.paid_at >= today_start, models.Order.paid_at < today_end)
+        .scalar()
+    ) or 0
+    month_sales = (
+        db.query(func.coalesce(func.sum(models.Order.total_amount), 0))
+        .filter(paid_filter, models.Order.paid_at >= month_start, models.Order.paid_at < month_end)
+        .scalar()
+    ) or 0
+    orders_today = (
+        db.query(func.count(models.Order.id))
+        .filter(models.Order.created_at >= today_start, models.Order.created_at < today_end)
+        .scalar()
+    ) or 0
+    pending_ship = (
+        db.query(func.count(models.Order.id))
+        .filter(paid_filter, models.Order.shipping_status.in_(["unshipped", "preparing", "packing"]))
+        .scalar()
+    ) or 0
+    assessing_statuses = [
+        models_buyback.BuybackRequestStatus.received.value,
+        models_buyback.BuybackRequestStatus.assessing.value,
+        models_buyback.BuybackRequestStatus.store_visited.value,
+    ]
+    pending_assess = (
+        db.query(func.count(models_buyback.BuybackRequest.id))
+        .filter(models_buyback.BuybackRequest.status.in_(assessing_statuses))
+        .scalar()
+    ) or 0
+    new_members_today = (
+        db.query(func.count(models.User.id))
+        .filter(models.User.created_at >= today_start, models.User.created_at < today_end)
+        .scalar()
+    ) or 0
+    unreplied = (
+        db.query(func.count(models.Inquiry.id))
+        .filter(models.Inquiry.shop_id == 1, models.Inquiry.admin_unread_count > 0)
+        .scalar()
+    ) or 0
+    draft_announcements = (
+        db.query(func.count(models.Announcement.id))
+        .filter(models.Announcement.status == "draft")
+        .scalar()
+    ) or 0
+    kyc = identity_stats(db)
+    buyback = request_stats(db)
+    return {
+        "today_sales": int(today_sales),
+        "month_sales": int(month_sales),
+        "orders_today": int(orders_today),
+        "pending_ship": int(pending_ship),
+        "pending_assess": int(pending_assess),
+        "live_sessions": 0,
+        "auction_sessions": 0,
+        "new_members_today": int(new_members_today),
+        "unread_inquiries": int(unreplied),
+        "draft_announcements": int(draft_announcements),
+        "buyback_pending_kyc": int(kyc.get("pending_count", 0)),
+        "buyback_submitted_requests": int(buyback.get("submitted_count", 0)),
+        "buyback_payout_pending": int(buyback.get("payout_pending_count", 0)),
+    }

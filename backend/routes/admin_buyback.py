@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -86,7 +88,7 @@ from services.buyback_catalog import (
     CatalogPersistenceError,
     CatalogValidationError,
 )
-from services.db_persist import PersistDep
+from services.db_persist import PersistDep, safe_commit
 from sqlalchemy.orm import selectinload
 
 router = APIRouter(
@@ -526,9 +528,26 @@ def _request_list_out(
     include_pii: bool,
     identity_row: models_buyback.IdentityVerification | None = None,
 ) -> schemas_buyback.AdminBuybackRequestListOut:
+    from services.buyback_receiving import INBOUND_STATUS_LABELS
+
     method = normalize_buyback_method(request.buyback_method)
     transfer_status = resolve_payout_transfer_status(request)
     identity_status = identity_row.status if identity_row else None
+    inbound = getattr(request, "inbound_shipment", None)
+    inbound_status = inbound.status if inbound else None
+    return_statuses = {
+        item.return_status
+        for item in (request.items or [])
+        if getattr(item, "return_status", None)
+    }
+    return_tracking = next(
+        (
+            item.return_tracking_number
+            for item in (request.items or [])
+            if getattr(item, "return_tracking_number", None)
+        ),
+        None,
+    )
     return schemas_buyback.AdminBuybackRequestListOut(
         id=request.id,
         request_number=request.request_number,
@@ -554,6 +573,18 @@ def _request_list_out(
         paid_at=request.paid_at,
         submitted_at=request.submitted_at,
         created_at=request.created_at,
+        tracking_number=request.tracking_number,
+        customer_shipped_at=request.customer_shipped_at,
+        received_at=request.received_at,
+        inbound_shipment_status=inbound_status,
+        inbound_shipment_status_label=INBOUND_STATUS_LABELS.get(inbound_status, inbound_status)
+        if inbound_status
+        else None,
+        return_status_summary=", ".join(sorted(return_statuses)) if return_statuses else None,
+        return_tracking_number=return_tracking,
+        store_visit_at=request.store_visit_at,
+        assessed_at=request.assessed_at,
+        assessor_name=None,
     )
 
 
@@ -741,6 +772,120 @@ def list_requests(
         includes_pii=include_contact,
     )
     return result
+
+
+@router.get("/requests/export.csv")
+def export_requests_csv(
+    status: Optional[str] = Query(None),
+    buyback_method: Optional[str] = Query(None),
+    payout_transfer_status: Optional[str] = Query(None),
+    identity_not_approved: bool = Query(False),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(_require_perm("admin.csv.export")),
+):
+    from datetime import datetime
+
+    include_contact = can_view_kyc(ctx) or can_view_payout_queue(ctx)
+    parsed_from = None
+    parsed_to = None
+    if date_from:
+        parsed_from = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+    if date_to:
+        parsed_to = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+
+    rows = list_admin_requests(
+        db,
+        status=status,
+        buyback_method=buyback_method,
+        payout_transfer_status=payout_transfer_status,
+        identity_not_approved=identity_not_approved,
+        date_from=parsed_from,
+        date_to=parsed_to,
+        q=q,
+        allow_pii_search=include_contact,
+        limit=5000,
+    )
+    users = _user_map(db, {row.user_id for row in rows}) if include_contact else {}
+    user_ids = {row.user_id for row in rows}
+    identity_map: dict[int, models_buyback.IdentityVerification] = {}
+    if user_ids:
+        identity_rows = (
+            db.query(models_buyback.IdentityVerification)
+            .filter(models_buyback.IdentityVerification.user_id.in_(user_ids))
+            .order_by(models_buyback.IdentityVerification.id.desc())
+            .all()
+        )
+        for identity_row in identity_rows:
+            if identity_row.user_id not in identity_map:
+                identity_map[identity_row.user_id] = identity_row
+
+    items = [
+        _request_list_out(
+            row,
+            users.get(row.user_id),
+            include_pii=include_contact,
+            identity_row=identity_map.get(row.user_id),
+        )
+        for row in rows
+    ]
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "request_number",
+            "buyback_method",
+            "status",
+            "user_name",
+            "user_email",
+            "tracking_number",
+            "customer_shipped_at",
+            "received_at",
+            "inbound_shipment_status",
+            "return_status_summary",
+            "return_tracking_number",
+            "payout_total",
+            "submitted_at",
+        ]
+    )
+    for item in items:
+        writer.writerow(
+            [
+                item.request_number or item.id,
+                item.buyback_method_label or item.buyback_method or "",
+                item.status_label,
+                item.user_name,
+                item.user_email,
+                item.tracking_number or "",
+                item.customer_shipped_at.isoformat() if item.customer_shipped_at else "",
+                item.received_at.isoformat() if item.received_at else "",
+                item.inbound_shipment_status_label or "",
+                item.return_status_summary or "",
+                item.return_tracking_number or "",
+                item.payout_total if item.payout_total is not None else "",
+                item.submitted_at.isoformat() if item.submitted_at else "",
+            ]
+        )
+
+    _audit_access(
+        db,
+        ctx,
+        action="buyback_request_csv_exported",
+        entity_type="buyback_request_list",
+        includes_pii=include_contact,
+    )
+    safe_commit(db, action="buyback CSV export")
+
+    payload = buffer.getvalue()
+    filename = f"buyback-requests-{buyback_method or 'all'}.csv"
+    return Response(
+        content="\ufeff" + payload,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/requests/{request_id}", response_model=schemas_buyback.AdminBuybackRequestDetailOut)

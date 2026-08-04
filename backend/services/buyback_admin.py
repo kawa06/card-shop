@@ -561,6 +561,7 @@ def list_admin_requests(
             models_buyback.BuybackRequest.submitted_at.desc(),
             models_buyback.BuybackRequest.created_at.desc(),
         )
+        .options(joinedload(models_buyback.BuybackRequest.inbound_shipment))
         .limit(limit)
         .all()
     )

@@ -556,6 +556,66 @@ export interface AdminBuybackRequestListItem {
   paid_at: string | null
   submitted_at: string | null
   created_at: string
+  tracking_number?: string | null
+  customer_shipped_at?: string | null
+  received_at?: string | null
+  inbound_shipment_status?: string | null
+  inbound_shipment_status_label?: string | null
+  return_status_summary?: string | null
+  return_tracking_number?: string | null
+  store_visit_at?: string | null
+  assessed_at?: string | null
+  assessor_name?: string | null
+}
+
+export interface AdminDashboardStats {
+  today_sales: number
+  month_sales: number
+  orders_today: number
+  pending_ship: number
+  pending_assess: number
+  live_sessions: number
+  auction_sessions: number
+  new_members_today: number
+  unread_inquiries: number
+  draft_announcements: number
+  buyback_pending_kyc: number
+  buyback_submitted_requests: number
+  buyback_payout_pending: number
+}
+
+export interface AdminInAppNotification {
+  id: number
+  event_key: string
+  title: string
+  body: string
+  reference_type: string | null
+  reference_id: string | null
+  is_read: boolean
+  read_at: string | null
+  created_at: string
+}
+
+export interface OrderShipmentLog {
+  id: number
+  order_id: number
+  event_type: string
+  from_shipping_status: string | null
+  to_shipping_status: string | null
+  tracking_number: string | null
+  shipping_carrier: string | null
+  admin_user_id: number | null
+  note: string | null
+  created_at: string
+}
+
+export interface OrderScanResult {
+  order_id: number
+  order_number: string | null
+  shipping_status: string | null
+  tracking_number: string | null
+  buyer_name: string | null
+  detail_url: string
 }
 
 export interface AdminPayoutAccount {

@@ -82,3 +82,68 @@ def test_request_stats_channel_breakdown(db, test_user):
     stats = request_stats(db)
     assert stats["mail"]["assessing_count"] >= 1
     assert stats["store"]["awaiting_visit_count"] >= 1
+
+
+def test_phase2_order_shipment_log(db, test_user):
+    from datetime import datetime
+
+    import models
+    from services.barcode_render import append_order_shipment_log, list_order_shipment_logs
+
+    order = models.Order(
+        user_id=test_user.id,
+        total_amount=1500,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-P2-001",
+        shipping_status="unshipped",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    append_order_shipment_log(
+        db,
+        order=order,
+        event_type="shipping_updated",
+        from_shipping_status="unshipped",
+        to_shipping_status="packing",
+    )
+    db.commit()
+    logs = list_order_shipment_logs(db, order.id)
+    assert len(logs) == 1
+    assert logs[0].to_shipping_status == "packing"
+
+
+def test_phase2_order_barcode(db, test_user):
+    from datetime import datetime
+
+    import models
+    from services.barcode_render import ensure_order_barcode, resolve_order_by_scan_code
+
+    order = models.Order(
+        user_id=test_user.id,
+        total_amount=1500,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-P2-002",
+        shipping_status="unshipped",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    barcode = ensure_order_barcode(db, order=order)
+    db.commit()
+    assert barcode.scan_token
+    resolved = resolve_order_by_scan_code(db, barcode.scan_token)
+    assert resolved is not None
+    assert resolved.id == order.id
+
+
+def test_phase2_dashboard_stats_api(api_client):
+    from tests.conftest import admin_headers
+
+    res = api_client.get("/api/admin/dashboard/stats", headers=admin_headers())
+    assert res.status_code == 200
+    body = res.json()
+    assert "today_sales" in body
+    assert "pending_assess" in body

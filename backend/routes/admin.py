@@ -22,6 +22,13 @@ from services.shipping_rates import refresh_all_rates
 from services.order_checkout import cancel_unpaid_order, extend_payment_deadline, fulfill_order_inventory
 from services.order_emails import send_purchase_confirmation_email, send_shipping_completion_email
 from services.invoice_config import get_invoice_config, update_invoice_settings
+from services.barcode_render import (
+    ensure_order_barcode,
+    get_admin_dashboard_stats,
+    list_order_shipment_logs,
+    render_code128_svg,
+    resolve_order_by_scan_code,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -553,11 +560,24 @@ def admin_announcement_send_email(
 
 # ──────────────────────── Orders ─────────────────────────────
 
+@router.get("/dashboard/stats", response_model=schemas.AdminDashboardStatsOut)
+def admin_dashboard_stats_route(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    from services.barcode_render import get_admin_dashboard_stats
+
+    return schemas.AdminDashboardStatsOut(**get_admin_dashboard_stats(db))
+
+
 _SHIPPING_TO_LEGACY_STATUS = {
     "unshipped": models.OrderStatus.pending,
     "preparing": models.OrderStatus.processing,
+    "packing": models.OrderStatus.processing,
     "shipped": models.OrderStatus.shipped,
+    "in_transit": models.OrderStatus.shipped,
     "delivered": models.OrderStatus.delivered,
+    "received": models.OrderStatus.delivered,
     "cancelled": models.OrderStatus.cancelled,
 }
 
@@ -685,7 +705,7 @@ def admin_update_order_shipping(
     order_id: int,
     payload: schemas.OrderShippingUpdate,
     db: Session = Depends(get_db),
-    _: models.User = Depends(get_current_admin),
+    admin_user: models.User = Depends(get_current_admin),
 ):
     order = (
         db.query(models.Order)
@@ -702,14 +722,55 @@ def admin_update_order_shipping(
         if data["shipping_status"] not in allowed:
             raise HTTPException(status_code=400, detail="無効な発送ステータスです")
 
+    prev_status = order.shipping_status
+    prev_tracking = order.tracking_number
+
     for field, value in data.items():
         setattr(order, field, value)
 
     if order.shipping_status == "shipped" and order.shipped_at is None:
         order.shipped_at = datetime.utcnow()
 
+    if order.shipping_status in ("packing", "preparing") and prev_status == "unshipped":
+        from services.barcode_render import append_order_shipment_log, ensure_order_barcode
+
+        ensure_order_barcode(db, order=order)
+
+    status_changed = prev_status != order.shipping_status
+    tracking_changed = prev_tracking != order.tracking_number
+    if status_changed or tracking_changed or data:
+        from services.barcode_render import append_order_shipment_log
+
+        append_order_shipment_log(
+            db,
+            order=order,
+            event_type="shipping_updated",
+            from_shipping_status=prev_status,
+            to_shipping_status=order.shipping_status,
+            tracking_number=order.tracking_number,
+            shipping_carrier=order.shipping_carrier,
+            admin_user_id=admin_user.id,
+        )
+
     _sync_legacy_status_from_shipping(order)
     safe_commit(db, action="発送情報更新")
+
+    if status_changed and order.shipping_status == "shipped":
+        try:
+            from services.admin_notify_emails import send_admin_notify_event
+
+            send_admin_notify_event(
+                db,
+                "admin_notify_shipping_completed",
+                reference_type="order",
+                reference_id=str(order.id),
+                in_app_title="発送完了",
+                in_app_body=f"注文 {order.order_number or order.id} を発送しました",
+            )
+            safe_commit(db, action="発送完了通知")
+        except Exception:
+            logger.exception("Failed to send shipping completed admin notify for order %s", order.id)
+
     db.refresh(order)
     return _to_admin_order(order)
 
@@ -977,3 +1038,75 @@ def admin_update_invoice_settings(
         return update_invoice_settings(db, payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/orders/{order_id}/shipment-logs", response_model=list[schemas.OrderShipmentLogOut])
+def admin_order_shipment_logs(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    return list_order_shipment_logs(db, order_id)
+
+
+@router.get("/orders/{order_id}/barcode", response_model=schemas.OrderBarcodeOut)
+def admin_get_order_barcode(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    row = ensure_order_barcode(db, order=order)
+    safe_commit(db, action="order barcode")
+    return row
+
+
+@router.get("/orders/{order_id}/barcode.svg")
+def admin_order_barcode_svg(
+    order_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    order = db.query(models.Order).filter(models.Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    barcode = ensure_order_barcode(db, order=order)
+    safe_commit(db, action="order barcode svg")
+    svg = render_code128_svg(barcode.scan_token, aria_label="order barcode")
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store, private"},
+    )
+
+
+@router.post("/orders/scan", response_model=schemas.OrderScanOut)
+def admin_scan_order(
+    payload: schemas.OrderScanIn,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_admin),
+):
+    resolved = resolve_order_by_scan_code(db, payload.code)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    if not resolved.user:
+        resolved = (
+            db.query(models.Order)
+            .options(joinedload(models.Order.user))
+            .filter(models.Order.id == resolved.id)
+            .first()
+        )
+    user = resolved.user if resolved else None
+    return schemas.OrderScanOut(
+        order_id=resolved.id,
+        order_number=resolved.order_number,
+        shipping_status=resolved.shipping_status,
+        tracking_number=resolved.tracking_number,
+        buyer_name=user.name if user else None,
+        detail_url=f"/admin/orders/{resolved.id}",
+    )

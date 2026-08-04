@@ -468,6 +468,12 @@ export default function AdminOrderDetailPage() {
                     注文控えを印刷
                   </Button>
                 </Link>
+                <Link href={`/admin/orders/${order.id}/print/shipping-label`}>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    発送ラベルを印刷
+                  </Button>
+                </Link>
                 <Link href={`/admin/orders/${order.id}/print/all`}>
                   <Button variant="default" size="sm" className="gap-2">
                     <Printer className="h-4 w-4" />

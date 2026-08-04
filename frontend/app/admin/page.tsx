@@ -25,6 +25,7 @@ import { useAdminPermissions } from '@/hooks/useAdminPermissions'
 import { useLangStore } from '@/store/lang'
 import { t } from '@/lib/i18n'
 import { adminBuybackApi, adminApi, adminInquiriesApi, announcementsApi, cardsApi, categoriesApi, ordersApi, packsApi, shippingApi } from '@/lib/api'
+import type { AdminDashboardStats } from '@/lib/types'
 import { buybackAdminUrl } from '@/lib/buyback-admin-url'
 
 interface Stats {
@@ -46,6 +47,7 @@ export default function AdminPage() {
   const { isReady } = useAdminGuard()
   const { hasPermission, session } = useAdminPermissions()
   const [stats, setStats] = useState<Stats>({ cards: 0, orders: 0, categories: 0, packs: 0, announcements: 0, users: 0, shipping: 0, inquiryUnreplied: 0, buybackPendingKyc: 0, buybackSubmittedRequests: 0, buybackPayoutPending: 0 })
+  const [kpis, setKpis] = useState<AdminDashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
 
@@ -66,7 +68,8 @@ export default function AdminPage() {
       shippingApi.getRates(),
       adminInquiriesApi.getStats(),
       adminBuybackApi.getStats(),
-    ]).then(([cardsRes, ordersRes, catsRes, packsRes, annsRes, usersRes, shippingRes, inquiryRes, buybackRes]) => {
+      adminApi.getDashboardStats(),
+    ]).then(([cardsRes, ordersRes, catsRes, packsRes, annsRes, usersRes, shippingRes, inquiryRes, buybackRes, kpiRes]) => {
       const getCount = (res: PromiseSettledResult<{ data: unknown }>, key = 'length') => {
         if (res.status === 'fulfilled') {
           const d = res.value.data
@@ -92,6 +95,9 @@ export default function AdminPage() {
         buybackPayoutPending:
           buybackRes.status === 'fulfilled' ? buybackRes.value.data.payout_pending_count : 0,
       })
+      if (kpiRes.status === 'fulfilled') {
+        setKpis(kpiRes.value.data)
+      }
     }).finally(() => setIsLoading(false))
   }, [isMounted, isReady])
 
@@ -107,6 +113,7 @@ export default function AdminPage() {
           { href: '/admin/packs', icon: Package, label: t('パック管理', lang), count: stats.packs, color: 'text-sky-400', bg: 'bg-sky-400/10 border-sky-400/20' },
           { href: '/admin/categories', icon: Tag, label: t('カテゴリー管理', lang), count: stats.categories, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
           { href: '/admin/orders', icon: ShoppingBag, label: t('注文管理', lang), count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
+          { href: '/admin/fulfillment', icon: Truck, label: '発送管理', count: kpis?.pending_ship ?? 0, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' },
           { href: '/admin/inquiries', icon: MessageSquare, label: '問い合わせ管理', count: stats.inquiryUnreplied, color: 'text-teal-500', bg: 'bg-teal-500/10 border-teal-500/20' },
           { href: '/admin/click-post', icon: FileSpreadsheet, label: 'クリックポストCSV', count: stats.orders, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
           { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },
@@ -158,6 +165,26 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold text-gray-900">{t('管理ダッシュボード', lang)}</h1>
         </div>
 
+        {kpis && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+            {[
+              { label: '今日の売上', value: `¥${kpis.today_sales.toLocaleString('ja-JP')}` },
+              { label: '今月売上', value: `¥${kpis.month_sales.toLocaleString('ja-JP')}` },
+              { label: '本日注文', value: kpis.orders_today },
+              { label: '発送待ち', value: kpis.pending_ship },
+              { label: '査定待ち', value: kpis.pending_assess },
+              { label: '新規会員(本日)', value: kpis.new_members_today },
+              { label: '未読問い合わせ', value: kpis.unread_inquiries },
+              { label: '下書きお知らせ', value: kpis.draft_announcements },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-lg border bg-gray-50 px-4 py-3">
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sections.map(({ href, icon: Icon, label, count, color, bg, external }) => {
             const card = (
@@ -192,3 +219,4 @@ export default function AdminPage() {
     </div>
   )
 }
+

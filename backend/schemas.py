@@ -389,6 +389,9 @@ class OrderShippingUpdate(BaseModel):
     tracking_number: Optional[str] = None
     shipped_at: Optional[datetime] = None
     admin_note: Optional[str] = None
+    shipping_box_type: Optional[str] = None
+    shipping_weight_g: Optional[int] = None
+    shipping_size_label: Optional[str] = None
 
 
 class AdminOrderOut(OrderOut):
@@ -839,3 +842,60 @@ class ShippingRateUpdate(BaseModel):
     max_size: Optional[str] = None
     max_weight: Optional[str] = None
     source_url: Optional[str] = None
+
+
+class AdminDashboardStatsOut(BaseModel):
+    today_sales: int = 0
+    month_sales: int = 0
+    orders_today: int = 0
+    pending_ship: int = 0
+    pending_assess: int = 0
+    live_sessions: int = 0
+    auction_sessions: int = 0
+    new_members_today: int = 0
+    unread_inquiries: int = 0
+    draft_announcements: int = 0
+    buyback_pending_kyc: int = 0
+    buyback_submitted_requests: int = 0
+    buyback_payout_pending: int = 0
+
+
+class OrderShipmentLogOut(BaseModel):
+    id: int
+    order_id: int
+    event_type: str
+    from_shipping_status: Optional[str] = None
+    to_shipping_status: Optional[str] = None
+    tracking_number: Optional[str] = None
+    shipping_carrier: Optional[str] = None
+    admin_user_id: Optional[int] = None
+    note: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrderBarcodeOut(BaseModel):
+    id: int
+    order_id: int
+    barcode_type: str
+    human_readable: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrderScanIn(BaseModel):
+    code: str
+    device_info: Optional[str] = None
+
+
+class OrderScanOut(BaseModel):
+    order_id: int
+    order_number: Optional[str] = None
+    shipping_status: Optional[str] = None
+    tracking_number: Optional[str] = None
+    buyer_name: Optional[str] = None
+    detail_url: str

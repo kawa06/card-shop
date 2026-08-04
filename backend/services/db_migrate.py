@@ -43,6 +43,7 @@ def run_schema_upgrades() -> None:
     _migrate_admin_security_schema()
     _migrate_order_pricing_snapshots()
     _migrate_email_auth_schema()
+    _migrate_phase2_logistics_schema()
 
 
 def _migrate_order_pricing_snapshots() -> None:
@@ -944,3 +945,19 @@ def _migrate_email_auth_schema() -> None:
         except Exception:
             db.rollback()
             logger.error("admin notify email template upgrade failed")
+
+
+def _migrate_phase2_logistics_schema() -> None:
+    """Phase 2 additive tables/columns for order shipping logs and barcodes."""
+    order_cols = [
+        ("shipping_box_type", "VARCHAR(32)"),
+        ("shipping_weight_g", "INTEGER"),
+        ("shipping_size_label", "VARCHAR(32)"),
+        ("shipped_by_admin_id", "INTEGER"),
+    ]
+    for col, col_type in order_cols:
+        _add_column_if_missing("orders", col, col_type)
+
+    _create_table_if_missing("order_shipment_logs", models.OrderShipmentLog)
+    _create_table_if_missing("order_barcodes", models.OrderBarcode)
+    _create_unique_index_if_missing("order_barcodes", "ix_order_barcodes_scan_token", "scan_token")

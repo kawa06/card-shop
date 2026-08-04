@@ -1,5 +1,6 @@
 ﻿import { Metadata } from 'next'
 import { AdminGate } from './AdminGate'
+import { AdminChrome } from '@/components/admin/AdminChrome'
 
 export const metadata: Metadata = {
   title: '管理画面',
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  return <AdminGate>{children}</AdminGate>
+  return (
+    <AdminGate>
+      <AdminChrome>{children}</AdminChrome>
+    </AdminGate>
+  )
 }
