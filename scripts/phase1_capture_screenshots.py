@@ -69,22 +69,55 @@ def shot(page, name: str, report: dict) -> None:
         "has_admin_ui": any(t in body for t in ("買取管理", "商品査定", "郵送買取", "店舗買取")),
     })
 
+def wait_shop_admin_ready(page, timeout_ms: int = 120000) -> bool:
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        url = page.url
+        if "/sign-in" in url:
+            time.sleep(2)
+            continue
+        body = page.inner_text("body")
+        if any(
+            token in body
+            for token in (
+                "管理ダッシュボード",
+                "管理画面",
+                "発送管理",
+                "注文スキャン",
+                "注文管理",
+                "買取申請管理",
+            )
+        ):
+            return True
+        time.sleep(2)
+    return False
+
 def clerk_sign_in(page, secret_key: str, report: dict) -> None:
     sign_in_url = get_sign_in_url(secret_key, ADMIN_EMAIL)
     if not sign_in_url:
         report["notes"].append("Clerk admin user not found")
         return
-    page.goto(sign_in_url, wait_until="domcontentloaded", timeout=120000)
-    for _ in range(30):
-        if "/sign-in" not in page.url and "clerk" not in page.url.lower():
+    page.goto(sign_in_url, wait_until="networkidle", timeout=180000)
+    time.sleep(5)
+    for _ in range(90):
+        url = page.url
+        if "clerk" not in url.lower() and "/sign-in" not in url:
             break
         time.sleep(2)
-    page.goto(f"{BASE_URL}/auth/after-sign-in", wait_until="domcontentloaded", timeout=120000)
-    for _ in range(30):
-        if page.url.rstrip("/").endswith("/admin") or "/admin/" in page.url:
-            break
+    page.goto(f"{BASE_URL}/auth/after-sign-in", wait_until="networkidle", timeout=180000)
+    for _ in range(60):
+        if "/admin" in page.url and wait_shop_admin_ready(page, 5000):
+            report["after_sign_in_url"] = page.url
+            report["admin_signed_in"] = True
+            return
+        if wait_shop_admin_ready(page, 3000):
+            report["after_sign_in_url"] = page.url
+            report["admin_signed_in"] = True
+            return
+        page.goto(f"{BASE_URL}/admin", wait_until="domcontentloaded", timeout=60000)
         time.sleep(2)
     report["after_sign_in_url"] = page.url
+    report["admin_signed_in"] = wait_shop_admin_ready(page, 10000)
 
 def first_detail_href(page, list_path: str) -> str | None:
     page.goto(BASE_URL + list_path, wait_until="domcontentloaded", timeout=120000)
@@ -136,78 +169,273 @@ def capture_detail(page, prefix: str, path: str, report: dict) -> None:
     except Exception as exc:
         report.setdefault("interaction_errors", {})[f"{prefix}-comment"] = str(exc)
 
+def phase2_api_verify() -> dict:
+    """Backend/API checks for Phase2 manual verification items."""
+    import sys
+
+    backend = ROOT / "backend"
+    sys.path.insert(0, str(backend))
+    prev_cwd = os.getcwd()
+    os.chdir(backend)
+    os.environ["ADMIN_PROXY_SECRET"] = "test-only-admin-proxy-secret"
+    from datetime import datetime
+
+    import models
+    import models_buyback  # noqa: F401
+    import models_admin  # noqa: F401
+    from config import settings
+    from fastapi.testclient import TestClient
+    from main import app
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from database import Base, get_db
+    from services.barcode_render import ensure_order_barcode, resolve_order_by_scan_code
+    from services.admin_seed import seed_admin_rbac
+    from tests.conftest import admin_headers, auth_headers, create_admin_user
+
+    settings.DEBUG = True
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    seed_admin_rbac(session)
+    user = create_admin_user(session, email="rikukai0609@icloud.com", role_code="owner")
+    order = models.Order(
+        user_id=user.id,
+        total_amount=2000,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-VERIFY-001",
+        shipping_status="unshipped",
+    )
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    def override_get_db():
+        try:
+            yield session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+    headers = admin_headers("rikukai0609@icloud.com")
+    results: dict = {}
+
+    b1 = ensure_order_barcode(session, order=order)
+    session.commit()
+    b2 = ensure_order_barcode(session, order=order)
+    session.commit()
+    dup_count = session.query(models.OrderBarcode).filter(models.OrderBarcode.order_id == order.id).count()
+    results["duplicate_barcode"] = {
+        "pass": b1.id == b2.id and b1.scan_token == b2.scan_token and dup_count == 1,
+        "barcode_rows": dup_count,
+        "token_stable": b1.scan_token == b2.scan_token,
+    }
+
+    scan1 = client.post("/api/admin/orders/scan", json={"code": b1.scan_token}, headers=headers)
+    scan2 = client.post("/api/admin/orders/scan", json={"code": b1.scan_token}, headers=headers)
+    results["double_scan"] = {
+        "pass": scan1.status_code == 200 and scan2.status_code == 200,
+        "same_order_id": scan1.json().get("order_id") == scan2.json().get("order_id"),
+        "idempotent": scan1.json() == scan2.json(),
+        "note": "注文スキャンは参照専用（副作用なし）のため同一結果返却で二重処理を防止",
+    }
+
+    resolved = resolve_order_by_scan_code(session, b1.scan_token)
+    results["barcode_read"] = {
+        "pass": resolved is not None and resolved.id == order.id,
+        "order_number": resolved.order_number if resolved else None,
+    }
+
+    logs_before = client.get(f"/api/admin/orders/{order.id}/shipment-logs", headers=headers)
+    ship = client.patch(
+        f"/api/admin/orders/{order.id}/shipping",
+        json={"shipping_status": "preparing"},
+        headers=headers,
+    )
+    logs_after = client.get(f"/api/admin/orders/{order.id}/shipment-logs", headers=headers)
+    results["shipment_log"] = {
+        "pass": ship.status_code == 200 and len(logs_after.json()) >= len(logs_before.json()),
+        "logs_count": len(logs_after.json()),
+    }
+
+    csv_res = client.get("/api/admin/buyback/requests/export.csv", headers=headers)
+    csv_bytes = csv_res.content
+    results["csv_utf8_bom"] = {
+        "pass": csv_bytes[:3] == b"\xef\xbb\xbf",
+        "status_code": csv_res.status_code,
+        "bom_hex": csv_bytes[:3].hex() if len(csv_bytes) >= 3 else "",
+    }
+
+    app.dependency_overrides.clear()
+    session.close()
+    os.chdir(prev_cwd)
+    return results
+
+
 def phase2_main() -> int:
     load_dotenv(FRONTEND_ENV)
     secret_key = os.getenv("CLERK_SECRET_KEY", "").strip()
     from playwright.sync_api import sync_playwright
 
-    out_dir = ROOT / "artifacts" / "phase2-screenshots"
+    out_dir = ROOT / "artifacts" / "phase2-manual-verify"
     out_dir.mkdir(parents=True, exist_ok=True)
-    report = {
+    report: dict = {
         "base_url": BASE_URL,
         "screenshots": [],
         "notes": [],
+        "api_checks": {},
     }
 
-    def shot2(page, name: str) -> None:
+    try:
+        report["api_checks"] = phase2_api_verify()
+    except Exception as exc:
+        report["api_checks"] = {"error": str(exc)}
+
+    def shot2(page, name: str, extra: dict | None = None) -> None:
         out = out_dir / f"{name}.png"
         page.screenshot(path=str(out), full_page=True)
         body = page.inner_text("body")
-        report["screenshots"].append(
-            {
-                "file": str(out.relative_to(ROOT)),
-                "url": page.url,
-                "title": page.title(),
-                "is_sign_in": "/sign-in" in page.url,
-                "has_admin_ui": any(t in body for t in ("管理ダッシュボード", "発送管理", "注文スキャン", "管理画面")),
-            }
-        )
+        entry = {
+            "file": str(out.relative_to(ROOT)),
+            "url": page.url,
+            "title": page.title(),
+            "is_sign_in": "/sign-in" in page.url,
+            "has_admin_ui": wait_shop_admin_ready(page, 2000),
+        }
+        if extra:
+            entry.update(extra)
+        report["screenshots"].append(entry)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        headed = os.getenv("PHASE2_HEADED", "").strip() in ("1", "true", "yes")
+        browser = p.chromium.launch(headless=not headed, slow_mo=150 if headed else 0)
         page = browser.new_page(viewport={"width": 1440, "height": 900}, locale="ja-JP")
         if secret_key:
             clerk_sign_in(page, secret_key, report)
         else:
             report["notes"].append("CLERK_SECRET_KEY missing")
-        for name, path in PHASE2_PAGES:
+
+        if not report.get("admin_signed_in"):
+            report["notes"].append("Clerk sign-in failed; UI screenshots may show sign-in page")
+
+        ui_routes = [
+            ("01-dashboard-kpi", "/admin"),
+            ("02-notification-bell", "/admin"),
+            ("03-fulfillment", "/admin/fulfillment"),
+            ("04-order-scan", "/admin/orders/scan"),
+            ("08-buyback-list-csv", "/admin/buyback/requests"),
+        ]
+        for name, path in ui_routes:
             try:
-                page.goto(BASE_URL + path, wait_until="domcontentloaded", timeout=120000)
+                page.goto(BASE_URL + path, wait_until="networkidle", timeout=120000)
                 time.sleep(2)
                 shot2(page, name)
             except Exception as exc:
                 report.setdefault("errors", {})[name] = str(exc)
+
         try:
-            page.goto(BASE_URL + "/admin", wait_until="domcontentloaded", timeout=120000)
-            time.sleep(2)
+            page.goto(BASE_URL + "/admin", wait_until="networkidle", timeout=120000)
+            time.sleep(1)
             bell = page.locator('button[aria-label="通知"]')
             if bell.count() > 0:
                 bell.first.click()
                 time.sleep(1)
-                shot2(page, "04-notification-bell-open")
+                shot2(page, "02-notification-bell-open")
         except Exception as exc:
             report.setdefault("errors", {})["notification-bell-open"] = str(exc)
+
         try:
-            page.goto(BASE_URL + "/admin/fulfillment", wait_until="domcontentloaded", timeout=120000)
-            time.sleep(2)
-            label_link = page.locator("a[href*='/print/shipping-label']").first
-            if label_link.count() > 0:
-                href = label_link.get_attribute("href")
-                if href:
-                    page.goto(BASE_URL + href, wait_until="domcontentloaded", timeout=120000)
-                    time.sleep(2)
-                    shot2(page, "05-shipping-label-barcode")
-            else:
-                report["notes"].append("No shipping-label link on fulfillment page")
+            page.goto(BASE_URL + "/admin/buyback/requests", wait_until="networkidle", timeout=120000)
+            csv_btn = page.get_by_role("button", name=re.compile("CSV"))
+            if csv_btn.count() > 0:
+                with page.expect_download(timeout=60000) as dl_info:
+                    csv_btn.first.click()
+                download = dl_info.value
+                csv_path = out_dir / "buyback-export.csv"
+                download.save_as(str(csv_path))
+                raw = csv_path.read_bytes()
+                report["csv_download"] = {
+                    "file": str(csv_path.relative_to(ROOT)),
+                    "has_bom": raw[:3] == b"\xef\xbb\xbf",
+                    "size": len(raw),
+                }
+                shot2(page, "08-buyback-csv-clicked")
         except Exception as exc:
-            report.setdefault("errors", {})["shipping-label"] = str(exc)
+            report.setdefault("errors", {})["buyback-csv"] = str(exc)
+
+        order_id: int | None = None
+        try:
+            page.goto(BASE_URL + "/admin/fulfillment", wait_until="networkidle", timeout=120000)
+            detail = page.locator("a[href*='/admin/orders/']").first
+            if detail.count() > 0:
+                href = detail.get_attribute("href") or ""
+                m = re.search(r"/admin/orders/(\d+)", href)
+                if m:
+                    order_id = int(m.group(1))
+        except Exception as exc:
+            report.setdefault("errors", {})["find-order"] = str(exc)
+
+        if order_id is None:
+            try:
+                page.goto(BASE_URL + "/admin/orders", wait_until="networkidle", timeout=120000)
+                link = page.locator("a[href*='/admin/orders/']").first
+                if link.count() > 0:
+                    href = link.get_attribute("href") or ""
+                    m = re.search(r"/admin/orders/(\d+)", href)
+                    if m:
+                        order_id = int(m.group(1))
+            except Exception as exc:
+                report.setdefault("errors", {})["find-order-fallback"] = str(exc)
+
+        report["order_id_used"] = order_id
+
+        if order_id:
+            try:
+                page.goto(f"{BASE_URL}/admin/orders/{order_id}", wait_until="networkidle", timeout=120000)
+                time.sleep(2)
+                shot2(page, "05-order-detail")
+            except Exception as exc:
+                report.setdefault("errors", {})["order-detail"] = str(exc)
+            try:
+                page.goto(f"{BASE_URL}/admin/orders/{order_id}/print/shipping-label", wait_until="networkidle", timeout=120000)
+                time.sleep(2)
+                shot2(page, "06-shipping-label-barcode")
+            except Exception as exc:
+                report.setdefault("errors", {})["shipping-label"] = str(exc)
+            try:
+                page.goto(BASE_URL + "/admin/orders/scan", wait_until="networkidle", timeout=120000)
+                time.sleep(1)
+                input_box = page.locator('input[type="text"]').first
+                if input_box.count() > 0:
+                    input_box.fill(str(order_id))
+                    input_box.press("Enter")
+                    time.sleep(2)
+                    shot2(page, "07-barcode-scan-result")
+            except Exception as exc:
+                report.setdefault("errors", {})["barcode-scan"] = str(exc)
+
         browser.close()
-    (out_dir / "capture-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    safe = {k: v for k, v in report.items() if k != "screenshots"}
-    safe["screenshot_count"] = len(report["screenshots"])
-    safe["screenshot_files"] = [s["file"] for s in report["screenshots"]]
-    print(json.dumps(safe, ensure_ascii=False, indent=2))
-    return 0 if safe["screenshot_count"] > 0 else 1
+
+    (out_dir / "verify-report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    admin_shots = sum(1 for s in report["screenshots"] if s.get("has_admin_ui"))
+    print(json.dumps({
+        "admin_signed_in": report.get("admin_signed_in"),
+        "screenshot_count": len(report["screenshots"]),
+        "admin_ui_shots": admin_shots,
+        "api_checks": report.get("api_checks"),
+        "order_id_used": report.get("order_id_used"),
+        "output_dir": str(out_dir.relative_to(ROOT)),
+    }, ensure_ascii=False, indent=2))
+    api_ok = all(v.get("pass") for v in report.get("api_checks", {}).values() if isinstance(v, dict))
+    return 0 if report.get("admin_signed_in") and admin_shots >= 5 and api_ok else 1
 
 
 def main() -> int:
@@ -675,12 +903,299 @@ export default function AdminShippingLabelPrintPage() {{
     w("app/admin/orders/[orderId]/print/shipping-label/page.tsx", label)
 
 
+def write_playwright_e2e() -> None:
+    """Write Playwright + Clerk testing files as UTF-8 (Windows-safe)."""
+    root = ROOT / "frontend"
+
+    def w(rel: str, content: str) -> None:
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8", newline="\n")
+
+    w(
+        "playwright.config.ts",
+        """import { defineConfig, devices } from '@playwright/test'
+import fs from 'fs'
+import path from 'path'
+
+const envLocal = path.join(__dirname, '.env.local')
+if (fs.existsSync(envLocal)) {
+  for (const line of fs.readFileSync(envLocal, 'utf8').split(/\\r?\\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue
+    const eq = trimmed.indexOf('=')
+    const key = trimmed.slice(0, eq).trim()
+    const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '')
+    if (key && process.env[key] === undefined) process.env[key] = value
+  }
+}
+
+const authFile = path.join(__dirname, 'playwright/.clerk/user.json')
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 120_000,
+  expect: { timeout: 30_000 },
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: [['list'], ['json', { outputFile: '../artifacts/phase2-manual-verify/playwright-report.json' }]],
+  use: {
+    baseURL,
+    trace: 'on-first-retry',
+    locale: 'ja-JP',
+    timezoneId: 'Asia/Tokyo',
+  },
+  projects: [
+    {
+      name: 'global setup',
+      testMatch: /global\\.setup\\.ts/,
+    },
+    {
+      name: 'phase2-admin-ui',
+      testMatch: /phase2-admin-ui\\.spec\\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+  ],
+})
+""",
+    )
+
+    w(
+        "e2e/global.setup.ts",
+        """import { clerk, clerkSetup, setupClerkTestingToken } from '@clerk/testing/playwright'
+import { test as setup, expect } from '@playwright/test'
+import fs from 'fs'
+import path from 'path'
+
+setup.describe.configure({ mode: 'serial' })
+
+const authFile = path.join(__dirname, '../playwright/.clerk/user.json')
+const adminEmail =
+  process.env.E2E_CLERK_USER_EMAIL ??
+  process.env.PHASE1_ADMIN_EMAIL ??
+  'rikukai0609@icloud.com'
+
+setup('configure Clerk testing', async () => {
+  await clerkSetup()
+})
+
+setup('authenticate admin and save storageState', async ({ page }) => {
+  fs.mkdirSync(path.dirname(authFile), { recursive: true })
+  if (fs.existsSync(authFile) && process.env.E2E_FORCE_REAUTH !== '1') {
+    try {
+      const state = JSON.parse(fs.readFileSync(authFile, 'utf8')) as { cookies?: unknown[] }
+      if ((state.cookies?.length ?? 0) > 0) return
+    } catch {
+      // fall through to fresh sign-in
+    }
+  }
+
+  await setupClerkTestingToken({ page })
+
+  await page.goto('/sign-in', { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await clerk.signIn({
+    page,
+    emailAddress: adminEmail,
+  })
+
+  await page.goto('/auth/after-sign-in', { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await page.waitForURL(/\\/admin/, { timeout: 120_000 })
+
+  await expect(page.getByText(/\\u7ba1\\u7406\\u30c0\\u30c3\\u30b7\\u30e5\\u30dc\\u30fc\\u30c9|\\u7ba1\\u7406\\u753b\\u9762|\\u767a\\u9001\\u7ba1\\u7406|\\u6ce8\\u6587\\u7ba1\\u7406/)).toBeVisible({
+    timeout: 120_000,
+  })
+
+  await page.context().storageState({ path: authFile })
+})
+""",
+    )
+
+    w(
+        "e2e/phase2-admin-ui.spec.ts",
+        """import { test, expect } from '@playwright/test'
+import fs from 'fs'
+import path from 'path'
+
+const outDir = path.join(__dirname, '../../artifacts/phase2-manual-verify')
+
+test.describe.configure({ mode: 'serial' })
+
+async function shot(page: import('@playwright/test').Page, name: string) {
+  fs.mkdirSync(outDir, { recursive: true })
+  await page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage: true })
+}
+
+async function waitAdminReady(page: import('@playwright/test').Page) {
+  await expect(page).not.toHaveURL(/\\/sign-in/)
+  await expect(
+    page.getByText(/\\u7ba1\\u7406\\u30c0\\u30c3\\u30b7\\u30e5\\u30dc\\u30fc\\u30c9|\\u7ba1\\u7406\\u753b\\u9762|\\u767a\\u9001\\u7ba1\\u7406|\\u6ce8\\u6587\\u7ba1\\u7406|\\u8cb7\\u53d6\\u7533\\u8acb\\u7ba1\\u7406/).first(),
+  ).toBeVisible({ timeout: 60_000 })
+}
+
+test('01 dashboard KPI (desktop)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/admin')
+  await waitAdminReady(page)
+  await shot(page, '01-dashboard-kpi')
+})
+
+test('01 dashboard KPI (mobile)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/admin')
+  await waitAdminReady(page)
+  await shot(page, '01-dashboard-kpi-mobile')
+})
+
+test('02 notification bell open', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/admin')
+  await waitAdminReady(page)
+  const bell = page.getByRole('button', { name: '\\u901a\\u77e5' })
+  await expect(bell).toBeVisible()
+  await bell.click()
+  await page.waitForTimeout(1000)
+  await shot(page, '02-notification-bell-open')
+
+  const unreadItem = page.locator('button.bg-amber-50').first()
+  if ((await unreadItem.count()) > 0) {
+    await unreadItem.click()
+    await page.waitForTimeout(500)
+    await shot(page, '02-notification-mark-read')
+  }
+})
+
+test('03 fulfillment (desktop + mobile)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/admin/fulfillment')
+  await waitAdminReady(page)
+  await expect(page.getByText('\\u767a\\u9001\\u7ba1\\u7406')).toBeVisible()
+  await page.waitForSelector('table tbody tr, p:has-text("\\u767a\\u9001\\u5f85\\u3061\\u306e\\u6ce8\\u6587\\u306f\\u3042\\u308a\\u307e\\u305b\\u3093")', { timeout: 60_000 })
+  await shot(page, '03-fulfillment')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/admin/fulfillment')
+  await waitAdminReady(page)
+  await shot(page, '03-fulfillment-mobile')
+})
+
+test('04 order scan page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/admin/orders/scan')
+  await waitAdminReady(page)
+  await expect(page.getByRole('heading', { name: '\\u6ce8\\u6587\\u30b9\\u30ad\\u30e3\\u30f3' })).toBeVisible()
+  await shot(page, '04-order-scan')
+})
+
+test('08 buyback list CSV', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/admin/buyback/requests')
+  await waitAdminReady(page)
+  await shot(page, '08-buyback-list-csv')
+
+  const csvBtn = page.getByRole('button', { name: /CSV/ })
+  if ((await csvBtn.count()) > 0) {
+    const downloadPromise = page.waitForEvent('download', { timeout: 60_000 })
+    await csvBtn.first().click()
+    const download = await downloadPromise
+    const csvPath = path.join(outDir, 'buyback-export.csv')
+    await download.saveAs(csvPath)
+    const raw = fs.readFileSync(csvPath)
+    expect(raw.slice(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]))).toBeTruthy()
+    await shot(page, '08-buyback-csv-clicked')
+  }
+})
+
+test('05 order detail + shipment log, 06 label, 07 scan', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+
+  let orderId: string | null = null
+  await page.goto('/admin/fulfillment')
+  await waitAdminReady(page)
+  const orderLink = page.locator('a[href*="/admin/orders/"]').first()
+  if ((await orderLink.count()) > 0) {
+    const href = (await orderLink.getAttribute('href')) ?? ''
+    const m = href.match(/\\/admin\\/orders\\/(\\d+)/)
+    if (m) orderId = m[1]
+  }
+
+  if (!orderId) {
+    await page.goto('/admin/orders')
+    await waitAdminReady(page)
+    const link = page.locator('a[href*="/admin/orders/"]').first()
+    if ((await link.count()) > 0) {
+      const href = (await link.getAttribute('href')) ?? ''
+      const m = href.match(/\\/admin\\/orders\\/(\\d+)/)
+      if (m) orderId = m[1]
+    }
+  }
+
+  test.skip(!orderId, 'No order found for detail/label/scan checks')
+  const oid = orderId!
+
+  await page.goto(`/admin/orders/${oid}`)
+  await waitAdminReady(page)
+  await expect(page.getByText('\\u767a\\u9001\\u30ed\\u30b0')).toBeVisible({ timeout: 30_000 })
+  await shot(page, '05-order-detail-shipment-log')
+
+  await page.goto(`/admin/orders/${oid}/print/shipping-label`, { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await waitAdminReady(page)
+  const barcodeImg = page.locator('img[alt="Order barcode"]').first()
+  await expect(barcodeImg).toBeVisible({ timeout: 90_000 })
+  await expect
+    .poll(async () => barcodeImg.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0))
+    .toBeTruthy()
+  await shot(page, '06-shipping-label-barcode')
+
+  const barcodeEnsure = await page.request.get(`/api/admin/orders/${oid}/barcode`)
+  expect(barcodeEnsure.ok()).toBeTruthy()
+  const barcodeMeta = (await barcodeEnsure.json()) as {
+    human_readable?: string | null
+    order_id: number
+  }
+  const scanCode = barcodeMeta.human_readable?.trim() || `#${oid}`
+
+  const scanApi = await page.request.post('/api/admin/orders/scan', {
+    data: { code: scanCode },
+  })
+  expect(scanApi.ok()).toBeTruthy()
+  const scanJson = (await scanApi.json()) as { order_id: number }
+  expect(scanJson.order_id).toBe(Number(oid))
+  expect(JSON.stringify(scanJson)).not.toContain('scan_token')
+
+  await page.goto('/admin/orders/scan', { waitUntil: 'domcontentloaded', timeout: 120_000 })
+  await waitAdminReady(page)
+  const input = page.getByPlaceholder('\\u30d0\\u30fc\\u30b3\\u30fc\\u30c9\\u3092\\u30b9\\u30ad\\u30e3\\u30f3\\u307e\\u305f\\u306f\\u624b\\u5165\\u529b...')
+  await input.fill(scanCode)
+  await input.press('Enter')
+  await expect(page.getByRole('heading', { name: '\\u30b9\\u30ad\\u30e3\\u30f3\\u7d50\\u679c' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('\\u6ce8\\u6587\\u304c\\u898b\\u3064\\u304b\\u308a\\u307e\\u305b\\u3093')).toHaveCount(0)
+  await shot(page, '07-barcode-scan-result')
+})
+""",
+    )
+
+
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1 and sys.argv[1] == "--restore-phase2":
         restore_phase2_frontend()
         raise SystemExit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "--write-playwright-e2e":
+        write_playwright_e2e()
+        raise SystemExit(0)
     if len(sys.argv) > 1 and sys.argv[1] == "--phase2-screenshots":
-        raise SystemExit(phase2_main())
+        print(
+            "DEPRECATED: use TypeScript Playwright instead:\n"
+            "  cd frontend && npm run test:e2e:setup && npm run test:e2e:phase2:full",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     raise SystemExit(main())

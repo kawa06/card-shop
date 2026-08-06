@@ -195,14 +195,32 @@ def resolve_order_by_scan_code(db: Session, code: str) -> models.Order | None:
     token = (code or "").strip()
     if not token:
         return None
+
     barcode = lookup_order_barcode_by_token(db, token)
     if barcode:
         return db.query(models.Order).filter(models.Order.id == barcode.order_id).first()
+
     order = db.query(models.Order).filter(models.Order.order_number == token).first()
     if order:
         return order
+
+    if token.startswith("#") and token[1:].isdigit():
+        return db.query(models.Order).filter(models.Order.id == int(token[1:])).first()
+
     if token.isdigit():
         return db.query(models.Order).filter(models.Order.id == int(token)).first()
+
+    barcode_hr = (
+        db.query(models.OrderBarcode)
+        .filter(
+            models.OrderBarcode.human_readable == token,
+            models.OrderBarcode.is_active.is_(True),
+        )
+        .first()
+    )
+    if barcode_hr:
+        return db.query(models.Order).filter(models.Order.id == barcode_hr.order_id).first()
+
     return None
 
 

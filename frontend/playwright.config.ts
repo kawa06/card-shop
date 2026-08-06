@@ -1,0 +1,50 @@
+import { defineConfig, devices } from '@playwright/test'
+import fs from 'fs'
+import path from 'path'
+
+const envLocal = path.join(__dirname, '.env.local')
+if (fs.existsSync(envLocal)) {
+  for (const line of fs.readFileSync(envLocal, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue
+    const eq = trimmed.indexOf('=')
+    const key = trimmed.slice(0, eq).trim()
+    const value = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '')
+    if (key && process.env[key] === undefined) process.env[key] = value
+  }
+}
+
+const authFile = path.join(__dirname, 'playwright/.clerk/user.json')
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 120_000,
+  expect: { timeout: 30_000 },
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  workers: 1,
+  reporter: [['list'], ['json', { outputFile: '../artifacts/phase2-manual-verify/playwright-report.json' }]],
+  use: {
+    baseURL,
+    trace: 'on-first-retry',
+    locale: 'ja-JP',
+    timezoneId: 'Asia/Tokyo',
+  },
+  projects: [
+    {
+      name: 'global setup',
+      testMatch: /global\.setup\.ts/,
+    },
+    {
+      name: 'phase2-admin-ui',
+      testMatch: /phase2-admin-ui\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+  ],
+})

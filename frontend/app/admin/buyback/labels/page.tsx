@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types'
 import { layoutCssVars, placeLabelsOnSheet } from '@/lib/buyback-label-yasan'
 import { Button } from '@/components/ui/button'
+import { AdminAuthenticatedSvgImage } from '@/components/admin/AdminAuthenticatedSvgImage'
 import { Input } from '@/components/ui/input'
 
 export default function AdminBuybackLabelsPage() {
@@ -287,9 +288,8 @@ function AdminBuybackLabelsContent() {
               {cell ? (
                 <div className="label-inner">
                   <p className="shop">{cell.shop_name || layout.shop_name}</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/admin/buyback/packages/${cell.package_id}/barcode.svg`}
+                  <AdminAuthenticatedSvgImage
+                    apiPath={`/admin/buyback/packages/${cell.package_id}/barcode.svg`}
                     alt="物流バーコード"
                     className="bc"
                   />

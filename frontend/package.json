@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e:setup": "playwright test --project=\"global setup\"",
+    "test:e2e:phase2": "playwright test --project=phase2-admin-ui",
+    "test:e2e:phase2:full": "playwright test --project=\"global setup\" --project=phase2-admin-ui"
   },
   "dependencies": {
     "@clerk/localizations": "^4.13.4",
@@ -40,7 +43,10 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.2.18",
+    "@playwright/test": "^1.62.1",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.3"
+    "eslint-config-next": "14.2.3",
+    "playwright": "^1.62.1"
   }
 }

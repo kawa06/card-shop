@@ -9,6 +9,7 @@ import { useAdminPermissions } from '@/hooks/useAdminPermissions'
 import { adminBuybackLogisticsApi } from '@/lib/api'
 import type { AdminBuybackPackageLabel } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import { AdminAuthenticatedSvgImage } from '@/components/admin/AdminAuthenticatedSvgImage'
 
 export default function AdminPackageLabelPrintPage() {
   return (
@@ -107,10 +108,8 @@ function AdminPackageLabelPrintContent() {
               )}
             </div>
             <div className="text-center min-w-[140px]">
-              {/* The server renders the bearer credential directly into bars. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/api/admin/buyback/packages/${label.id}/barcode.svg`}
+              <AdminAuthenticatedSvgImage
+                apiPath={`/admin/buyback/packages/${label.id}/barcode.svg`}
                 alt="物流バーコード"
                 className="mx-auto h-[64px] max-w-full"
               />

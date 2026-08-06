@@ -139,6 +139,91 @@ def test_phase2_order_barcode(db, test_user):
     assert resolved.id == order.id
 
 
+def test_phase2_order_scan_fallbacks(db, test_user):
+    from datetime import datetime
+
+    import models
+    from services.barcode_render import ensure_order_barcode, resolve_order_by_scan_code
+
+    order = models.Order(
+        user_id=test_user.id,
+        total_amount=900,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-P2-003",
+        shipping_status="unshipped",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    barcode = ensure_order_barcode(db, order=order)
+    db.commit()
+
+    assert resolve_order_by_scan_code(db, str(order.id)).id == order.id
+    assert resolve_order_by_scan_code(db, f"#{order.id}").id == order.id
+    assert resolve_order_by_scan_code(db, order.order_number).id == order.id
+    assert resolve_order_by_scan_code(db, barcode.human_readable).id == order.id
+
+
+def test_phase2_order_scan_api(api_client, db, test_user):
+    from datetime import datetime
+
+    import models
+    from services.barcode_render import ensure_order_barcode
+    from tests.conftest import admin_headers
+
+    order = models.Order(
+        user_id=test_user.id,
+        total_amount=800,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-P2-SCAN",
+        shipping_status="preparing",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    barcode = ensure_order_barcode(db, order=order)
+    db.commit()
+
+    headers = admin_headers()
+    by_token = api_client.post("/api/admin/orders/scan", json={"code": barcode.scan_token}, headers=headers)
+    by_id = api_client.post("/api/admin/orders/scan", json={"code": str(order.id)}, headers=headers)
+    assert by_token.status_code == 200
+    assert by_id.status_code == 200
+    assert by_token.json()["order_id"] == order.id
+    assert by_id.json()["order_id"] == order.id
+    assert "scan_token" not in by_token.json()
+
+
+def test_phase2_order_barcode_svg_api(api_client, db, test_user):
+    from datetime import datetime
+
+    import models
+    from tests.conftest import admin_headers
+
+    order = models.Order(
+        user_id=test_user.id,
+        total_amount=1200,
+        payment_status="paid",
+        paid_at=datetime.utcnow(),
+        order_number="ORD-P2-SVG",
+        shipping_status="unshipped",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    res = api_client.get(
+        f"/api/admin/orders/{order.id}/barcode.svg",
+        headers=admin_headers(),
+    )
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in res.text
+    assert "scan_token" not in res.text.lower()
+
+
 def test_phase2_dashboard_stats_api(api_client):
     from tests.conftest import admin_headers
 

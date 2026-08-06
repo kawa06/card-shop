@@ -406,6 +406,10 @@ export const adminApi = {
   }) => apiClient.get('/admin/orders', { params }),
   getOrderById: (id: number) =>
     apiClient.get<import('./types').AdminOrderDetail>(`/admin/orders/${id}`),
+  getOrderBarcode: (id: number) =>
+    apiClient.get<{ id: number; order_id: number; barcode_type: string; human_readable?: string | null }>(
+      `/admin/orders/${id}/barcode`,
+    ),
   getInvoiceSettings: () =>
     apiClient.get<import('./types').InvoiceConfigApi>('/admin/shop/invoice-settings'),
   updateInvoiceSettings: (data: {
