@@ -125,16 +125,16 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 712,
+                  "duration": 730,
                   "errors": [],
                   "stdout": [
                     {
-                      "text": "[dotenv@17.2.2] injecting env (0) from .env.local,.env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com\n"
+                      "text": "[dotenv@17.2.2] injecting env (0) from .env.local,.env -- tip: 📡 auto-backup env with Radar: https://dotenvx.com/radar\n"
                     }
                   ],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-06T18:29:50.130Z",
+                  "startTime": "2026-08-06T18:41:43.334Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -163,12 +163,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 379,
+                  "duration": 19269,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-06T18:29:50.888Z",
+                  "startTime": "2026-08-06T18:41:44.106Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -191,7 +191,7 @@
       "specs": [
         {
           "title": "01 admin live list",
-          "ok": false,
+          "ok": true,
           "tags": [],
           "tests": [
             {
@@ -204,53 +204,23 @@
                 {
                   "workerIndex": 1,
                   "parallelIndex": 0,
-                  "status": "failed",
-                  "duration": 64685,
-                  "error": {
-                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('h1, h2').first()\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('h1, h2').first()\u001b[22m\n",
-                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('h1, h2').first()\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('h1, h2').first()\u001b[22m\n\n    at waitAdminReady (C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts:16:48)\n    at C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts:22:3",
-                    "location": {
-                      "file": "C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts",
-                      "column": 48,
-                      "line": 16
-                    },
-                    "snippet": "  14 | async function waitAdminReady(page: import('@playwright/test').Page) {\n  15 |   await expect(page).not.toHaveURL(/\\/sign-in/)\n> 16 |   await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 60_000 })\n     |                                                ^\n  17 | }\n  18 |\n  19 | test('01 admin live list', async ({ page }) => {"
-                  },
-                  "errors": [
-                    {
-                      "location": {
-                        "file": "C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts",
-                        "column": 48,
-                        "line": 16
-                      },
-                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: locator('h1, h2').first()\nExpected: visible\nTimeout: 60000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 60000ms\u001b[22m\n\u001b[2m  - waiting for locator('h1, h2').first()\u001b[22m\n\n\n  14 | async function waitAdminReady(page: import('@playwright/test').Page) {\n  15 |   await expect(page).not.toHaveURL(/\\/sign-in/)\n> 16 |   await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 60_000 })\n     |                                                ^\n  17 | }\n  18 |\n  19 | test('01 admin live list', async ({ page }) => {\n    at waitAdminReady (C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts:16:48)\n    at C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts:22:3"
-                    }
-                  ],
+                  "status": "passed",
+                  "duration": 6613,
+                  "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-06T18:29:52.781Z",
+                  "startTime": "2026-08-06T18:42:04.362Z",
                   "annotations": [],
-                  "attachments": [
-                    {
-                      "name": "error-context",
-                      "contentType": "text/markdown",
-                      "path": "C:\\Users\\user1\\projects\\card-shop\\frontend\\test-results\\phase3-live-01-admin-live-list-phase3-live\\error-context.md"
-                    }
-                  ],
-                  "errorLocation": {
-                    "file": "C:\\Users\\user1\\projects\\card-shop\\frontend\\e2e\\phase3-live.spec.ts",
-                    "column": 48,
-                    "line": 16
-                  }
+                  "attachments": []
                 }
               ],
-              "status": "unexpected"
+              "status": "expected"
             }
           ],
           "id": "35d32354438f8eff231f-10bbdf9b117c06d0d4f2",
           "file": "phase3-live.spec.ts",
-          "line": 19,
+          "line": 21,
           "column": 5
         },
         {
@@ -266,25 +236,25 @@
               "projectName": "phase3-live",
               "results": [
                 {
-                  "workerIndex": -1,
-                  "parallelIndex": -1,
-                  "status": "skipped",
-                  "duration": 0,
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14077,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-06T18:30:57.819Z",
+                  "startTime": "2026-08-06T18:42:11.196Z",
                   "annotations": [],
                   "attachments": []
                 }
               ],
-              "status": "skipped"
+              "status": "expected"
             }
           ],
           "id": "35d32354438f8eff231f-17b6b99b719f9cb27f0c",
           "file": "phase3-live.spec.ts",
-          "line": 27,
+          "line": 29,
           "column": 5
         }
       ]
@@ -292,11 +262,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-06T18:29:13.767Z",
-    "duration": 104436.56999999999,
-    "expected": 2,
-    "skipped": 1,
-    "unexpected": 1,
+    "startTime": "2026-08-06T18:41:28.295Z",
+    "duration": 57498.873999999996,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
     "flaky": 0
   }
 }

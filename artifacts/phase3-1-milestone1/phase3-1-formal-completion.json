@@ -1,0 +1,128 @@
+{
+  "phase": "3-1",
+  "status": "FORMALLY_COMPLETED",
+  "completed_at": "2026-08-06T18:40:34.732958+00:00",
+  "commit_hashes": {
+    "primary": "3fb0a4e3ebb6e147d08b2a861f1fd1e53c2bf70b",
+    "fix": "a83276ad1f554a766e2d10d9ea338fbe344cdbbb",
+    "head": "a83276ad1f554a766e2d10d9ea338fbe344cdbbb"
+  },
+  "deployment_ids": {
+    "initial": "d6d13135-862f-44f3-b037-55c7af770661",
+    "rbac_fix": "e46c9d52-2267-4551-b001-91f9bc91ad40"
+  },
+  "migrations": [
+    "_migrate_live_schema() in backend/services/db_migrate.py",
+    "RBAC re-seed on live migration (a83276a)"
+  ],
+  "tables_added": [
+    "live_streams",
+    "live_products",
+    "live_comments",
+    "live_comment_reports",
+    "live_user_mutes",
+    "live_user_bans",
+    "live_ng_words",
+    "live_moderators",
+    "live_moderation_audit_logs"
+  ],
+  "api_endpoints": {
+    "public_rest": [
+      "GET /api/live/streams",
+      "GET /api/live/streams/{id}",
+      "GET /api/live/streams/{id}/comments",
+      "POST /api/live/streams/{id}/comments",
+      "POST /api/live/streams/{id}/comments/{comment_id}/report",
+      "GET /api/live/streams/{id}/events (SSE)"
+    ],
+    "admin_rest": [
+      "GET/POST /api/admin/live/streams",
+      "GET/PATCH /api/admin/live/streams/{id}",
+      "POST /api/admin/live/streams/{id}/start|pause|resume|end",
+      "GET/POST /api/admin/live/streams/{id}/products",
+      "POST /api/admin/live/streams/{id}/products/{pid}/activate|pin",
+      "GET/POST/DELETE /api/admin/live/streams/{id}/comments",
+      "POST /api/admin/live/streams/{id}/comments/{cid}/pin",
+      "POST /api/admin/live/streams/{id}/mutes",
+      "POST /api/admin/live/bans",
+      "GET/POST/DELETE /api/admin/live/ng-words",
+      "GET/POST /api/admin/live/moderators",
+      "GET /api/admin/live/streams/{id}/events (SSE)"
+    ]
+  },
+  "rbac": {
+    "permissions": [
+      "live.read",
+      "live.write",
+      "live.moderate",
+      "live.broadcast"
+    ],
+    "roles": {
+      "owner": "all live.*",
+      "admin": "all live.*",
+      "sales_manager": "all live.*",
+      "support_manager": [
+        "live.read",
+        "live.moderate"
+      ],
+      "live_moderator": [
+        "live.read",
+        "live.moderate"
+      ]
+    }
+  },
+  "sse": {
+    "transport": "Server-Sent Events (text/event-stream)",
+    "events": [
+      "connected",
+      "comment.created",
+      "comment.pinned",
+      "comment.unpinned",
+      "comment.deleted",
+      "stream.updated",
+      "product.activated",
+      "product.pinned",
+      "user.muted"
+    ],
+    "features": [
+      "auto-reconnect with exponential backoff",
+      "connection limits (300/stream, 2000 global)",
+      "queue backpressure + subscriber cleanup",
+      "admin auth via Clerk proxy streaming",
+      "public SSE via Next rewrite"
+    ]
+  },
+  "tests": {
+    "backend": "7/7 PASS (test_live_streams.py)",
+    "playwright": "4/4 PASS (phase3-live.spec.ts, E2E_FORCE_REAUTH=1)"
+  },
+  "screenshots": [
+    "artifacts/phase3-1-milestone1/01-admin-live-list.png",
+    "artifacts/phase3-1-milestone1/02-admin-live-detail.png",
+    "artifacts/phase3-1-milestone1/03-admin-live-started.png",
+    "artifacts/phase3-1-milestone1/04-public-live-viewer.png",
+    "artifacts/phase3-1-milestone1/05-admin-live-ended.png"
+  ],
+  "production_verification": {
+    "health": "ok (PostgreSQL persistent)",
+    "live_api": "GET /api/live/streams returns E2E-created stream",
+    "sse": "hub unit test + production REST verified"
+  },
+  "security": [
+    "RBAC on all admin routes",
+    "Clerk + admin proxy HMAC for admin SSE",
+    "Comment rate limiting",
+    "NG word filter",
+    "Mute/ban enforcement",
+    "Soft-delete comments",
+    "Moderation audit log",
+    "No PII in public mute events"
+  ],
+  "remaining_for_phase3_2": [
+    "Live auction system",
+    "WebSocket alternative if needed for bid latency",
+    "Comment report admin queue UI",
+    "Redis-backed SSE for multi-instance scaling"
+  ],
+  "backward_compatibility": "All existing REST endpoints unchanged; SSE is additive"
+}
