@@ -294,13 +294,16 @@ def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
     ) or 0
     kyc = identity_stats(db)
     buyback = request_stats(db)
+    from services.live_streams import count_live_sessions
+
+    live_count = count_live_sessions(db)
     return {
         "today_sales": int(today_sales),
         "month_sales": int(month_sales),
         "orders_today": int(orders_today),
         "pending_ship": int(pending_ship),
         "pending_assess": int(pending_assess),
-        "live_sessions": 0,
+        "live_sessions": int(live_count),
         "auction_sessions": 0,
         "new_members_today": int(new_members_today),
         "unread_inquiries": int(unreplied),

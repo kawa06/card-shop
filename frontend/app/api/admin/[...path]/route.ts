@@ -63,9 +63,21 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   }
 
   const upstream = await fetch(targetUrl, init)
-  const body = await upstream.arrayBuffer()
   const responseHeaders = new Headers()
   const upstreamType = upstream.headers.get('content-type')
+  if (upstreamType) responseHeaders.set('Content-Type', upstreamType)
+  responseHeaders.set('Cache-Control', 'no-cache')
+
+  if (upstreamType?.includes('text/event-stream') && upstream.body) {
+    responseHeaders.set('Connection', 'keep-alive')
+    responseHeaders.set('X-Accel-Buffering', 'no')
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      headers: responseHeaders,
+    })
+  }
+
+  const body = await upstream.arrayBuffer()
   if (upstreamType) responseHeaders.set('Content-Type', upstreamType)
 
   return new NextResponse(body, {

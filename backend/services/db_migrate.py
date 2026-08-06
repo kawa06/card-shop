@@ -44,6 +44,7 @@ def run_schema_upgrades() -> None:
     _migrate_order_pricing_snapshots()
     _migrate_email_auth_schema()
     _migrate_phase2_logistics_schema()
+    _migrate_live_schema()
 
 
 def _migrate_order_pricing_snapshots() -> None:
@@ -961,3 +962,23 @@ def _migrate_phase2_logistics_schema() -> None:
     _create_table_if_missing("order_shipment_logs", models.OrderShipmentLog)
     _create_table_if_missing("order_barcodes", models.OrderBarcode)
     _create_unique_index_if_missing("order_barcodes", "ix_order_barcodes_scan_token", "scan_token")
+
+
+def _migrate_live_schema() -> None:
+    """Phase 3-1 additive tables for live sales."""
+    import models_live  # noqa: F401
+
+    live_tables = [
+        ("live_streams", models_live.LiveStream),
+        ("live_products", models_live.LiveProduct),
+        ("live_comments", models_live.LiveComment),
+        ("live_comment_reports", models_live.LiveCommentReport),
+        ("live_user_mutes", models_live.LiveUserMute),
+        ("live_user_bans", models_live.LiveUserBan),
+        ("live_ng_words", models_live.LiveNgWord),
+        ("live_moderators", models_live.LiveModerator),
+        ("live_moderation_audit_logs", models_live.LiveModerationAuditLog),
+    ]
+    for table_name, model in live_tables:
+        _create_table_if_missing(table_name, model)
+    _create_unique_index_if_missing("live_ng_words", "ix_live_ng_words_word", "word")

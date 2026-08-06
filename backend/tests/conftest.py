@@ -19,6 +19,7 @@ import models  # noqa: F401 — register models on Base.metadata
 import models_buyback  # noqa: F401 — register buyback tables
 import models_admin  # noqa: F401 — register admin security tables
 import models_email  # noqa: F401 — register email platform tables
+import models_live  # noqa: F401 — register live sales tables
 from admin_emails import ADMIN_EMAILS, normalize_email
 from services.admin_auth import bootstrap_admin_user
 from services.admin_seed import seed_admin_rbac

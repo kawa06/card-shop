@@ -1008,3 +1008,60 @@ export const adminOrderLogisticsApi = {
       device_info: deviceInfo,
     }),
 }
+
+export const adminLiveApi = {
+  listStreams: (params?: { status?: string; visibility?: string; limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveStreamList>('/admin/live/streams', { params }),
+  createStream: (data: {
+    title: string
+    description?: string
+    thumbnail_url?: string
+    embed_url?: string
+    visibility?: 'public' | 'unlisted'
+    scheduled_at?: string
+  }) => apiClient.post<import('./types').LiveStream>('/admin/live/streams', data),
+  getStream: (id: number) => apiClient.get<import('./types').LiveStream>(`/admin/live/streams/${id}`),
+  updateStream: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch<import('./types').LiveStream>(`/admin/live/streams/${id}`, data),
+  startStream: (id: number) => apiClient.post<import('./types').LiveStream>(`/admin/live/streams/${id}/start`),
+  pauseStream: (id: number) => apiClient.post<import('./types').LiveStream>(`/admin/live/streams/${id}/pause`),
+  resumeStream: (id: number) => apiClient.post<import('./types').LiveStream>(`/admin/live/streams/${id}/resume`),
+  endStream: (id: number) => apiClient.post<import('./types').LiveStream>(`/admin/live/streams/${id}/end`),
+  listProducts: (streamId: number) =>
+    apiClient.get<import('./types').LiveProduct[]>(`/admin/live/streams/${streamId}/products`),
+  addProduct: (streamId: number, data: { card_id: number; display_price?: number; sort_order?: number }) =>
+    apiClient.post<import('./types').LiveProduct>(`/admin/live/streams/${streamId}/products`, data),
+  activateProduct: (streamId: number, productId: number) =>
+    apiClient.post<import('./types').LiveProduct>(
+      `/admin/live/streams/${streamId}/products/${productId}/activate`
+    ),
+  pinProduct: (streamId: number, productId: number) =>
+    apiClient.post<import('./types').LiveProduct>(`/admin/live/streams/${streamId}/products/${productId}/pin`),
+  listComments: (streamId: number, params?: { q?: string; sender_type?: string; pinned_only?: boolean; cursor?: number; limit?: number }) =>
+    apiClient.get<import('./types').LiveCommentList>(`/admin/live/streams/${streamId}/comments`, { params }),
+  postStaffComment: (streamId: number, data: { message: string; sender_type?: 'staff' | 'admin' }) =>
+    apiClient.post<import('./types').LiveComment>(`/admin/live/streams/${streamId}/comments`, data),
+  pinComment: (streamId: number, commentId: number, pinned = true) =>
+    apiClient.post<import('./types').LiveComment>(
+      `/admin/live/streams/${streamId}/comments/${commentId}/pin`,
+      null,
+      { params: { pinned } }
+    ),
+  deleteComment: (streamId: number, commentId: number) =>
+    apiClient.delete<import('./types').LiveComment>(`/admin/live/streams/${streamId}/comments/${commentId}`),
+  listNgWords: () => apiClient.get<{ id: number; word: string; is_active: boolean; created_at: string }[]>('/admin/live/ng-words'),
+  createNgWord: (word: string) => apiClient.post('/admin/live/ng-words', { word }),
+  deleteNgWord: (id: number) => apiClient.delete(`/admin/live/ng-words/${id}`),
+}
+
+export const liveApi = {
+  listStreams: (params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveStreamList>('/live/streams', { params }),
+  getStream: (id: number) => apiClient.get<import('./types').LiveStream>(`/live/streams/${id}`),
+  listComments: (streamId: number, params?: { q?: string; cursor?: number; limit?: number }) =>
+    apiClient.get<import('./types').LiveCommentList>(`/live/streams/${streamId}/comments`, { params }),
+  postComment: (streamId: number, message: string) =>
+    apiClient.post<import('./types').LiveComment>(`/live/streams/${streamId}/comments`, { message }),
+  reportComment: (streamId: number, commentId: number, reason?: string) =>
+    apiClient.post(`/live/streams/${streamId}/comments/${commentId}/report`, { reason }),
+}

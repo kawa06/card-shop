@@ -1,0 +1,50 @@
+{
+  "phase": "3-1",
+  "milestone": "M1+M2-partial",
+  "status": "pending_approval",
+  "implemented": [
+    "live DB schema (9 tables)",
+    "RBAC live.* permissions + live_moderator role",
+    "Admin API /api/admin/live/*",
+    "Public API /api/live/*",
+    "Dashboard live_sessions KPI",
+    "Admin UI /admin/live",
+    "Public viewer /live/[id]",
+    "Comment search/filter/pin/delete/mute/ng-word",
+    "Unit+API tests (6 passed)"
+  ],
+  "api_endpoints": [
+    "/api/admin/live/streams",
+    "/api/admin/live/streams/{id}",
+    "/api/admin/live/streams/{id}/start|pause|resume|end",
+    "/api/admin/live/streams/{id}/products",
+    "/api/admin/live/streams/{id}/comments",
+    "/api/admin/live/ng-words",
+    "/api/admin/live/moderators",
+    "/api/live/streams",
+    "/api/live/streams/{id}/comments"
+  ],
+  "migrations": [
+    "_migrate_live_schema() in db_migrate.py"
+  ],
+  "tests": {
+    "backend": "6/6 PASS test_live_streams.py",
+    "playwright": "phase3-live.spec.ts added (not run)"
+  },
+  "security": [
+    "RBAC on all admin routes",
+    "Rate limit on customer comments",
+    "NG word filter",
+    "Mute/ban enforcement",
+    "Soft-delete comments",
+    "Moderation audit log"
+  ],
+  "remaining": [
+    "WebSocket/SSE realtime",
+    "Playwright E2E execution + screenshots",
+    "Railway deploy",
+    "Comment report admin UI",
+    "Global moderator assignment UI polish",
+    "Phase3-1 formal sign-off document"
+  ]
+}

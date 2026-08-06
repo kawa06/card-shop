@@ -19,6 +19,7 @@ import {
   Shield,
   Lock,
   Mail,
+  Radio,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
@@ -114,6 +115,9 @@ export default function AdminPage() {
           { href: '/admin/categories', icon: Tag, label: t('カテゴリー管理', lang), count: stats.categories, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
           { href: '/admin/orders', icon: ShoppingBag, label: t('注文管理', lang), count: stats.orders, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/20' },
           { href: '/admin/fulfillment', icon: Truck, label: '発送管理', count: kpis?.pending_ship ?? 0, color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' },
+          ...(hasPermission('live.read')
+            ? [{ href: '/admin/live', icon: Radio, label: 'ライブ配信管理', count: kpis?.live_sessions ?? 0, color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' }]
+            : []),
           { href: '/admin/inquiries', icon: MessageSquare, label: '問い合わせ管理', count: stats.inquiryUnreplied, color: 'text-teal-500', bg: 'bg-teal-500/10 border-teal-500/20' },
           { href: '/admin/click-post', icon: FileSpreadsheet, label: 'クリックポストCSV', count: stats.orders, color: 'text-amber-500', bg: 'bg-amber-500/10 border-amber-500/20' },
           { href: '/admin/announcements', icon: Bell, label: t('お知らせ管理', lang), count: stats.announcements, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/20' },

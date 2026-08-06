@@ -16,6 +16,7 @@ ADMIN_ROLE_DEFINITIONS: dict[str, str] = {
     "shipping_manager": "発送マネージャー",
     "payment_manager": "決済マネージャー",
     "support_manager": "サポートマネージャー",
+    "live_moderator": "ライブモデレーター",
     "viewer": "閲覧専用",
 }
 
@@ -65,6 +66,10 @@ ADMIN_PERMISSION_DEFINITIONS: list[tuple[str, str, str]] = [
     ("antique_ledger.view", "古物台帳閲覧", "buyback_compliance"),
     ("antique_ledger.print", "古物台帳印刷", "buyback_compliance"),
     ("audit_log.view", "買取監査ログ閲覧", "buyback_audit"),
+    ("live.read", "ライブ配信閲覧", "live"),
+    ("live.write", "ライブ配信管理", "live"),
+    ("live.moderate", "ライブコメントモデレート", "live"),
+    ("live.broadcast", "ライブ配信操作", "live"),
 ]
 
 ROLE_PERMISSION_CODES: dict[str, set[str]] = {
@@ -113,11 +118,19 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "antique_ledger.view",
         "antique_ledger.print",
         "audit_log.view",
+        "live.read",
+        "live.write",
+        "live.moderate",
+        "live.broadcast",
     },
     "sales_manager": {
         "admin.audit.read",
         "admin.csv.export",
         "admin.reauth",
+        "live.read",
+        "live.write",
+        "live.moderate",
+        "live.broadcast",
     },
     "buyback_manager": {
         "admin.audit.read",
@@ -216,6 +229,13 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "buyback.request.read",
         "buyback.logs.read",
         "audit_log.view",
+        "live.read",
+        "live.moderate",
+    },
+    "live_moderator": {
+        "admin.reauth",
+        "live.read",
+        "live.moderate",
     },
     "viewer": {
         "admin.users.read",

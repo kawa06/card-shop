@@ -584,6 +584,62 @@ export interface AdminDashboardStats {
   buyback_payout_pending: number
 }
 
+export interface LiveProduct {
+  id: number
+  stream_id: number
+  card_id: number
+  sort_order: number
+  display_price?: number | null
+  is_active: boolean
+  is_pinned: boolean
+  card_name?: string | null
+  card_image_url?: string | null
+  card_price?: number | null
+  created_at: string
+}
+
+export interface LiveStream {
+  id: number
+  shop_id: number
+  title: string
+  description?: string | null
+  thumbnail_url?: string | null
+  embed_url?: string | null
+  status: 'draft' | 'scheduled' | 'live' | 'paused' | 'ended'
+  visibility: 'public' | 'unlisted'
+  scheduled_at?: string | null
+  started_at?: string | null
+  ended_at?: string | null
+  created_at: string
+  updated_at?: string | null
+  active_product?: LiveProduct | null
+  pinned_product?: LiveProduct | null
+  product_count: number
+  comment_count: number
+}
+
+export interface LiveStreamList {
+  items: LiveStream[]
+  total: number
+}
+
+export interface LiveComment {
+  id: number
+  stream_id: number
+  sender_type: 'customer' | 'staff' | 'admin' | 'system'
+  message: string
+  is_pinned: boolean
+  created_at: string
+  sender_name?: string | null
+  user_id?: number | null
+}
+
+export interface LiveCommentList {
+  items: LiveComment[]
+  total: number
+  next_cursor?: number | null
+}
+
 export interface AdminInAppNotification {
   id: number
   event_key: string
