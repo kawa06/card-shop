@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function AdminLivePage() {
   const { isReady } = useAdminGuard()
-  const { hasPermission } = useAdminPermissions()
+  const { hasPermission, session } = useAdminPermissions()
   const [streams, setStreams] = useState<LiveStream[]>([])
   const [title, setTitle] = useState('')
   const [loading, setLoading] = useState(true)
@@ -29,7 +29,8 @@ export default function AdminLivePage() {
     adminLiveApi.listStreams().then((res) => setStreams(res.data.items)).finally(() => setLoading(false))
   }, [isReady, hasPermission])
 
-  if (!isReady) return null
+  if (!isReady) return <div className="min-h-screen bg-white p-8 text-gray-500">読み込み中...</div>
+  if (!session) return <div className="min-h-screen bg-white p-8 text-gray-500">読み込み中...</div>
   if (!hasPermission('live.read')) {
     return <div className="min-h-screen bg-white p-8 text-gray-700">ライブ配信の閲覧権限がありません。</div>
   }

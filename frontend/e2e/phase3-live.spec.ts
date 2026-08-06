@@ -13,7 +13,9 @@ async function shot(page: import('@playwright/test').Page, name: string) {
 
 async function waitAdminReady(page: import('@playwright/test').Page) {
   await expect(page).not.toHaveURL(/\/sign-in/)
-  await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 60_000 })
+  await expect(
+    page.getByText(/\u7ba1\u7406\u30c0\u30c3\u30b7\u30e5\u30dc\u30fc\u30c9|\u914d\u4fe1\u7ba1\u7406|\u30e9\u30a4\u30d6|\u6ce8\u6587\u7ba1\u7406|\u767a\u9001\u7ba1\u7406/).first(),
+  ).toBeVisible({ timeout: 60_000 })
 }
 
 test('01 admin live list', async ({ page }) => {

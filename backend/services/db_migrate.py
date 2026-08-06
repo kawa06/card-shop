@@ -982,3 +982,14 @@ def _migrate_live_schema() -> None:
     for table_name, model in live_tables:
         _create_table_if_missing(table_name, model)
     _create_unique_index_if_missing("live_ng_words", "ix_live_ng_words_word", "word")
+
+    from sqlalchemy.orm import sessionmaker
+    from services.admin_seed import seed_admin_rbac
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_admin_rbac(db)
+        except Exception:
+            db.rollback()
+            logger.exception("live schema RBAC seed failed")
