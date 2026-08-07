@@ -272,6 +272,9 @@ def fulfill_order_inventory(
         order.stripe_event_id = stripe_event_id
 
     assign_order_number(db, order)
+    from services.point_orders import on_order_paid
+
+    on_order_paid(db, order)
     db.commit()
     db.refresh(order)
 
@@ -310,6 +313,9 @@ def cancel_unpaid_order(
         return
 
     release_inventory_for_order(db, order)
+    from services.point_orders import on_order_cancelled_or_failed
+
+    on_order_cancelled_or_failed(db, order)
     order.payment_status = "expired" if as_expired else "cancelled"
     order.status = models.OrderStatus.cancelled
     order.shipping_status = "cancelled"

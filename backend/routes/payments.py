@@ -22,6 +22,7 @@ from services.stripe_events import claim_stripe_event, save_stripe_payment_refs
 from services.countries import is_domestic_japan
 from config import settings
 from services.stripe_service import (
+    adjust_line_items_to_total,
     build_line_items,
     construct_webhook_event,
     create_checkout_session,
@@ -169,8 +170,35 @@ def create_stripe_checkout_session(
         payment_deadline=bank_transfer_payment_deadline() if is_bank_transfer else None,
     )
 
+    from services.point_orders import apply_points_on_order_created
+
+    points_requested = int(payload.points_to_use or 0)
+    if points_requested > 0:
+        apply_points_on_order_created(db, order, points_to_use=points_requested)
+        db.commit()
+        db.refresh(order)
+
+    if int(round(order.total_amount)) <= 0:
+        if is_bank_transfer and not order.stock_reserved:
+            db.refresh(order)
+            reserve_inventory_for_order(db, order)
+            if not order.payment_deadline:
+                order.payment_deadline = bank_transfer_payment_deadline()
+            clear_cart_for_order(db, order)
+            db.commit()
+            db.refresh(order)
+        fulfilled = fulfill_order_inventory(db, order.id)
+        success_url = f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?order_id={fulfilled.id}"
+        return {
+            "checkout_url": success_url,
+            "session_id": f"points-only-{fulfilled.id}",
+            "order_id": fulfilled.id,
+        }
+
     shipping_label = payload.shipping_method or "送料"
     line_items = build_line_items(cart_items, shipping_fee_total, shipping_label)
+    if int(order.points_used or 0) > 0:
+        line_items = adjust_line_items_to_total(line_items, int(round(order.total_amount)))
     try:
         session = create_checkout_session(
             order_id=order.id,

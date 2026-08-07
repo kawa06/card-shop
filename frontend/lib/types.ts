@@ -185,6 +185,9 @@ export interface Order {
   email_send_status: string | null
   admin_note: string | null
   discount_amount?: number
+  points_used?: number
+  points_earned?: number
+  points_earn_status?: string | null
   coupon_code?: string | null
   coupon_name?: string | null
   payment_fee?: number

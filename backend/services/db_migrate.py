@@ -49,6 +49,41 @@ def run_schema_upgrades() -> None:
     _migrate_live_schema()
     _migrate_live_auction_schema()
     _migrate_live_offer_schema()
+    _migrate_point_schema()
+
+
+def _migrate_point_schema() -> None:
+    """Phase 3-4 additive points tables and order columns."""
+    import models_points  # noqa: F401
+
+    _add_column_if_missing("orders", "points_used", "INTEGER DEFAULT 0")
+    _add_column_if_missing("orders", "points_earned", "INTEGER DEFAULT 0")
+    _add_column_if_missing("orders", "points_earn_status", "VARCHAR(16) DEFAULT 'none'")
+    _add_column_if_missing("orders", "points_reserved", "INTEGER DEFAULT 0")
+
+    point_tables = [
+        ("point_accounts", models_points.PointAccount),
+        ("point_transactions", models_points.PointTransaction),
+        ("point_expiration_lots", models_points.PointExpirationLot),
+        ("point_reservations", models_points.PointReservation),
+        ("point_settings", models_points.PointSettings),
+        ("point_audit_logs", models_points.PointAuditLog),
+    ]
+    for table_name, model in point_tables:
+        _create_table_if_missing(table_name, model)
+
+    from sqlalchemy.orm import sessionmaker
+    from services.admin_seed import seed_admin_rbac
+    from services.point_settings import get_point_settings
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            get_point_settings(db)
+            seed_admin_rbac(db)
+        except Exception:
+            db.rollback()
+            logger.exception("point schema migration seed failed")
 
 
 def _migrate_order_pricing_snapshots() -> None:

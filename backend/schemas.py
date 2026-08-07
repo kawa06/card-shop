@@ -317,6 +317,7 @@ class StripeCheckoutSessionCreate(BaseModel):
     shipping_method: Optional[str] = None
     locale: Optional[str] = "ja"
     checkout_type: Optional[str] = "card"
+    points_to_use: int = Field(0, ge=0)
 
 
 class StripeCheckoutSessionOut(BaseModel):
@@ -364,6 +365,9 @@ class OrderOut(BaseModel):
     email_send_status: Optional[str] = None
     admin_note: Optional[str] = None
     discount_amount: int = 0
+    points_used: int = 0
+    points_earned: int = 0
+    points_earn_status: Optional[str] = "none"
     coupon_code: Optional[str] = None
     coupon_name: Optional[str] = None
     payment_fee: int = 0

@@ -89,6 +89,58 @@ def build_line_items(cart_items, shipping_fee: int, shipping_label: str) -> list
     return line_items
 
 
+def adjust_line_items_to_total(line_items: list[dict[str, Any]], target_total_jpy: int) -> list[dict[str, Any]]:
+    """Reduce line item amounts so Stripe charge matches post-points order total."""
+    target_total_jpy = max(0, int(target_total_jpy))
+    adjusted = [json_copy_item(item) for item in line_items]
+
+    def line_total(items: list[dict[str, Any]]) -> int:
+        total = 0
+        for item in items:
+            total += int(item["price_data"]["unit_amount"]) * int(item["quantity"])
+        return total
+
+    current = line_total(adjusted)
+    if current <= target_total_jpy:
+        return adjusted
+
+    discount = current - target_total_jpy
+    for idx in range(len(adjusted) - 1, -1, -1):
+        if discount <= 0:
+            break
+        item = adjusted[idx]
+        unit = int(item["price_data"]["unit_amount"])
+        qty = int(item["quantity"])
+        line_sum = unit * qty
+        if line_sum <= 0:
+            continue
+        reducible = min(discount, line_sum)
+        new_line_sum = line_sum - reducible
+        new_unit = new_line_sum // qty if qty else 0
+        item["price_data"]["unit_amount"] = new_unit
+        discount -= reducible
+
+    if line_total(adjusted) != target_total_jpy and adjusted:
+        diff = line_total(adjusted) - target_total_jpy
+        last = adjusted[-1]
+        qty = max(1, int(last["quantity"]))
+        last["price_data"]["unit_amount"] = max(
+            0, int(last["price_data"]["unit_amount"]) - (diff // qty)
+        )
+    return adjusted
+
+
+def json_copy_item(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "price_data": {
+            "currency": item["price_data"]["currency"],
+            "product_data": dict(item["price_data"]["product_data"]),
+            "unit_amount": int(item["price_data"]["unit_amount"]),
+        },
+        "quantity": int(item["quantity"]),
+    }
+
+
 def get_or_create_stripe_customer(email: str) -> str:
     _configure_stripe()
     existing = stripe.Customer.list(email=email, limit=1)

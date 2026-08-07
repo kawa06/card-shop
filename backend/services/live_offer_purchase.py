@@ -132,11 +132,24 @@ def create_order_from_offer(
         )
     )
     assign_order_number(db, order)
+
+    points_requested = int(payload.points_to_use or 0)
+    if points_requested > 0:
+        from services.point_orders import apply_points_on_order_created
+
+        apply_points_on_order_created(db, order, points_to_use=points_requested)
+
     right.status = "used"
     right.order_id = order.id
     db.commit()
     db.refresh(order)
     db.refresh(right)
+
+    if int(round(order.total_amount or 0)) <= 0:
+        from services.order_checkout import fulfill_order_inventory
+
+        fulfill_order_inventory(db, order.id)
+        db.refresh(order)
 
     emit_live_event(
         offer.stream_id,

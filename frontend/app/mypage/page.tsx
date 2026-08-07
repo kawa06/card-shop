@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { User, Package, Heart, MapPin, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell, UserRound } from 'lucide-react'
+import { User, Package, Heart, MapPin, Coins, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell, UserRound } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ordersApi, authApi, favoritesApi, inquiriesApi, announcementsApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
@@ -487,6 +487,17 @@ export default function MypagePage() {
               <div>
                 <p className="text-gray-900 font-medium text-sm">{t('注文履歴', lang)}</p>
                 <p className="text-gray-500 text-[10px]">{isLoading ? t('読み込み中...', lang) : lang === 'ja' ? `${orders.length}件の最近の注文` : `${orders.length} recent orders`}</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/points">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-yellow-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-yellow-400/10 text-yellow-600 group-hover:bg-yellow-400 group-hover:text-gray-950 transition-colors">
+                <Coins className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">ポイント</p>
+                <p className="text-gray-500 text-[10px]">残高・履歴</p>
               </div>
             </div>
           </Link>

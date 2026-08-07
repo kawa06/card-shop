@@ -13,8 +13,8 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
-import { adminApi } from '@/lib/api'
-import { AdminOrderDetail } from '@/lib/types'
+import { adminApi, adminOrderLogisticsApi } from '@/lib/api'
+import { AdminOrderDetail, OrderShipmentLog } from '@/lib/types'
 import { usePrice } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -82,6 +82,7 @@ export default function AdminOrderDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [extendHours, setExtendHours] = useState('24')
   const [isMounted, setIsMounted] = useState(false)
+  const [shipmentLogs, setShipmentLogs] = useState<OrderShipmentLog[]>([])
 
   const orderId = Number(params.orderId)
 
@@ -98,8 +99,20 @@ export default function AdminOrderDetailPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const res = await adminApi.getOrderById(orderId)
-      setOrder(res.data)
+      const [orderRes, logsRes] = await Promise.allSettled([
+        adminApi.getOrderById(orderId),
+        adminOrderLogisticsApi.getShipmentLogs(orderId),
+      ])
+      if (orderRes.status === 'fulfilled') {
+        setOrder(orderRes.value.data)
+      } else {
+        throw orderRes.reason
+      }
+      if (logsRes.status === 'fulfilled') {
+        setShipmentLogs(logsRes.value.data || [])
+      } else {
+        setShipmentLogs([])
+      }
     } catch (err: unknown) {
       const detail =
         (err as { response?: { data?: { detail?: string }; status?: number } })?.response?.data
@@ -435,6 +448,38 @@ export default function AdminOrderDetailPage() {
                 </>
               ) : (
                 <AdminOrderShippingForm order={order} disabled={actionLoading} onSaved={fetchOrder} />
+              )}
+            </section>
+
+            <section className="bg-gray-50 rounded-xl border border-gray-200 p-5 space-y-3">
+              <h2 className="text-sm font-bold text-gray-700">発送ログ</h2>
+              {shipmentLogs.length === 0 ? (
+                <p className="text-sm text-gray-500">発送ログはまだありません</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border bg-white">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 text-left text-gray-500">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">日時</th>
+                        <th className="px-3 py-2 font-medium">イベント</th>
+                        <th className="px-3 py-2 font-medium">変更</th>
+                        <th className="px-3 py-2 font-medium">追跡番号</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shipmentLogs.map((log) => (
+                        <tr key={log.id} className="border-t">
+                          <td className="px-3 py-2 whitespace-nowrap">{formatDateTime(log.created_at)}</td>
+                          <td className="px-3 py-2">{log.event_type}</td>
+                          <td className="px-3 py-2">
+                            {log.from_shipping_status || '—'} → {log.to_shipping_status || '—'}
+                          </td>
+                          <td className="px-3 py-2 font-mono">{log.tracking_number || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </section>
 

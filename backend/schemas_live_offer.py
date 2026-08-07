@@ -113,6 +113,7 @@ class LiveOfferPurchaseRightOut(BaseModel):
 
 
 class LiveOfferPurchaseIn(BaseModel):
+    points_to_use: int = Field(0, ge=0)
     shipping_address: Optional[str] = None
     shipping_method: Optional[str] = None
     postal_code: Optional[str] = None

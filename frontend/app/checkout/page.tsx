@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import { ordersApi, authApi, shippingApi, paymentsApi } from '@/lib/api'
+import { ordersApi, authApi, shippingApi, paymentsApi, pointsApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 import { formatPrice, usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -117,6 +117,16 @@ export default function CheckoutPage() {
   const [stripeEnabled, setStripeEnabled] = useState(false)
   const [stripeBankTransferEnabled, setStripeBankTransferEnabled] = useState(false)
   const [stripeConfigLoaded, setStripeConfigLoaded] = useState(false)
+
+  const [pointsToUse, setPointsToUse] = useState(0)
+  const [pointPreview, setPointPreview] = useState<{
+    enabled: boolean
+    available_points: number
+    max_usable_points: number
+    applied_points: number
+    total_yen: number
+    estimated_earn_points: number
+  } | null>(null)
 
   const isInternational = !isDomesticJapan(country)
 
@@ -239,6 +249,7 @@ export default function CheckoutPage() {
   const baseShippingFee = selectedQuote?.base_shipping_fee_jpy ?? shippingFee
   const packagingFee = selectedQuote?.packaging_fee_jpy ?? 0
   const finalTotal = total + shippingFee
+  const payableTotal = pointPreview?.total_yen ?? finalTotal
 
   const displayDelivery = (rate: ShippingRate) => {
     const quote = methodQuotes[rate.method_code]
@@ -310,6 +321,26 @@ export default function CheckoutPage() {
       }
     })
   }, [isMounted, isReady, isLoggedIn, router, fetchCart, fetchMe, requireAuth, isLoaded])
+
+
+  useEffect(() => {
+    if (!isMounted || !isReady || !isLoggedIn) return
+    void (async () => {
+      try {
+        const token = await requireAuth()
+        if (!token) return
+        const res = await pointsApi.checkoutPreview({
+          items_subtotal: Math.round(total),
+          shipping_fee: shippingFee,
+          packaging_fee: selectedQuote?.packaging_fee_jpy ?? 0,
+          requested_points: pointsToUse,
+        })
+        setPointPreview(res.data)
+      } catch {
+        setPointPreview(null)
+      }
+    })()
+  }, [isMounted, isReady, isLoggedIn, total, shippingFee, pointsToUse, selectedQuote, requireAuth])
 
   useEffect(() => {
     if (!isMounted || !isReady || !isLoggedIn) return
@@ -431,6 +462,7 @@ export default function CheckoutPage() {
           shipping_method: shippingMethod,
           locale: lang,
           checkout_type: paymentMethod === 'bank_transfer' ? 'bank_transfer' : 'card',
+          points_to_use: pointPreview?.applied_points ?? pointsToUse,
         })
 
         window.location.href = stripeRes.data.checkout_url
@@ -460,6 +492,43 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">{t('注文確認', lang)}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          {pointPreview?.enabled && (
+            <section className="bg-yellow-50 rounded-lg border border-yellow-200 p-5 space-y-3">
+              <h2 className="text-gray-900 font-semibold">ポイント利用</h2>
+              <p className="text-sm text-gray-600">
+                保有ポイント: {pointPreview.available_points.toLocaleString()}pt
+                （最大 {pointPreview.max_usable_points.toLocaleString()}pt まで利用可）
+              </p>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label htmlFor="points">利用ポイント</Label>
+                  <Input
+                    id="points"
+                    type="number"
+                    min={0}
+                    max={pointPreview.max_usable_points}
+                    value={pointsToUse || ''}
+                    onChange={(e) => setPointsToUse(Math.max(0, parseInt(e.target.value || '0', 10) || 0))}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPointsToUse(pointPreview.max_usable_points)}
+                >
+                  全ポイントを使う
+                </Button>
+              </div>
+              {pointPreview.applied_points > 0 && (
+                <p className="text-sm text-green-700">
+                  {pointPreview.applied_points.toLocaleString()}pt 適用 /
+                  獲得予定 {pointPreview.estimated_earn_points}pt
+                </p>
+              )}
+            </section>
+          )}
+
           {/* 1. 配送先 */}
           <section className="bg-gray-50 rounded-lg border border-gray-200 p-5 space-y-4">
             <h2 className="text-gray-900 font-semibold flex items-center gap-2">
@@ -777,6 +846,12 @@ export default function CheckoutPage() {
                   <span>{t('小計', lang)}</span>
                   <span>{formatPrice(total)}</span>
                 </div>
+                {pointPreview && pointPreview.applied_points > 0 && (
+                  <div className="flex justify-between text-green-700 text-sm">
+                    <span>ポイント利用</span>
+                    <span>-{pointPreview.applied_points.toLocaleString()}pt</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-400">
                   <span>{t('送料', lang)}</span>
                   <span>{selectedQuote ? formatPrice(baseShippingFee) : t('計算中...', lang)}</span>
@@ -790,7 +865,7 @@ export default function CheckoutPage() {
               </div>
               <div className="border-t border-gray-200 pt-3 flex justify-between font-bold">
                 <span className="text-gray-400">{t('合計', lang)}</span>
-                <span className="text-yellow-400 text-lg">{formatPrice(finalTotal)}</span>
+                <span className="text-yellow-400 text-lg">{formatPrice(payableTotal)}</span>
               </div>
             </div>
           </section>

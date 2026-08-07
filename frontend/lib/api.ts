@@ -39,6 +39,7 @@ const PROTECTED_API_PREFIXES = [
   '/auth/phone',
   '/auth/request-verification',
   '/inquiries',
+  '/points',
 ]
 
 const PUBLIC_API_PATHS = ['/payments/stripe/config', '/inquiries/meta/categories']
@@ -377,9 +378,39 @@ export const paymentsApi = {
     shipping_method?: string
     locale?: string
     checkout_type?: 'card' | 'bank_transfer'
+    points_to_use?: number
   }) => apiClient.post('/payments/stripe/create-checkout-session', data),
   confirmStripeCheckout: (sessionId: string) =>
     apiClient.get('/payments/stripe/confirm', { params: { session_id: sessionId } }),
+}
+
+
+// Points API (Phase 3-4)
+export const pointsApi = {
+  getBalance: () => apiClient.get('/points/balance'),
+  getHistory: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/points/history', { params }),
+  checkoutPreview: (data: {
+    items_subtotal: number
+    shipping_fee?: number
+    packaging_fee?: number
+    discount_amount?: number
+    requested_points?: number
+  }) => apiClient.post('/points/checkout-preview', data),
+}
+
+export const adminPointsApi = {
+  getSettings: () => apiClient.get('/admin/points/settings'),
+  updateSettings: (data: Record<string, unknown>) => apiClient.patch('/admin/points/settings', data),
+  getUser: (userId: number) => apiClient.get(`/admin/points/users/${userId}`),
+  getUserHistory: (userId: number, params?: { limit?: number; offset?: number }) =>
+    apiClient.get(`/admin/points/users/${userId}/history`, { params }),
+  grant: (data: { user_id: number; amount: number; reason: string; expiration_days?: number; idempotency_key?: string }) =>
+    apiClient.post('/admin/points/grant', data),
+  deduct: (data: { user_id: number; amount: number; reason: string; idempotency_key?: string }) =>
+    apiClient.post('/admin/points/deduct', data),
+  getAuditLogs: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/admin/points/audit', { params }),
 }
 
 // Admin API

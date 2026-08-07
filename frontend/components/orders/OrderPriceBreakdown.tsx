@@ -27,6 +27,9 @@ export default function OrderPriceBreakdown({
   const subtotal = orderItemsSubtotal(order)
   const { baseShipping, packagingFee, shippingTotal } = orderShippingBreakdown(order)
   const discount = order.discount_amount || 0
+  const pointsUsed = order.points_used || 0
+  const pointsEarned = order.points_earned || 0
+  const pointsEarnStatus = order.points_earn_status || 'none'
   const paymentFee = order.payment_fee || 0
   const taxRate = orderTaxRate(order)
   const { consumptionTax } = taxFromInclusive(order.total_amount, taxRate)
@@ -49,8 +52,30 @@ export default function OrderPriceBreakdown({
       {discount > 0 && (
         <Row label={t('割引', lang)} value={`-${formatPrice(discount)}`} valueClass="text-green-600" />
       )}
+      {pointsUsed > 0 && (
+        <Row
+          label={t('ポイント利用', lang)}
+          value={`-${pointsUsed.toLocaleString('ja-JP')}pt`}
+          valueClass="text-emerald-600"
+        />
+      )}
       {couponLabel && (
         <Row label={t('クーポン', lang)} value={couponLabel} valueClass="text-gray-600" />
+      )}
+      {pointsEarnStatus === 'earned' && pointsEarned > 0 && (
+        <Row
+          label={t('獲得ポイント', lang)}
+          value={`+${pointsEarned.toLocaleString('ja-JP')}pt`}
+          valueClass="text-yellow-600"
+        />
+      )}
+      {pointsEarnStatus === 'pending' && (
+        <Row
+          label={t('獲得予定ポイント', lang)}
+          value={lang === 'ja' ? '支払後付与' : 'After payment'}
+          valueClass="text-gray-500"
+          muted
+        />
       )}
       {showTax && consumptionTax > 0 && (
         <Row
