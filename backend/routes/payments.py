@@ -188,7 +188,7 @@ def create_stripe_checkout_session(
             db.commit()
             db.refresh(order)
         fulfilled = fulfill_order_inventory(db, order.id)
-        success_url = f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?order_id={fulfilled.id}"
+        success_url = f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?session_id=points-only-{fulfilled.id}"
         return {
             "checkout_url": success_url,
             "session_id": f"points-only-{fulfilled.id}",
@@ -237,6 +237,26 @@ def confirm_stripe_checkout(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if session_id.startswith("points-only-"):
+        try:
+            order_id = int(session_id.removeprefix("points-only-"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="注文情報が見つかりません") from exc
+
+        order = db.query(models.Order).filter(
+            models.Order.id == order_id,
+            models.Order.user_id == current_user.id,
+        ).first()
+        if not order:
+            raise HTTPException(status_code=404, detail="注文が見つかりません")
+        if order.payment_status != "paid":
+            raise HTTPException(status_code=400, detail="決済が完了していません")
+        return {
+            "order": order,
+            "payment_status": order.payment_status or "paid",
+            "pending_bank_transfer": False,
+        }
+
     session = retrieve_checkout_session(session_id)
     order_id = _order_id_from_session(session)
     if not order_id:

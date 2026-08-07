@@ -353,7 +353,7 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
   expect(checkout.checkout_url).toMatch(/checkout\/success/)
 
   await page.goto(checkout.checkout_url.replace(/^https?:\/\/[^/]+/, ''))
-  await expect(page.getByText(/ご注文ありがとう|購入完了|注文が完了/i).first()).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByText(/決済が完了しました|ご注文ありがとう|購入完了|注文が完了/i).first()).toBeVisible({ timeout: 60_000 })
   await shot(page, '06-checkout-success-zero')
 
   const orderRes = await page.request.get(`/api/orders/${checkout.order_id}`, { headers: authHeaders })
