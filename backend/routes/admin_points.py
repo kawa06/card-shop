@@ -75,7 +75,7 @@ def admin_update_settings(
     }
     db.add(
         models_points.PointAuditLog(
-            actor_admin_user_id=ctx.admin_user.id,
+            actor_admin_user_id=ctx.user.id,
             action="settings_update",
             target_user_id=ctx.admin_user.id,
             before_json=json.dumps(before_data, ensure_ascii=False),
@@ -163,7 +163,7 @@ def admin_grant(
         user_id=payload.user_id,
         amount=payload.amount,
         reason=payload.reason,
-        admin_user_id=ctx.admin_user.id,
+        admin_user_id=ctx.user.id,
         expiration_days=payload.expiration_days,
         idempotency_key=key,
     )
@@ -193,7 +193,7 @@ def admin_deduct(
         user_id=payload.user_id,
         amount=payload.amount,
         reason=payload.reason,
-        admin_user_id=ctx.admin_user.id,
+        admin_user_id=ctx.user.id,
         idempotency_key=key,
     )
     db.commit()
