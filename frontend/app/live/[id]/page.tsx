@@ -119,13 +119,25 @@ export default function LiveViewerPage() {
 
   useEffect(() => {
     if (!streamId) return
-    liveApi.getStream(streamId).then((res) => setStream(res.data)).catch(() => setError('配信が見つかりません'))
+    liveApi.getStream(streamId).then((res) => {
+      setStream(res.data)
+      setOffersEnabled(res.data.offers_enabled !== false)
+    }).catch(() => setError('配信が見つかりません'))
     reloadComments().catch(() => undefined)
     reloadAuctions().catch(() => undefined)
 
     reloadPublicOffers().catch(() => undefined)
     reloadMyOffers().catch(() => undefined)
-  }, [streamId, reloadAuctions])
+  }, [streamId, reloadAuctions, reloadPublicOffers, reloadMyOffers])
+
+  useEffect(() => {
+    if (!streamId) return
+    const timer = window.setInterval(() => {
+      reloadPublicOffers().catch(() => undefined)
+      reloadMyOffers().catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [streamId, reloadPublicOffers, reloadMyOffers])
 
   useEffect(() => {
     if (!activeAuction) {

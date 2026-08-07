@@ -23,6 +23,7 @@ class LiveProductOut(BaseModel):
     display_price: Optional[int] = None
     is_active: bool
     is_pinned: bool
+    offers_enabled: bool = True
     card_name: Optional[str] = None
     card_image_url: Optional[str] = None
     card_price: Optional[int] = None
@@ -45,6 +46,7 @@ class LiveStreamOut(BaseModel):
     ended_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
+    offers_enabled: bool = True
     active_product: Optional[LiveProductOut] = None
     pinned_product: Optional[LiveProductOut] = None
     product_count: int = 0

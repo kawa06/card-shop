@@ -2,10 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 
-type LiveEventHandler = (event: { type: string; stream_id: number; payload: Record<string, unknown>; ts: string }) => void
+type LiveEvent = { type: string; stream_id: number; payload: Record<string, unknown>; ts: string }
+type LiveEventHandler = (event: LiveEvent) => void
 
-function parseSseChunk(buffer: string): { events: LiveEventHandler extends (e: infer E) => void ? E : never[]; rest: string } {
-  const events: { type: string; stream_id: number; payload: Record<string, unknown>; ts: string }[] = []
+function parseSseChunk(buffer: string): { events: LiveEvent[]; rest: string } {
+  const events: LiveEvent[] = []
   const parts = buffer.split('\n\n')
   const rest = parts.pop() ?? ''
   for (const part of parts) {

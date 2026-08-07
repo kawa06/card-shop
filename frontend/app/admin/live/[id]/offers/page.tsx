@@ -60,6 +60,14 @@ export default function AdminLiveOffersPage() {
     reload().catch(() => undefined)
   }, [isReady, canRead, streamId, reload])
 
+  useEffect(() => {
+    if (!isReady || !canRead || !streamId) return
+    const timer = window.setInterval(() => {
+      reloadOffers().catch(() => undefined)
+    }, 2000)
+    return () => window.clearInterval(timer)
+  }, [isReady, canRead, streamId, reloadOffers])
+
   const upsertOffer = useCallback((offer: LiveOffer) => {
     setOffers((prev) => {
       const idx = prev.findIndex((o) => o.id === offer.id)

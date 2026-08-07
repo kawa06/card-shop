@@ -55,7 +55,7 @@ export default function AdminLiveDetailPage() {
     reload().catch(() => undefined)
   }, [isReady, hasPermission, streamId, commentQuery, senderFilter, pinnedOnly])
 
-  const getAuthHeaders = useCallback(async () => {
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const token = await getClerkSessionToken()
     return token ? { Authorization: `Bearer ${token}` } : {}
   }, [])
