@@ -37,7 +37,9 @@ setup('authenticate admin and save storageState', async ({ page }) => {
   await page.goto('/auth/after-sign-in', { waitUntil: 'domcontentloaded', timeout: 120_000 })
   await page.waitForURL(/\/admin/, { timeout: 120_000 })
 
-  await expect(page.getByText(/\u7ba1\u7406\u30c0\u30c3\u30b7\u30e5\u30dc\u30fc\u30c9|\u7ba1\u7406\u753b\u9762|\u767a\u9001\u7ba1\u7406|\u6ce8\u6587\u7ba1\u7406/)).toBeVisible({
+  await expect(
+    page.getByText(/\u7ba1\u7406\u30c0\u30c3\u30b7\u30e5\u30dc\u30fc\u30c9|\u7ba1\u7406\u753b\u9762|\u767a\u9001\u7ba1\u7406|\u6ce8\u6587\u7ba1\u7406/).first(),
+  ).toBeVisible({
     timeout: 120_000,
   })
 
