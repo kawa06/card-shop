@@ -211,9 +211,13 @@ def try_auto_purchase_email_after_payment(db: Session, order: models.Order) -> N
     """Best-effort automatic email after payment; failures are logged, not raised."""
     if order.purchase_email_sent_at:
         return
-    ok, err = send_purchase_confirmation_email(db, order.id, force=False)
-    if not ok and err:
-        logger.warning("Purchase confirmation email failed for order %s: %s", order.id, err)
+    try:
+        ok, err = send_purchase_confirmation_email(db, order.id, force=False)
+        if not ok and err:
+            logger.warning("Purchase confirmation email failed for order %s: %s", order.id, err)
+    except Exception:
+        logger.exception("Purchase confirmation email raised for order %s", order.id)
+        db.rollback()
 
 
 def _build_bank_transfer_pending_html(order: models.Order, buyer_name: str) -> str:
