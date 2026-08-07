@@ -130,6 +130,12 @@ def add_columns_if_missing():
         "identity_verifications": [
             ("admin_memo", "TEXT"),
         ],
+        "live_streams": [
+            ("offers_enabled", "BOOLEAN DEFAULT 1"),
+        ],
+        "live_products": [
+            ("offers_enabled", "BOOLEAN DEFAULT 1"),
+        ],
     }
 
     for table_name, columns in tables_to_migrate.items():
@@ -266,7 +272,7 @@ def health():
     db = database_info()
     return {
         "status": "ok",
-        "version": "deployed-fixed-v21",
+        "version": "phase3-3-v2",
         "database": db,
     }
 

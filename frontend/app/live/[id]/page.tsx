@@ -325,7 +325,7 @@ export default function LiveViewerPage() {
               ))}
               {publicOffers.length === 0 && <li className="text-gray-500">希望額はありません</li>}
             </ul>
-            <p className="text-xs text-gray-500 mb-3">表示期限はカードに表示されみす</p>
+            <p className="text-xs text-gray-500 mb-3">表示期限はカードに表示され消えます</p>
 
             {offersFormVisible && (
               <div className="flex gap-2 mb-4">

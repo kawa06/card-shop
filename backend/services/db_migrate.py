@@ -18,6 +18,8 @@ def run_schema_upgrades() -> None:
     """Apply additive migrations only."""
     import models  # noqa: F401 — register models with Base.metadata
 
+    _ensure_offers_enabled_columns()
+
     inspector = inspect(engine)
     _ensure_table_exists(inspector, "packs")
     _create_table_if_missing("favorites", models.Favorite)
@@ -1024,36 +1026,50 @@ def _migrate_live_auction_schema() -> None:
 
 def _ensure_offers_enabled_columns() -> None:
     """Add offers_enabled to live_streams/live_products (Postgres-safe IF NOT EXISTS)."""
-    inspector = inspect(engine)
-    tables = set(inspector.get_table_names())
     url = (settings.DATABASE_URL or "").lower()
-    if url.startswith("postgresql") or url.startswith("postgres"):
-        try:
-            with engine.connect() as conn:
+    is_postgres = url.startswith("postgresql") or url.startswith("postgres")
+    try:
+        with engine.connect() as conn:
+            if is_postgres:
+                conn.execute(
+                    text(
+                        "ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS "
+                        "offers_enabled BOOLEAN DEFAULT TRUE"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE live_products ADD COLUMN IF NOT EXISTS "
+                        "offers_enabled BOOLEAN DEFAULT TRUE"
+                    )
+                )
+            else:
+                inspector = inspect(engine)
+                tables = set(inspector.get_table_names())
                 if "live_streams" in tables:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS "
-                            "offers_enabled BOOLEAN DEFAULT TRUE"
+                    cols = {c["name"] for c in inspector.get_columns("live_streams")}
+                    if "offers_enabled" not in cols:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE live_streams ADD COLUMN "
+                                "offers_enabled BOOLEAN DEFAULT 1"
+                            )
                         )
-                    )
                 if "live_products" in tables:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE live_products ADD COLUMN IF NOT EXISTS "
-                            "offers_enabled BOOLEAN DEFAULT TRUE"
+                    cols = {c["name"] for c in inspector.get_columns("live_products")}
+                    if "offers_enabled" not in cols:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE live_products ADD COLUMN "
+                                "offers_enabled BOOLEAN DEFAULT 1"
+                            )
                         )
-                    )
-                conn.commit()
-            logger.info("Ensured offers_enabled columns on live_streams/live_products")
-        except Exception:
-            logger.exception("Failed to ensure offers_enabled columns (postgres)")
-        return
-
-    if "live_streams" in tables:
-        _add_column_if_missing("live_streams", "offers_enabled", "BOOLEAN DEFAULT 1")
-    if "live_products" in tables:
-        _add_column_if_missing("live_products", "offers_enabled", "BOOLEAN DEFAULT 1")
+            conn.commit()
+        print("Ensured offers_enabled columns on live_streams/live_products")
+        logger.info("Ensured offers_enabled columns on live_streams/live_products")
+    except Exception:
+        print("ERROR: Failed to ensure offers_enabled columns")
+        logger.exception("Failed to ensure offers_enabled columns")
 
 
 def _migrate_live_offer_schema() -> None:
