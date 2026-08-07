@@ -401,11 +401,14 @@ test('Scenario 4: cancel restores reserved points idempotently', async ({ page }
 
   const adminHistory = await page.request.get(`/api/admin/points/users/${user.id}/history`, { params: { limit: 30 } })
   expect(adminHistory.ok()).toBeTruthy()
-  const adminHistoryBody = (await adminHistory.json()) as { items: Array<{ type: string; order_id?: number | null }> }
+  const adminHistoryBody = (await adminHistory.json()) as {
+    items: Array<{ type: string; source_id?: number | null; order_id?: number | null }>
+  }
   expect(
-    adminHistoryBody.items.some(
-      (tx) => (tx.type === 'release' || tx.type === 'cancel_restore') && tx.order_id === checkout.order_id,
-    ),
+    adminHistoryBody.items.some((tx) => {
+      const linkedOrderId = tx.order_id ?? tx.source_id
+      return (tx.type === 'release' || tx.type === 'cancel_restore') && linkedOrderId === checkout.order_id
+    }),
   ).toBeTruthy()
 
   const cancel2 = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
