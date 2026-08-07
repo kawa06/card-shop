@@ -26,6 +26,10 @@ from services.shipping_emails import send_shipping_completion_email
 
 logger = logging.getLogger(__name__)
 
+
+def _email_send_status(value: str) -> str:
+    return value[:50]
+
 MAIL_REPLY_TO = "oripakawa@gmail.com"
 
 
@@ -198,7 +202,7 @@ def send_purchase_confirmation_email(
         order.purchase_email_sent_at = now
         order.email_send_status = "purchase_ok"
     else:
-        order.email_send_status = f"purchase_failed:{err or 'unknown'}"
+        order.email_send_status = _email_send_status(f"purchase_failed:{err or 'unknown'}")
     db.commit()
     return ok, err
 
@@ -316,7 +320,7 @@ def send_bank_transfer_pending_email(
     if ok:
         order.email_send_status = "bank_transfer_pending_ok"
     else:
-        order.email_send_status = f"bank_transfer_pending_failed:{err or 'unknown'}"
+        order.email_send_status = _email_send_status(f"bank_transfer_pending_failed:{err or 'unknown'}")
     db.commit()
     return ok, err
 
@@ -353,7 +357,7 @@ def send_bank_transfer_cancelled_email(
     if ok:
         order.email_send_status = status_key
     else:
-        order.email_send_status = f"{status_key}_failed:{err or 'unknown'}"
+        order.email_send_status = _email_send_status(f"{status_key}_failed:{err or 'unknown'}")
     db.commit()
     return ok, err
 

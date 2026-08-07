@@ -294,18 +294,34 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
 
   const unitPrice = Math.round(card.price ?? 1000)
   const quote = await fetchShippingQuote(page, authHeaders)
-  const shippingFee = Math.round(quote.fee_jpy ?? quote.base_shipping_fee_jpy ?? 650)
-  const totalBeforePoints = unitPrice + shippingFee
+  const baseShipping = Math.round(quote.base_shipping_fee_jpy ?? quote.fee_jpy ?? 650)
+  const packagingFee = Math.round(quote.packaging_fee_jpy ?? 0)
+  const totalBeforePoints = unitPrice + baseShipping + packagingFee
 
-  await grantPoints(page, user.id, totalBeforePoints + 5000, 'E2E zero checkout', `e2e-zero-grant-${Date.now()}`)
+  await grantPoints(page, user.id, 50000, 'E2E zero checkout', `e2e-zero-grant-${Date.now()}`)
+  const acct = await getAdminUserPoints(page, user.id)
+  expect(acct.available_points).toBeGreaterThanOrEqual(totalBeforePoints)
+
+  const capPreview = await page.request.post('/api/points/checkout-preview', {
+    headers: authHeaders,
+    data: {
+      items_subtotal: unitPrice,
+      shipping_fee: baseShipping,
+      packaging_fee: packagingFee,
+      requested_points: 1,
+    },
+  })
+  expect(capPreview.ok(), await capPreview.text()).toBeTruthy()
+  const capBody = (await capPreview.json()) as { max_usable_points: number }
+  expect(capBody.max_usable_points).toBeGreaterThan(0)
 
   const preview = await page.request.post('/api/points/checkout-preview', {
     headers: authHeaders,
     data: {
       items_subtotal: unitPrice,
-      shipping_fee: shippingFee,
-      packaging_fee: Math.max(0, shippingFee - (quote.base_shipping_fee_jpy ?? shippingFee)),
-      requested_points: totalBeforePoints + 5000,
+      shipping_fee: baseShipping,
+      packaging_fee: packagingFee,
+      requested_points: capBody.max_usable_points,
     },
   })
   expect(preview.ok(), await preview.text()).toBeTruthy()
@@ -314,6 +330,7 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
     total_yen: number
     max_usable_points: number
   }
+  expect(previewBody.max_usable_points).toBeGreaterThan(0)
   expect(previewBody.applied_points).toBeGreaterThan(0)
   expect(previewBody.total_yen).toBe(0)
 
