@@ -69,8 +69,13 @@ export default function AdminLiveAuctionsPage() {
     setStream(s.data)
     setProducts(p.data)
     setAuctions(a.data.items)
-    if (liveProductId === '' && p.data[0]) setLiveProductId(String(p.data[0].id))
-  }, [streamId, liveProductId])
+    if (p.data[0]) {
+      setLiveProductId((current) => {
+        if (current !== '' && p.data.some((item) => String(item.id) === current)) return current
+        return String(p.data[0].id)
+      })
+    }
+  }, [streamId])
 
   useEffect(() => {
     if (!isReady || !canRead || !streamId) return
@@ -136,9 +141,11 @@ export default function AdminLiveAuctionsPage() {
   )
 
   const createAuction = async () => {
-    if (!canWrite || !liveProductId) return
+    if (!canWrite) return
+    const resolvedProductId = Number(liveProductId) || products[0]?.id
+    if (!resolvedProductId) return
     const created = await adminLiveAuctionApi.create(streamId, {
-      live_product_id: Number(liveProductId),
+      live_product_id: resolvedProductId,
       start_price: Number(startPrice),
       min_bid_increment: Number(increment),
       buy_now_price: buyNow ? Number(buyNow) : undefined,
@@ -238,7 +245,7 @@ export default function AdminLiveAuctionsPage() {
                     <input value={durationSeconds} onChange={(e) => setDurationSeconds(e.target.value)} className="w-full rounded-lg border px-3 py-2 dark:bg-gray-900 dark:border-gray-700" />
                   </label>
                 </div>
-                <button type="button" onClick={() => createAuction().catch(() => undefined)} className="mt-4 rounded-lg bg-gray-900 text-white px-4 py-2 text-sm dark:bg-gray-100 dark:text-gray-900">
+                <button type="button" onClick={() => createAuction()} className="mt-4 rounded-lg bg-gray-900 text-white px-4 py-2 text-sm dark:bg-gray-100 dark:text-gray-900">
                   作成
                 </button>
               </div>

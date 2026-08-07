@@ -989,6 +989,8 @@ def _migrate_email_auth_schema() -> None:
 
 def _migrate_phase2_logistics_schema() -> None:
     """Phase 2 additive tables/columns for order shipping logs and barcodes."""
+    import models
+
     order_cols = [
         ("shipping_box_type", "VARCHAR(32)"),
         ("shipping_weight_g", "INTEGER"),
@@ -1047,6 +1049,42 @@ def _migrate_live_auction_schema() -> None:
     ]
     for table_name, model in auction_tables:
         _create_table_if_missing(table_name, model)
+
+    live_auction_cols = [
+        ("current_price", "INTEGER"),
+        ("min_bid_increment", "INTEGER DEFAULT 100"),
+        ("buy_now_price", "INTEGER"),
+        ("scheduled_start_at", "DATETIME"),
+        ("scheduled_end_at", "DATETIME"),
+        ("ends_at", "DATETIME"),
+        ("extension_seconds", "INTEGER DEFAULT 30"),
+        ("auto_extend_enabled", "BOOLEAN DEFAULT 1"),
+        ("max_extensions", "INTEGER DEFAULT 10"),
+        ("extension_count", "INTEGER DEFAULT 0"),
+        ("trigger_remaining_seconds", "INTEGER DEFAULT 30"),
+        ("winner_user_id", "INTEGER"),
+        ("winning_amount", "INTEGER"),
+        ("bid_count", "INTEGER DEFAULT 0"),
+        ("bidder_count", "INTEGER DEFAULT 0"),
+        ("created_by_admin_id", "INTEGER"),
+        ("created_at", "DATETIME"),
+        ("updated_at", "DATETIME"),
+    ]
+    for col, col_type in live_auction_cols:
+        _add_column_if_missing("live_auctions", col, col_type)
+
+    live_auction_settings_cols = [
+        ("purchase_window_seconds", "INTEGER DEFAULT 300"),
+        ("default_min_bid_increment", "INTEGER DEFAULT 100"),
+        ("default_extension_seconds", "INTEGER DEFAULT 30"),
+        ("default_trigger_remaining_seconds", "INTEGER DEFAULT 30"),
+        ("default_max_extensions", "INTEGER DEFAULT 10"),
+        ("default_auto_extend_enabled", "BOOLEAN DEFAULT 1"),
+        ("created_at", "DATETIME"),
+        ("updated_at", "DATETIME"),
+    ]
+    for col, col_type in live_auction_settings_cols:
+        _add_column_if_missing("live_auction_settings", col, col_type)
 
     from sqlalchemy.orm import sessionmaker
     from services.admin_seed import seed_admin_rbac
