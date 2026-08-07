@@ -113,6 +113,10 @@ def add_columns_if_missing():
             ("buyer_note", "TEXT"),
             ("buyer_phone", "VARCHAR(20)"),
             ("updated_at", "DATETIME"),
+            ("points_used", "INTEGER DEFAULT 0"),
+            ("points_earned", "INTEGER DEFAULT 0"),
+            ("points_earn_status", "VARCHAR(16) DEFAULT 'none'"),
+            ("points_reserved", "INTEGER DEFAULT 0"),
         ],
         "shipping_rates": [
             ("carrier", "VARCHAR(50)"),

@@ -8,7 +8,7 @@ const TEST_EMAIL = 'rikukai0609@icloud.com'
 /** Serial flow: grant balance is reused in later scenarios. */
 let expectedAvailablePoints: number | null = null
 
-test.describe.configure({ mode: 'serial', timeout: 180_000 })
+test.describe.configure({ mode: 'serial', timeout: 240_000 })
 
 async function shot(page: import('@playwright/test').Page, name: string) {
   fs.mkdirSync(outDir, { recursive: true })
@@ -35,12 +35,129 @@ async function resolveTestUser(page: import('@playwright/test').Page) {
   return user
 }
 
-async function getAdminUserAvailablePoints(page: import('@playwright/test').Page, userId: number) {
+async function getAdminUserPoints(page: import('@playwright/test').Page, userId: number) {
   await ensureAdminSession(page)
   const res = await page.request.get(`/api/admin/points/users/${userId}`)
   expect(res.ok(), await res.text()).toBeTruthy()
-  const body = (await res.json()) as { available_points: number }
-  return body.available_points
+  return (await res.json()) as { available_points: number; reserved_points: number }
+}
+
+async function grantPoints(
+  page: import('@playwright/test').Page,
+  userId: number,
+  amount: number,
+  reason: string,
+  idempotencyKey: string,
+) {
+  const grant = await page.request.post('/api/admin/points/grant', {
+    data: { user_id: userId, amount, reason, idempotency_key: idempotencyKey },
+  })
+  expect(grant.ok(), await grant.text()).toBeTruthy()
+}
+
+async function findOrCreateSellableCard(page: import('@playwright/test').Page) {
+  const cardsRes = await page.request.get('/api/cards', { params: { per_page: 50, page: 1 } })
+  expect(cardsRes.ok(), await cardsRes.text()).toBeTruthy()
+  const payload = (await cardsRes.json()) as {
+    items?: Array<{ id: number; price?: number; stock?: number; is_active?: boolean }>
+  }
+  let card =
+    payload.items?.find((c) => c.is_active !== false && (c.stock ?? 0) >= 3 && (c.price ?? 0) >= 500) ??
+    payload.items?.find((c) => c.is_active !== false && (c.stock ?? 0) > 0)
+
+  if (!card?.id) {
+    await ensureAdminSession(page)
+    const createRes = await page.request.post('/api/admin/cards', {
+      data: {
+        name: `E2E Points Card ${Date.now()}`,
+        price: 1500,
+        stock: 20,
+        condition: 'a',
+        is_active: true,
+        allowed_shipping_methods: JSON.stringify(['takkyubin_compact']),
+      },
+    })
+    expect(createRes.ok(), await createRes.text()).toBeTruthy()
+    card = (await createRes.json()) as { id: number; price?: number; stock?: number }
+  }
+
+  expect(card?.id, 'No sellable card for checkout E2E').toBeTruthy()
+  return card!
+}
+
+async function clearUserCart(page: import('@playwright/test').Page, authHeaders: Record<string, string>) {
+  const cartRes = await page.request.get('/api/cart', { headers: authHeaders })
+  if (!cartRes.ok()) return
+  const items = (await cartRes.json()) as Array<{ id: number }>
+  for (const item of items) {
+    await page.request.delete(`/api/cart/${item.id}`, { headers: authHeaders })
+  }
+}
+
+async function addCardToCart(
+  page: import('@playwright/test').Page,
+  authHeaders: Record<string, string>,
+  cardId: number,
+  quantity = 1,
+) {
+  const res = await page.request.post('/api/cart', {
+    headers: authHeaders,
+    data: { card_id: cardId, quantity },
+  })
+  expect(res.ok(), await res.text()).toBeTruthy()
+}
+
+function defaultCheckoutPayload() {
+  return {
+    postal_code: '6500001',
+    country: 'Japan',
+    region: '兵庫県',
+    city: '神戸市中央区',
+    address_line1: 'E2Eテスト1-1',
+    address_line2: '',
+    shipping_address: '兵庫県神戸市中央区E2Eテスト1-1',
+    shipping_method: 'takkyubin_compact',
+    locale: 'ja',
+    checkout_type: 'card',
+  }
+}
+
+async function fetchShippingQuote(page: import('@playwright/test').Page, authHeaders: Record<string, string>) {
+  const res = await page.request.get('/api/shipping-rates/calculate', {
+    headers: authHeaders,
+    params: { method_code: 'takkyubin_compact', region: '兵庫県', country: 'Japan' },
+  })
+  expect(res.ok(), await res.text()).toBeTruthy()
+  return (await res.json()) as { fee_jpy?: number; base_shipping_fee_jpy?: number }
+}
+
+async function openCheckoutFromCart(page: import('@playwright/test').Page) {
+  await page.goto('/cart', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: /ショッピングカート|Shopping Cart/i })).toBeVisible({
+    timeout: 60_000,
+  })
+  await page.getByRole('button', { name: /購入手続きへ|Proceed to checkout/i }).click()
+  await expect(page.getByRole('heading', { name: /注文確認|Checkout/i })).toBeVisible({ timeout: 60_000 })
+}
+
+async function fillCheckoutAddress(page: import('@playwright/test').Page) {
+  await openCheckoutFromCart(page)
+  const postal = page.locator('#postalCode').first()
+  if (await postal.isVisible().catch(() => false)) await postal.fill('6500001')
+  const region = page.locator('select').filter({ has: page.locator('option', { hasText: '兵庫県' }) }).first()
+  if (await region.isVisible().catch(() => false)) await region.selectOption({ label: '兵庫県' })
+  const city = page.locator('#city').first()
+  if (await city.isVisible().catch(() => false)) await city.fill('神戸市中央区')
+  const line1 = page.locator('#addressLine1').first()
+  if (await line1.isVisible().catch(() => false)) await line1.fill('E2Eテスト1-1')
+  const fullName = page.locator('#fullName').first()
+  if (await fullName.isVisible().catch(() => false)) await fullName.fill('E2E Test User')
+}
+
+async function getUserPointHistory(page: import('@playwright/test').Page, authHeaders: Record<string, string>) {
+  const res = await page.request.get('/api/points/history', { headers: authHeaders, params: { limit: 20 } })
+  expect(res.ok(), await res.text()).toBeTruthy()
+  return (await res.json()) as { items: Array<{ type: string; amount: number; order_id?: number | null }> }
 }
 
 async function getUserAuthHeaders(page: import('@playwright/test').Page) {
@@ -79,7 +196,7 @@ test('Scenario 1: admin grant and mypage balance', async ({ page }) => {
   const historyBody = (await history.json()) as { items: Array<{ type: string }> }
   expect(historyBody.items.some((tx) => tx.type === 'admin_grant')).toBeTruthy()
 
-  expectedAvailablePoints = await getAdminUserAvailablePoints(page, user.id)
+  expectedAvailablePoints = (await getAdminUserPoints(page, user.id)).available_points
 
   await page.goto('/mypage/points')
   await expect(
@@ -89,35 +206,197 @@ test('Scenario 1: admin grant and mypage balance', async ({ page }) => {
   await shot(page, '02-mypage-balance')
 })
 
-test('Scenario 2: partial points checkout preview', async ({ page }) => {
+test('Scenario 2: partial points full checkout flow', async ({ page }) => {
+  const user = await resolveTestUser(page)
   const authHeaders = await getUserAuthHeaders(page)
+  const card = await findOrCreateSellableCard(page)
+
+  await grantPoints(page, user.id, 20000, 'E2E partial checkout', `e2e-partial-grant-${Date.now()}`)
+  const beforePoints = await getAdminUserPoints(page, user.id)
+
+  await clearUserCart(page, authHeaders)
+  await addCardToCart(page, authHeaders, card.id, 1)
+
+  const unitPrice = Math.round(card.price ?? 1000)
+  const quote = await fetchShippingQuote(page, authHeaders)
+  const shippingFee = Math.round(quote.fee_jpy ?? quote.base_shipping_fee_jpy ?? 650)
+  const requestedPoints = Math.min(500, Math.max(100, Math.floor(unitPrice * 0.2)))
+
   const preview = await page.request.post('/api/points/checkout-preview', {
     headers: authHeaders,
-    data: { items_subtotal: 5000, shipping_fee: 500, requested_points: 500 },
+    data: { items_subtotal: unitPrice, shipping_fee: shippingFee, requested_points: requestedPoints },
   })
   expect(preview.ok(), await preview.text()).toBeTruthy()
-  const body = (await preview.json()) as {
+  const previewBody = (await preview.json()) as {
     applied_points: number
     total_yen: number
     max_usable_points: number
   }
-  expect(body.applied_points).toBeGreaterThan(0)
-  expect(body.applied_points).toBeLessThanOrEqual(body.max_usable_points)
-  expect(body.total_yen).toBeLessThan(5500)
-  await shot(page, '03-checkout-preview')
+  expect(previewBody.applied_points).toBeGreaterThan(0)
+  expect(previewBody.total_yen).toBeLessThan(unitPrice + shippingFee)
+
+  const checkoutRes = await page.request.post('/api/payments/stripe/create-checkout-session', {
+    headers: authHeaders,
+    data: { ...defaultCheckoutPayload(), points_to_use: previewBody.applied_points },
+  })
+  const checkoutRaw = await checkoutRes.text()
+  expect(checkoutRes.ok(), checkoutRaw).toBeTruthy()
+  const checkout = JSON.parse(checkoutRaw) as {
+    checkout_url: string
+    session_id: string
+    order_id: number
+  }
+  expect(checkout.session_id).not.toMatch(/^points-only-/)
+  expect(checkout.checkout_url).toMatch(/stripe\.com|checkout\.stripe\.com/)
+
+  const orderRes = await page.request.get(`/api/orders/${checkout.order_id}`, { headers: authHeaders })
+  expect(orderRes.ok(), await orderRes.text()).toBeTruthy()
+  const order = (await orderRes.json()) as { points_used?: number }
+  expect(order.points_used).toBe(previewBody.applied_points)
+
+  const afterReserve = await getAdminUserPoints(page, user.id)
+  expect(afterReserve.available_points).toBeLessThan(beforePoints.available_points)
+  expect(afterReserve.reserved_points).toBeGreaterThanOrEqual(previewBody.applied_points)
+
+  const history = await getUserPointHistory(page, authHeaders)
+  expect(history.items.some((tx) => tx.type === 'reserve')).toBeTruthy()
+
+  await fillCheckoutAddress(page)
+  await page.locator('#points').fill(String(requestedPoints))
+  await expect(page.getByText(/pt 適用|pt applied/i).first()).toBeVisible({ timeout: 30_000 })
+  await shot(page, '03-checkout-preview-partial')
+
+  await page.goto('/orders')
+  await expect(page.getByRole('heading', { name: /注文履歴/i })).toBeVisible({ timeout: 30_000 })
+  await shot(page, '04-orders-partial-points')
+
+  await ensureAdminSession(page)
+  const cancelRes = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
+  expect(cancelRes.ok(), await cancelRes.text()).toBeTruthy()
 })
 
-test('Scenario 3: mypage points history visible', async ({ page }) => {
+test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) => {
+  const user = await resolveTestUser(page)
+  const authHeaders = await getUserAuthHeaders(page)
+  const card = await findOrCreateSellableCard(page)
+
+  await clearUserCart(page, authHeaders)
+  await addCardToCart(page, authHeaders, card.id, 1)
+
+  const unitPrice = Math.round(card.price ?? 1000)
+  const quote = await fetchShippingQuote(page, authHeaders)
+  const shippingFee = Math.round(quote.fee_jpy ?? quote.base_shipping_fee_jpy ?? 650)
+  const totalBeforePoints = unitPrice + shippingFee
+
+  await grantPoints(page, user.id, totalBeforePoints + 5000, 'E2E zero checkout', `e2e-zero-grant-${Date.now()}`)
+
+  const preview = await page.request.post('/api/points/checkout-preview', {
+    headers: authHeaders,
+    data: {
+      items_subtotal: unitPrice,
+      shipping_fee: shippingFee,
+      requested_points: totalBeforePoints + 1000,
+    },
+  })
+  expect(preview.ok(), await preview.text()).toBeTruthy()
+  const previewBody = (await preview.json()) as { applied_points: number; total_yen: number }
+  expect(previewBody.total_yen).toBe(0)
+  expect(previewBody.applied_points).toBeGreaterThan(0)
+
+  await fillCheckoutAddress(page)
+  await page.locator('#points').fill(String(previewBody.applied_points))
+  await shot(page, '05-checkout-preview-zero')
+
+  const checkoutRes = await page.request.post('/api/payments/stripe/create-checkout-session', {
+    headers: authHeaders,
+    data: { ...defaultCheckoutPayload(), points_to_use: previewBody.applied_points },
+  })
+  expect(checkoutRes.ok(), await checkoutRes.text()).toBeTruthy()
+  const checkout = (await checkoutRes.json()) as {
+    checkout_url: string
+    session_id: string
+    order_id: number
+  }
+  expect(checkout.session_id).toMatch(/^points-only-/)
+  expect(checkout.checkout_url).not.toMatch(/stripe\.com/)
+  expect(checkout.checkout_url).toMatch(/checkout\/success/)
+
+  await page.goto(checkout.checkout_url.replace(/^https?:\/\/[^/]+/, ''))
+  await expect(page.getByText(/ご注文ありがとう|購入完了|注文が完了/i).first()).toBeVisible({ timeout: 60_000 })
+  await shot(page, '06-checkout-success-zero')
+
+  const orderRes = await page.request.get(`/api/orders/${checkout.order_id}`, { headers: authHeaders })
+  expect(orderRes.ok()).toBeTruthy()
+  const order = (await orderRes.json()) as { points_used?: number; payment_status?: string }
+  expect(order.points_used).toBe(previewBody.applied_points)
+  expect(order.payment_status).toBe('paid')
+
+  const history = await getUserPointHistory(page, authHeaders)
+  expect(history.items.some((tx) => tx.type === 'use')).toBeTruthy()
+})
+
+test('Scenario 4: cancel restores reserved points idempotently', async ({ page }) => {
+  const user = await resolveTestUser(page)
+  const authHeaders = await getUserAuthHeaders(page)
+  const card = await findOrCreateSellableCard(page)
+
+  await grantPoints(page, user.id, 15000, 'E2E cancel restore', `e2e-cancel-grant-${Date.now()}`)
+  const beforeCancel = await getAdminUserPoints(page, user.id)
+
+  await clearUserCart(page, authHeaders)
+  await addCardToCart(page, authHeaders, card.id, 1)
+
+  const unitPrice = Math.round(card.price ?? 1000)
+  const pointsToUse = Math.min(800, unitPrice)
+
+  const checkoutRes = await page.request.post('/api/payments/stripe/create-checkout-session', {
+    headers: authHeaders,
+    data: { ...defaultCheckoutPayload(), points_to_use: pointsToUse },
+  })
+  expect(checkoutRes.ok(), await checkoutRes.text()).toBeTruthy()
+  const checkout = (await checkoutRes.json()) as { order_id: number; session_id: string }
+  expect(checkout.session_id).not.toMatch(/^points-only-/)
+
+  const afterOrder = await getAdminUserPoints(page, user.id)
+  expect(afterOrder.available_points).toBeLessThan(beforeCancel.available_points)
+
+  await ensureAdminSession(page)
+  const cancel1 = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
+  expect(cancel1.ok(), await cancel1.text()).toBeTruthy()
+
+  const afterFirstCancel = await getAdminUserPoints(page, user.id)
+  expect(afterFirstCancel.reserved_points).toBe(0)
+  expect(afterFirstCancel.available_points).toBeGreaterThanOrEqual(afterOrder.available_points)
+
+  const adminHistory = await page.request.get(`/api/admin/points/users/${user.id}/history`, { params: { limit: 30 } })
+  expect(adminHistory.ok()).toBeTruthy()
+  const adminHistoryBody = (await adminHistory.json()) as { items: Array<{ type: string; order_id?: number | null }> }
+  expect(
+    adminHistoryBody.items.some(
+      (tx) => (tx.type === 'release' || tx.type === 'cancel_restore') && tx.order_id === checkout.order_id,
+    ),
+  ).toBeTruthy()
+
+  const cancel2 = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
+  expect(cancel2.ok(), await cancel2.text()).toBeTruthy()
+  const afterSecondCancel = await getAdminUserPoints(page, user.id)
+  expect(afterSecondCancel.available_points).toBe(afterFirstCancel.available_points)
+
+  await page.goto('/mypage/points')
+  await shot(page, '07-mypage-after-cancel')
+})
+
+test('Scenario 5: mypage points history visible', async ({ page }) => {
   await page.goto('/mypage/points')
   await expect(page.getByRole('heading', { name: /ポイント/i })).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText('付与').first()).toBeVisible({ timeout: 30_000 })
-  await shot(page, '04-mypage-history')
+  await shot(page, '08-mypage-history')
 })
 
-test('Scenario 5: admin deduct reflects on mypage', async ({ page }) => {
+test('Scenario 6: admin deduct reflects on mypage', async ({ page }) => {
   const user = await resolveTestUser(page)
   const beforeDeduct =
-    expectedAvailablePoints ?? (await getAdminUserAvailablePoints(page, user.id))
+    expectedAvailablePoints ?? (await getAdminUserPoints(page, user.id)).available_points
   const deductAmount = 200
 
   const deduct = await page.request.post('/api/admin/points/deduct', {
@@ -130,7 +409,7 @@ test('Scenario 5: admin deduct reflects on mypage', async ({ page }) => {
   })
   expect(deduct.ok(), await deduct.text()).toBeTruthy()
 
-  const afterDeduct = await getAdminUserAvailablePoints(page, user.id)
+  const afterDeduct = (await getAdminUserPoints(page, user.id)).available_points
   expect(afterDeduct).toBe(beforeDeduct - deductAmount)
   expectedAvailablePoints = afterDeduct
 
@@ -138,10 +417,10 @@ test('Scenario 5: admin deduct reflects on mypage', async ({ page }) => {
   await expect(
     page.locator('p.text-4xl').filter({ hasText: formatMypageBalance(afterDeduct) }),
   ).toBeVisible({ timeout: 30_000 })
-  await shot(page, '05-after-deduct')
+  await shot(page, '09-after-deduct')
 })
 
-test('Scenario 6: over-balance checkout preview rejected', async ({ page }) => {
+test('Scenario 7: over-balance checkout preview rejected', async ({ page }) => {
   const authHeaders = await getUserAuthHeaders(page)
   const balanceRes = await page.request.get('/api/points/balance', { headers: authHeaders })
   expect(balanceRes.ok(), await balanceRes.text()).toBeTruthy()
@@ -178,5 +457,5 @@ test('Scenario 6: over-balance checkout preview rejected', async ({ page }) => {
     expect(cappedBody.applied_points).toBe(0)
   }
 
-  await shot(page, '06-over-balance-preview')
+  await shot(page, '10-over-balance-preview')
 })
