@@ -128,7 +128,11 @@ async function fetchShippingQuote(page: import('@playwright/test').Page, authHea
     params: { method_code: 'takkyubin_compact', region: '兵庫県', country: 'Japan' },
   })
   expect(res.ok(), await res.text()).toBeTruthy()
-  return (await res.json()) as { fee_jpy?: number; base_shipping_fee_jpy?: number }
+  return (await res.json()) as {
+    fee_jpy?: number
+    base_shipping_fee_jpy?: number
+    packaging_fee_jpy?: number
+  }
 }
 
 async function openCheckoutFromCart(page: import('@playwright/test').Page) {
@@ -429,8 +433,7 @@ test('Scenario 5: mypage points history visible', async ({ page }) => {
 
 test('Scenario 6: admin deduct reflects on mypage', async ({ page }) => {
   const user = await resolveTestUser(page)
-  const beforeDeduct =
-    expectedAvailablePoints ?? (await getAdminUserPoints(page, user.id)).available_points
+  const beforeDeduct = (await getAdminUserPoints(page, user.id)).available_points
   const deductAmount = 200
 
   const deduct = await page.request.post('/api/admin/points/deduct', {
