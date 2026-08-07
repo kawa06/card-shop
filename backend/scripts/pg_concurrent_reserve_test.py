@@ -1,4 +1,4 @@
-﻿"""PostgreSQL concurrent point reserve verification for Phase 3-4."""
+"""PostgreSQL concurrent point reserve verification for Phase 3-4."""
 from __future__ import annotations
 import sys, threading, uuid
 from fastapi import HTTPException
@@ -31,7 +31,9 @@ def main():
     try:
         user = models.User(email=test_email, name="PG test", password_hash=hash_password("x"), is_verified=True)
         db.add(user); db.commit(); db.refresh(user); user_id = user.id
-        admin = bootstrap_admin_user(db, email=admin_email, password="x"); db.commit(); admin_id = admin.id
+        admin_user = models.User(email=admin_email, name="Admin", password_hash=hash_password("x"), is_admin=True, is_verified=True)
+        db.add(admin_user); db.commit(); db.refresh(admin_user)
+        admin = bootstrap_admin_user(db, admin_user); db.commit(); admin_id = admin.id
         admin_grant_points(db, user_id=user_id, amount=1000, reason="seed", admin_user_id=admin_id, idempotency_key=f"seed-{suffix}")
         db.commit()
         oa, ob = order(db, user_id), order(db, user_id); db.commit(); order_ids = [oa.id, ob.id]
