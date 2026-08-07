@@ -615,10 +615,21 @@ def _sync_legacy_status_from_shipping(order: models.Order) -> None:
 
 @router.get("/users", response_model=list[schemas.UserOut])
 def admin_list_users(
+    q: Optional[str] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_admin),
 ):
-    return db.query(models.User).order_by(models.User.created_at.desc()).all()
+    query = db.query(models.User)
+    if q:
+        term = q.strip()
+        if term:
+            query = query.filter(
+                or_(
+                    models.User.email.ilike(f"%{term}%"),
+                    models.User.name.ilike(f"%{term}%"),
+                )
+            )
+    return query.order_by(models.User.created_at.desc()).all()
 
 
 @router.get("/orders", response_model=list[schemas.AdminOrderOut])

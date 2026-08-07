@@ -38,6 +38,7 @@ class UserCreate(UserBase):
 
 
 class UserOut(UserBase):
+    email: str  # DB may contain test/legacy addresses that EmailStr rejects on output
     id: int
     is_admin: bool
     is_verified: bool
