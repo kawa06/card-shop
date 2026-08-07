@@ -1022,12 +1022,39 @@ def _migrate_live_auction_schema() -> None:
             logger.exception("live auction schema RBAC seed failed")
 
 
+def _ensure_offers_enabled_columns() -> None:
+    """Add offers_enabled to live_streams/live_products (Postgres-safe IF NOT EXISTS)."""
+    url = (settings.DATABASE_URL or "").lower()
+    if url.startswith("postgresql") or url.startswith("postgres"):
+        try:
+            with engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE live_streams ADD COLUMN IF NOT EXISTS "
+                        "offers_enabled BOOLEAN DEFAULT TRUE NOT NULL"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE live_products ADD COLUMN IF NOT EXISTS "
+                        "offers_enabled BOOLEAN DEFAULT TRUE NOT NULL"
+                    )
+                )
+                conn.commit()
+            logger.info("Ensured offers_enabled columns on live_streams/live_products")
+        except Exception:
+            logger.exception("Failed to ensure offers_enabled columns (postgres)")
+        return
+
+    _add_column_if_missing("live_streams", "offers_enabled", "BOOLEAN DEFAULT 1")
+    _add_column_if_missing("live_products", "offers_enabled", "BOOLEAN DEFAULT 1")
+
+
 def _migrate_live_offer_schema() -> None:
     """Phase 3-3 additive tables for live offers."""
     import models_live_offer  # noqa: F401
 
-    _add_column_if_missing("live_streams", "offers_enabled", "BOOLEAN DEFAULT 1")
-    _add_column_if_missing("live_products", "offers_enabled", "BOOLEAN DEFAULT 1")
+    _ensure_offers_enabled_columns()
 
     offer_tables = [
         ("live_offers", models_live_offer.LiveOffer),

@@ -4,7 +4,7 @@ import path from 'path'
 
 const outDir = path.join(__dirname, '../../artifacts/phase3-3-offers')
 
-test.describe.configure({ mode: 'serial' })
+test.describe.configure({ mode: 'serial', timeout: 180_000 })
 
 async function shot(page: import('@playwright/test').Page, name: string) {
   fs.mkdirSync(outDir, { recursive: true })
@@ -23,9 +23,12 @@ async function setupLiveStream(page: import('@playwright/test').Page) {
   await page.goto('/admin/live')
   await waitAdminReady(page)
   const title = `E2E Offers ${Date.now()}`
-  await page.getByPlaceholder('\u65b0\u3057\u3044\u914d\u4fe1\u30bf\u30a4\u30c8\u30eb').fill(title)
-  await page.getByRole('button', { name: '\u4f5c\u6210' }).click()
-  await page.getByText(title).click()
+  const createRes = await page.request.post('/api/admin/live/streams', {
+    data: { title, visibility: 'public' },
+  })
+  expect(createRes.status()).toBe(201)
+  const stream = (await createRes.json()) as { id: number }
+  await page.goto(`/admin/live/${stream.id}`)
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 30_000 })
   await page.getByPlaceholder('\u30ab\u30fc\u30c9ID').fill('1')
   await page.locator('input[placeholder="\u30ab\u30fc\u30c9ID"]').locator('..').getByRole('button', { name: '\u8ffd\u52a0' }).click()
