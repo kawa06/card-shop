@@ -1043,6 +1043,7 @@ def _migrate_live_auction_schema() -> None:
         ("live_bid_invalidations", models_live_auction.LiveBidInvalidation),
         ("live_auction_extensions", models_live_auction.LiveAuctionExtension),
         ("live_auction_settings", models_live_auction.LiveAuctionSettings),
+        ("live_auction_purchase_rights", models_live_auction.LiveAuctionPurchaseRight),
     ]
     for table_name, model in auction_tables:
         _create_table_if_missing(table_name, model)

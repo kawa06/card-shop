@@ -393,3 +393,106 @@ def test_live_offer_order_with_points(db, test_user):
     account = get_or_create_account(db, test_user.id)
     assert account.reserved_points == 300
 
+def test_concurrent_reserve_only_one_succeeds(db, test_user):
+    """Two concurrent reserves for full balance: exactly one succeeds (PostgreSQL row locks)."""
+    if db.get_bind().dialect.name == "sqlite":
+        pytest.skip("SQLite StaticPool cannot simulate concurrent FOR UPDATE; verify on PostgreSQL")
+    import threading
+
+    from sqlalchemy.orm import sessionmaker
+
+    admin = create_admin_user(db, email="points-admin-conc@test.com", role_code="admin")
+    admin_grant_points(
+        db,
+        user_id=test_user.id,
+        amount=1000,
+        reason="seed",
+        admin_user_id=admin.id,
+        idempotency_key="seed-concurrent-thread",
+    )
+    db.commit()
+    order_a = _order(db, test_user, total=1000)
+    order_b = _order(db, test_user, total=1000)
+    db.commit()
+
+    engine = db.get_bind()
+    Session = sessionmaker(bind=engine)
+    barrier = threading.Barrier(2)
+    results = {"success": 0, "fail": 0}
+    status_codes: list[int] = []
+    lock = threading.Lock()
+
+    def worker(order_id: int) -> None:
+        session = Session()
+        try:
+            barrier.wait(timeout=5)
+            try:
+                reserve_points_for_order(session, user_id=test_user.id, order_id=order_id, amount=1000)
+                session.commit()
+                with lock:
+                    results["success"] += 1
+            except HTTPException as exc:
+                session.rollback()
+                with lock:
+                    results["fail"] += 1
+                    status_codes.append(exc.status_code)
+        finally:
+            session.close()
+
+    t1 = threading.Thread(target=worker, args=(order_a.id,))
+    t2 = threading.Thread(target=worker, args=(order_b.id,))
+    t1.start()
+    t2.start()
+    t1.join(timeout=10)
+    t2.join(timeout=10)
+
+    assert results["success"] == 1
+    assert results["fail"] == 1
+    assert 400 in status_codes
+    db.expire_all()
+    account = get_or_create_account(db, test_user.id)
+    assert account.available_points == 0
+    assert account.reserved_points == 1000
+
+
+def test_refund_restore_idempotency(db, test_user):
+    """on_order_cancelled_after_paid restores points once (idempotent)."""
+    from services.point_orders import on_order_cancelled_after_paid
+
+    admin = create_admin_user(db, email="points-refund@test.com", role_code="admin")
+    admin_grant_points(
+        db,
+        user_id=test_user.id,
+        amount=800,
+        reason="seed",
+        admin_user_id=admin.id,
+        idempotency_key="seed-refund-800",
+    )
+    db.commit()
+
+    order = _order(db, test_user, subtotal=5000, total=5000)
+    apply_points_on_order_created(db, order, points_to_use=300)
+    confirm_points_for_order(db, user_id=test_user.id, order_id=order.id)
+    earn_points_for_order(
+        db,
+        user_id=test_user.id,
+        order_id=order.id,
+        amount=50,
+        expiration_days=None,
+    )
+    order.payment_status = "paid"
+    order.points_earned = 50
+    order.points_earn_status = "earned"
+    db.commit()
+
+    on_order_cancelled_after_paid(db, order)
+    db.commit()
+    account = get_or_create_account(db, test_user.id)
+    after_first = account.available_points
+
+    on_order_cancelled_after_paid(db, order)
+    db.commit()
+    account = get_or_create_account(db, test_user.id)
+    assert account.available_points == after_first
+    assert account.available_points >= 800
+

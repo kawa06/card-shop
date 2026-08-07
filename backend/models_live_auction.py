@@ -48,6 +48,12 @@ class LiveAuction(Base):
 
     product = relationship("LiveProduct", foreign_keys=[live_product_id])
     bids = relationship("LiveBid", back_populates="auction", cascade="all, delete-orphan")
+    purchase_right = relationship(
+        "LiveAuctionPurchaseRight",
+        back_populates="auction",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class LiveBid(Base):
@@ -103,11 +109,29 @@ class LiveAuctionExtension(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class LiveAuctionPurchaseRight(Base):
+    __tablename__ = "live_auction_purchase_rights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    auction_id = Column(Integer, ForeignKey("live_auctions.id"), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    live_product_id = Column(Integer, ForeignKey("live_products.id"), nullable=False, index=True)
+    card_id = Column(Integer, ForeignKey("cards.id"), nullable=False, index=True)
+    winning_price = Column(Integer, nullable=False)
+    status = Column(String(16), default="active", nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    auction = relationship("LiveAuction", back_populates="purchase_right")
+
+
 class LiveAuctionSettings(Base):
     __tablename__ = "live_auction_settings"
 
     id = Column(Integer, primary_key=True, index=True)
     shop_id = Column(Integer, default=1, nullable=False, unique=True, index=True)
+    purchase_window_seconds = Column(Integer, default=300, nullable=False)
     default_min_bid_increment = Column(Integer, default=100, nullable=False)
     default_extension_seconds = Column(Integer, default=30, nullable=False)
     default_trigger_remaining_seconds = Column(Integer, default=30, nullable=False)

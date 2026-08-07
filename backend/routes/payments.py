@@ -273,6 +273,57 @@ def confirm_stripe_checkout(
     raise HTTPException(status_code=400, detail="決済が完了していません")
 
 
+def _metadata_get(obj, key: str, default=None):
+    metadata = obj.get("metadata") if isinstance(obj, dict) else getattr(obj, "metadata", None)
+    if isinstance(metadata, dict):
+        return metadata.get(key, default)
+    return default
+
+
+def _order_id_from_refund_event(db: Session, obj, event_type: str) -> int | None:
+    order_id = _metadata_get(obj, "order_id")
+    if order_id:
+        return int(order_id)
+
+    payment_intent = None
+    if event_type == "charge.refunded":
+        payment_intent = obj.get("payment_intent") if isinstance(obj, dict) else getattr(obj, "payment_intent", None)
+    elif event_type == "refund.created":
+        charge_ref = obj.get("charge") if isinstance(obj, dict) else getattr(obj, "charge", None)
+        if isinstance(charge_ref, dict):
+            payment_intent = charge_ref.get("payment_intent")
+
+    if payment_intent:
+        pi_id = payment_intent if isinstance(payment_intent, str) else getattr(payment_intent, "id", None)
+        if pi_id:
+            order = (
+                db.query(models.Order)
+                .filter(models.Order.stripe_payment_intent_id == str(pi_id))
+                .first()
+            )
+            if order:
+                return order.id
+    return None
+
+
+def _is_full_stripe_refund(obj, event_type: str, order: models.Order) -> bool:
+    # Partial refund point restore is not implemented; only full refunds restore points.
+    if event_type == "charge.refunded":
+        amount = int(obj.get("amount") or 0) if isinstance(obj, dict) else int(getattr(obj, "amount", 0) or 0)
+        refunded = (
+            int(obj.get("amount_refunded") or 0)
+            if isinstance(obj, dict)
+            else int(getattr(obj, "amount_refunded", 0) or 0)
+        )
+        return amount > 0 and refunded >= amount
+    if event_type == "refund.created":
+        status_val = obj.get("status") if isinstance(obj, dict) else getattr(obj, "status", None)
+        refund_amount = int(obj.get("amount") or 0) if isinstance(obj, dict) else int(getattr(obj, "amount", 0) or 0)
+        order_total = int(round(order.total_amount or 0))
+        return status_val == "succeeded" and refund_amount >= order_total
+    return False
+
+
 @router.post("/stripe/webhook", status_code=status.HTTP_200_OK)
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
@@ -317,6 +368,19 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                 order = db.query(models.Order).filter(models.Order.id == order_id).first()
                 if order and order.payment_status != "paid":
                     cancel_unpaid_order(db, order)
+            db.commit()
+
+    elif event_type in {"charge.refunded", "refund.created"}:
+        order_id = _order_id_from_refund_event(db, session, event_type)
+        if order_id:
+            if not claim_stripe_event(db, event_id, event_type, order_id):
+                db.commit()
+                return {"received": True}
+            order = db.query(models.Order).filter(models.Order.id == order_id).first()
+            if order and order.payment_status == "paid" and _is_full_stripe_refund(session, event_type, order):
+                from services.point_orders import on_order_cancelled_after_paid
+
+                on_order_cancelled_after_paid(db, order)
             db.commit()
 
     return {"received": True}

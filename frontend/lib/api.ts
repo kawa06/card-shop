@@ -1174,6 +1174,10 @@ export const liveAuctionApi = {
       amount,
       idempotency_key: idempotencyKey,
     }),
+  getPurchaseRight: (auctionId: number) =>
+    apiClient.get<import('./types').LiveAuctionPurchaseRight>(`/live/auctions/${auctionId}/purchase-right`),
+  purchase: (auctionId: number, data?: Record<string, unknown>) =>
+    apiClient.post<import('./types').LiveAuctionPurchaseResult>(`/live/auctions/${auctionId}/purchase`, data ?? {}),
 }
 
 export const adminLiveOfferApi = {

@@ -783,6 +783,26 @@ export interface LiveOfferPurchaseRight {
   created_at: string
 }
 
+export type LiveAuctionPurchaseRightStatus = 'active' | 'used' | 'expired' | 'cancelled'
+
+export interface LiveAuctionPurchaseRight {
+  id: number
+  auction_id: number
+  user_id: number
+  live_product_id: number
+  card_id: number
+  winning_price: number
+  status: LiveAuctionPurchaseRightStatus
+  expires_at: string
+  order_id?: number | null
+  created_at: string
+}
+
+export interface LiveAuctionPurchaseResult {
+  order_id: number
+  purchase_right: LiveAuctionPurchaseRight
+}
+
 export interface LiveOfferPurchaseResult {
   order_id: number
   purchase_right: LiveOfferPurchaseRight

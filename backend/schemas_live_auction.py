@@ -113,10 +113,46 @@ class LiveBidPlaceOut(BaseModel):
     extended: bool = False
 
 
+LiveAuctionPurchaseRightStatus = Literal["active", "used", "expired", "cancelled"]
+
+
+class LiveAuctionPurchaseIn(BaseModel):
+    points_to_use: int = Field(0, ge=0)
+    shipping_address: str = Field(..., min_length=1)
+    shipping_method: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+
+
+class LiveAuctionPurchaseRightOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    auction_id: int
+    user_id: int
+    live_product_id: int
+    card_id: int
+    winning_price: int
+    status: LiveAuctionPurchaseRightStatus
+    expires_at: datetime
+    order_id: Optional[int] = None
+    created_at: datetime
+
+
+class LiveAuctionPurchaseOut(BaseModel):
+    order_id: int
+    purchase_right: LiveAuctionPurchaseRightOut
+
+
 class LiveAuctionSettingsOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     shop_id: int
+    purchase_window_seconds: int = 300
     default_min_bid_increment: int
     default_extension_seconds: int
     default_trigger_remaining_seconds: int

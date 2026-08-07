@@ -11,6 +11,12 @@ import models
 import schemas_live_auction
 from auth import get_current_user
 from database import get_db
+from services.live_auction_purchase import (
+    create_order_from_auction,
+    get_purchase_right_or_404,
+    serialize_purchase_right,
+    verify_purchase_right_owner,
+)
 from services.live_auctions import get_auction_or_404, list_auctions, serialize_auction
 from services.live_bids import list_bids, place_bid, serialize_bid
 from services.live_streams import get_stream_or_404
@@ -72,3 +78,37 @@ def public_place_bid(
     if stream.visibility != "public":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auction not found")
     return place_bid(db, auction_id=auction_id, user_id=current_user.id, payload=payload)
+
+
+@router.get("/auctions/{auction_id}/purchase-right", response_model=schemas_live_auction.LiveAuctionPurchaseRightOut)
+def get_auction_purchase_right(
+    auction_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    auction = get_auction_or_404(db, auction_id)
+    stream = get_stream_or_404(db, auction.stream_id)
+    if stream.visibility != "public":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auction not found")
+    right = get_purchase_right_or_404(db, auction_id)
+    verify_purchase_right_owner(right, current_user.id)
+    return serialize_purchase_right(right)
+
+
+@router.post("/auctions/{auction_id}/purchase", response_model=schemas_live_auction.LiveAuctionPurchaseOut, status_code=201)
+def purchase_from_auction(
+    auction_id: int,
+    payload: schemas_live_auction.LiveAuctionPurchaseIn | None = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    auction = get_auction_or_404(db, auction_id)
+    stream = get_stream_or_404(db, auction.stream_id)
+    if stream.visibility != "public":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Auction not found")
+    return create_order_from_auction(
+        db,
+        auction_id=auction_id,
+        user_id=current_user.id,
+        payload=payload or schemas_live_auction.LiveAuctionPurchaseIn(shipping_address="Live auction purchase"),
+    )

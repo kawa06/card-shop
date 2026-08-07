@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { liveApi, liveAuctionApi, liveOfferApi } from '@/lib/api'
+import { liveApi, liveAuctionApi, liveOfferApi, pointsApi } from '@/lib/api'
 import { useLiveEventSource } from '@/hooks/useLiveEventSource'
 import type { LiveAuction, LiveBid, LiveComment, LiveOffer, LiveOfferPublic, LiveStream } from '@/lib/types'
 
@@ -79,6 +79,12 @@ export default function LiveViewerPage() {
   const [offerPurchaseMessage, setOfferPurchaseMessage] = useState('')
   const [offersEnabled, setOffersEnabled] = useState(true)
 
+  const [pointsBalance, setPointsBalance] = useState(0)
+  const [pointsToUse, setPointsToUse] = useState(0)
+  const [pointsPreviewTotal, setPointsPreviewTotal] = useState<number | null>(null)
+  const [auctionPurchaseMessage, setAuctionPurchaseMessage] = useState('')
+  const [wonAuctionId, setWonAuctionId] = useState<number | null>(null)
+
   const activeAuction = useMemo(() => {
     const running = auctions.find((a) => a.status === 'running' || a.status === 'paused')
     return running ?? auctions[0] ?? null
@@ -100,6 +106,38 @@ export default function LiveViewerPage() {
   }, [streamId])
 
   const latestMyOffer = useMemo(() => myOffers[0] ?? null, [myOffers])
+
+  const loadPointsBalance = useCallback(async () => {
+    try {
+      const res = await pointsApi.getBalance()
+      setPointsBalance(res.data.available_points ?? 0)
+    } catch {
+      setPointsBalance(0)
+    }
+  }, [])
+
+  const purchaseSubtotal = useMemo(() => {
+    if (latestMyOffer?.status === 'accepted') return latestMyOffer.amount
+    const won = auctions.find((a) => a.id === wonAuctionId && a.status === 'finished')
+    return won?.winning_amount ?? null
+  }, [latestMyOffer, auctions, wonAuctionId])
+
+  useEffect(() => {
+    if (purchaseSubtotal == null) return
+    loadPointsBalance().catch(() => undefined)
+  }, [purchaseSubtotal, loadPointsBalance])
+
+  useEffect(() => {
+    if (purchaseSubtotal == null || pointsToUse <= 0) {
+      setPointsPreviewTotal(null)
+      return
+    }
+    pointsApi
+      .checkoutPreview({ items_subtotal: purchaseSubtotal, requested_points: pointsToUse })
+      .then((res) => setPointsPreviewTotal(res.data.total_yen))
+      .catch(() => setPointsPreviewTotal(null))
+  }, [purchaseSubtotal, pointsToUse])
+
 
   const offersFormVisible = useMemo(() => {
     const product = stream?.active_product || stream?.pinned_product
@@ -210,6 +248,12 @@ export default function LiveViewerPage() {
         return
       }
 
+      if (evt.type === 'bid.winner') {
+        const auctionId = Number(evt.payload.auction_id)
+        setWonAuctionId(auctionId)
+        liveAuctionApi.get(auctionId).then((res) => upsertAuction(res.data)).catch(() => undefined)
+        return
+      }
       if (evt.type.startsWith('bid.')) {
         const auctionId = Number(evt.payload.auction_id)
         if (activeAuction?.id === auctionId) {
@@ -266,10 +310,27 @@ export default function LiveViewerPage() {
     if (!latestMyOffer || latestMyOffer.status !== 'accepted') return
     setOfferPurchaseMessage('')
     try {
-      const res = await liveOfferApi.purchase(latestMyOffer.id, { shipping_address: 'E2E Offer Purchase' })
+      const res = await liveOfferApi.purchase(latestMyOffer.id, {
+        shipping_address: 'E2E Offer Purchase',
+        points_to_use: pointsToUse,
+      })
       setOfferPurchaseMessage(`注文 #${res.data.order_id} を作成しました`)
     } catch {
       setOfferPurchaseMessage('購入に失敗しました')
+    }
+  }
+
+  const purchaseWonAuction = async () => {
+    if (!wonAuctionId) return
+    setAuctionPurchaseMessage('')
+    try {
+      const res = await liveAuctionApi.purchase(wonAuctionId, {
+        shipping_address: 'Live auction purchase',
+        points_to_use: pointsToUse,
+      })
+      setAuctionPurchaseMessage(`注文 #${res.data.order_id} を作成しました`)
+    } catch {
+      setAuctionPurchaseMessage('落札商品の購入に失敗しました')
     }
   }
 
@@ -412,6 +473,49 @@ export default function LiveViewerPage() {
                 </div>
               )}
               {bidError && <p className="text-red-400 text-sm mb-3">{bidError}</p>}
+
+
+              {activeAuction.status === 'finished' && wonAuctionId === activeAuction.id && (
+                <div data-testid="auction-points-panel" className="mt-4 rounded-lg border border-yellow-700/40 bg-yellow-950/20 p-3 text-sm">
+                  <p className="text-yellow-200 font-medium mb-2">落札おめでとうございます</p>
+                  <p className="text-yellow-200 mb-2">ポイント残高: {pointsBalance.toLocaleString('ja-JP')}pt</p>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      data-testid="auction-points-to-use-input"
+                      type="number"
+                      min={0}
+                      value={pointsToUse}
+                      onChange={(e) => setPointsToUse(Math.max(0, Number(e.target.value) || 0))}
+                      className="flex-1 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2"
+                      placeholder="利用ポイント"
+                    />
+                    <button
+                      type="button"
+                      data-testid="auction-use-all-points"
+                      onClick={() =>
+                        setPointsToUse(
+                          Math.min(pointsBalance, activeAuction.winning_amount ?? activeAuction.current_price ?? 0),
+                        )
+                      }
+                      className="rounded-lg bg-gray-700 px-3 py-2 text-xs whitespace-nowrap"
+                    >
+                      全ポイントを使う
+                    </button>
+                  </div>
+                  {pointsPreviewTotal != null && (
+                    <p className="text-gray-300 mb-2">お支払い予定: ¥{pointsPreviewTotal.toLocaleString('ja-JP')}</p>
+                  )}
+                  <button
+                    data-testid="auction-purchase"
+                    type="button"
+                    onClick={purchaseWonAuction}
+                    className="rounded-lg bg-yellow-500 text-gray-900 px-4 py-2 font-medium"
+                  >
+                    落札額で購入
+                  </button>
+                  {auctionPurchaseMessage && <p className="text-emerald-300 mt-2">{auctionPurchaseMessage}</p>}
+                </div>
+              )}
 
               <h3 className="font-medium mb-2 text-gray-200">入札履歴</h3>
               <ul className="space-y-1 max-h-40 overflow-y-auto text-sm">

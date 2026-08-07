@@ -241,6 +241,53 @@ def resume_auction(db: Session, auction: models_live_auction.LiveAuction) -> mod
     return auction
 
 
+def _auction_shop_settings(db: Session, shop_id: int = 1) -> models_live_auction.LiveAuctionSettings:
+    row = (
+        db.query(models_live_auction.LiveAuctionSettings)
+        .filter(models_live_auction.LiveAuctionSettings.shop_id == shop_id)
+        .first()
+    )
+    if row is None:
+        row = models_live_auction.LiveAuctionSettings(shop_id=shop_id)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def _create_auction_purchase_right(
+    db: Session, auction: models_live_auction.LiveAuction
+) -> models_live_auction.LiveAuctionPurchaseRight | None:
+    if auction.winner_user_id is None or auction.winning_amount is None:
+        return None
+    existing = (
+        db.query(models_live_auction.LiveAuctionPurchaseRight)
+        .filter(models_live_auction.LiveAuctionPurchaseRight.auction_id == auction.id)
+        .first()
+    )
+    if existing is not None:
+        return existing
+    product = (
+        db.query(models_live.LiveProduct)
+        .filter(models_live.LiveProduct.id == auction.live_product_id)
+        .first()
+    )
+    if product is None:
+        return None
+    settings = _auction_shop_settings(db)
+    expires_at = _utcnow() + timedelta(seconds=settings.purchase_window_seconds)
+    right = models_live_auction.LiveAuctionPurchaseRight(
+        auction_id=auction.id,
+        user_id=auction.winner_user_id,
+        live_product_id=product.id,
+        card_id=product.card_id,
+        winning_price=auction.winning_amount,
+        status="active",
+        expires_at=expires_at,
+    )
+    db.add(right)
+    return right
+
+
 def _apply_winner_from_bids(db: Session, auction: models_live_auction.LiveAuction) -> None:
     winning_bid = (
         db.query(models_live_auction.LiveBid)
@@ -278,6 +325,8 @@ def finish_auction(db: Session, auction: models_live_auction.LiveAuction) -> mod
     if auction.status not in ("running", "paused"):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Auction cannot be finished")
     _apply_winner_from_bids(db, auction)
+    if auction.winner_user_id is not None:
+        _create_auction_purchase_right(db, auction)
     auction.status = "finished"
     auction.updated_at = _utcnow()
     db.commit()
