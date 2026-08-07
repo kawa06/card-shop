@@ -101,7 +101,7 @@ export default function AdminLiveAuctionsPage() {
     })
   }, [])
 
-  const getAuthHeaders = useCallback(async () => {
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const token = await getClerkSessionToken()
     return token ? { Authorization: `Bearer ${token}` } : {}
   }, [])

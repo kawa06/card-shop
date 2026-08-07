@@ -46,6 +46,7 @@ def run_schema_upgrades() -> None:
     _migrate_phase2_logistics_schema()
     _migrate_live_schema()
     _migrate_live_auction_schema()
+    _migrate_live_offer_schema()
 
 
 def _migrate_order_pricing_snapshots() -> None:
@@ -1019,3 +1020,31 @@ def _migrate_live_auction_schema() -> None:
         except Exception:
             db.rollback()
             logger.exception("live auction schema RBAC seed failed")
+
+
+def _migrate_live_offer_schema() -> None:
+    """Phase 3-3 additive tables for live offers."""
+    import models_live_offer  # noqa: F401
+
+    _add_column_if_missing("live_streams", "offers_enabled", "BOOLEAN DEFAULT 1")
+    _add_column_if_missing("live_products", "offers_enabled", "BOOLEAN DEFAULT 1")
+
+    offer_tables = [
+        ("live_offers", models_live_offer.LiveOffer),
+        ("live_offer_purchase_rights", models_live_offer.LiveOfferPurchaseRight),
+        ("live_offer_audit_logs", models_live_offer.LiveOfferAuditLog),
+        ("live_offer_settings", models_live_offer.LiveOfferSettings),
+    ]
+    for table_name, model in offer_tables:
+        _create_table_if_missing(table_name, model)
+
+    from sqlalchemy.orm import sessionmaker
+    from services.admin_seed import seed_admin_rbac
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_admin_rbac(db)
+        except Exception:
+            db.rollback()
+            logger.exception("live offer schema RBAC seed failed")

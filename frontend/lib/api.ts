@@ -47,6 +47,7 @@ function needsLiveUserAuth(url: string): boolean {
   if (!url.includes('/live/') || url.includes('/admin/')) return false
   if (url.includes('/comments')) return true
   if (url.includes('/auctions/') && url.includes('/bids')) return true
+  if (url.includes('/offers')) return true
   return false
 }
 
@@ -1143,3 +1144,52 @@ export const liveAuctionApi = {
       idempotency_key: idempotencyKey,
     }),
 }
+
+export const adminLiveOfferApi = {
+  getSettings: (streamId: number) =>
+    apiClient.get<import('./types').LiveOfferSettings>(`/admin/live/streams/${streamId}/offers/settings`),
+  patchSettings: (streamId: number, data: Partial<import('./types').LiveOfferSettings>) =>
+    apiClient.patch<import('./types').LiveOfferSettings>(`/admin/live/streams/${streamId}/offers/settings`, data),
+  patchProductOffersEnabled: (streamId: number, productId: number, offers_enabled: boolean) =>
+    apiClient.patch<{ id: number; offers_enabled: boolean }>(
+      `/admin/live/streams/${streamId}/products/${productId}/offers`,
+      { offers_enabled },
+    ),
+  listOffers: (
+    streamId: number,
+    params?: { status?: string; sort?: string; order?: string; limit?: number; offset?: number },
+  ) => apiClient.get<import('./types').LiveOfferList>(`/admin/live/streams/${streamId}/offers`, { params }),
+  getOffer: (streamId: number, offerId: number) =>
+    apiClient.get<import('./types').LiveOffer>(`/admin/live/streams/${streamId}/offers/${offerId}`),
+  accept: (streamId: number, offerId: number, review_note?: string) =>
+    apiClient.post<import('./types').LiveOffer>(
+      `/admin/live/streams/${streamId}/offers/${offerId}/accept`,
+      review_note ? { review_note } : {},
+    ),
+  reject: (streamId: number, offerId: number, review_note?: string) =>
+    apiClient.post<import('./types').LiveOffer>(
+      `/admin/live/streams/${streamId}/offers/${offerId}/reject`,
+      review_note ? { review_note } : {},
+    ),
+  hold: (streamId: number, offerId: number, review_note?: string) =>
+    apiClient.post<import('./types').LiveOffer>(
+      `/admin/live/streams/${streamId}/offers/${offerId}/hold`,
+      review_note ? { review_note } : {},
+    ),
+}
+
+export const liveOfferApi = {
+  listPublic: (streamId: number, params?: { limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveOfferPublicList>(`/live/streams/${streamId}/offers`, { params }),
+  listMine: (streamId: number, params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveOfferList>(`/live/streams/${streamId}/offers/mine`, { params }),
+  create: (
+    streamId: number,
+    data: { live_product_id: number; amount: number; idempotency_key?: string },
+  ) => apiClient.post<import('./types').LiveOffer>(`/live/streams/${streamId}/offers`, data),
+  getPurchaseRight: (offerId: number) =>
+    apiClient.get<import('./types').LiveOfferPurchaseRight>(`/live/offers/${offerId}/purchase-right`),
+  purchase: (offerId: number, data?: Record<string, unknown>) =>
+    apiClient.post<import('./types').LiveOfferPurchaseResult>(`/live/offers/${offerId}/purchase`, data ?? {}),
+}
+

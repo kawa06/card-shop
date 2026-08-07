@@ -6,10 +6,10 @@ import { ArrowLeft, Radio, Play, Pause, Square, ExternalLink } from 'lucide-reac
 import { useParams } from 'next/navigation'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
-import { adminLiveApi } from '@/lib/api'
+import { adminLiveApi, adminLiveOfferApi } from '@/lib/api'
 import { getClerkSessionToken } from '@/lib/clerk-token'
 import { useLiveEventSource } from '@/hooks/useLiveEventSource'
-import type { LiveComment, LiveProduct, LiveStream } from '@/lib/types'
+import type { LiveComment, LiveOfferSettings, LiveProduct, LiveStream } from '@/lib/types'
 
 export default function AdminLiveDetailPage() {
   const params = useParams<{ id: string }>()
@@ -26,6 +26,7 @@ export default function AdminLiveDetailPage() {
   const [pinnedOnly, setPinnedOnly] = useState(false)
   const [ngWord, setNgWord] = useState('')
   const [ngWords, setNgWords] = useState<{ id: number; word: string; is_active: boolean }[]>([])
+  const [offersSettings, setOffersSettings] = useState<LiveOfferSettings | null>(null)
 
   const reload = async () => {
     const [s, p, c] = await Promise.all([
@@ -41,6 +42,9 @@ export default function AdminLiveDetailPage() {
     setStream(s.data)
     setProducts(p.data)
     setComments(c.data.items)
+    if (hasPermission('offer.read') || hasPermission('offer.manage')) {
+      adminLiveOfferApi.getSettings(streamId).then((res) => setOffersSettings(res.data)).catch(() => undefined)
+    }
     if (hasPermission('live.moderate')) {
       adminLiveApi.listNgWords().then((res) => setNgWords(res.data.filter((w) => w.is_active))).catch(() => undefined)
     }
@@ -109,8 +113,16 @@ export default function AdminLiveDetailPage() {
           <Radio className="h-6 w-6 text-red-500" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stream.title}</h1>
           <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-sm">{stream.status}</span>
+          {offersSettings != null && (
+            <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 px-3 py-1 text-sm">
+              希望額 {offersSettings.offers_enabled ? 'ON' : 'OFF'}
+            </span>
+          )}
           <Link href={`/admin/live/${stream.id}/auctions`} className="inline-flex items-center gap-1 text-sm text-amber-700 hover:underline">
             オークション管理
+          </Link>
+          <Link href={`/admin/live/${stream.id}/offers`} className="inline-flex items-center gap-1 text-sm text-emerald-700 hover:underline">
+            希望額管理
           </Link>
           <Link href={`/live/${stream.id}`} className="ml-auto inline-flex items-center gap-1 text-sm text-red-600 hover:underline">
             公開ページ <ExternalLink className="h-4 w-4" />

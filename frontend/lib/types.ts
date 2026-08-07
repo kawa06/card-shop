@@ -592,6 +592,7 @@ export interface LiveProduct {
   display_price?: number | null
   is_active: boolean
   is_pinned: boolean
+  offers_enabled?: boolean
   card_name?: string | null
   card_image_url?: string | null
   card_price?: number | null
@@ -616,6 +617,7 @@ export interface LiveStream {
   pinned_product?: LiveProduct | null
   product_count: number
   comment_count: number
+  offers_enabled?: boolean
 }
 
 export interface LiveStreamList {
@@ -702,6 +704,85 @@ export interface LiveBidPlaceResult {
   auction: LiveAuction
   instant_buy: boolean
   extended: boolean
+}
+
+
+export type LiveOfferStatus = 'pending' | 'accepted' | 'rejected' | 'held' | 'expired' | 'cancelled'
+export type LiveOfferPurchaseRightStatus = 'active' | 'used' | 'expired' | 'cancelled'
+
+export interface LiveOfferProduct {
+  id: number
+  stream_id: number
+  card_id: number
+  display_price?: number | null
+  card_name?: string | null
+  card_image_url?: string | null
+}
+
+export interface LiveOfferPublic {
+  id: number
+  amount: number
+  status: LiveOfferStatus
+  sender_name?: string | null
+  live_product_id: number
+  product?: LiveOfferProduct | null
+  created_at: string
+}
+
+export interface LiveOffer {
+  id: number
+  stream_id: number
+  live_product_id: number
+  user_id: number
+  amount: number
+  status: LiveOfferStatus
+  review_note?: string | null
+  reviewed_at?: string | null
+  reviewed_by_admin_id?: number | null
+  display_expires_at?: string | null
+  purchase_expires_at?: string | null
+  created_at: string
+  updated_at?: string | null
+  sender_name?: string | null
+  product?: LiveOfferProduct | null
+}
+
+export interface LiveOfferList {
+  items: LiveOffer[]
+  total: number
+}
+
+export interface LiveOfferPublicList {
+  items: LiveOfferPublic[]
+  total: number
+}
+
+export interface LiveOfferSettings {
+  shop_id: number
+  purchase_window_seconds: number
+  display_ttl_seconds: number
+  max_amount: number
+  rate_limit_count: number
+  rate_limit_window_seconds: number
+  offers_enabled: boolean
+}
+
+export interface LiveOfferPurchaseRight {
+  id: number
+  offer_id: number
+  user_id: number
+  live_product_id: number
+  card_id: number
+  accepted_price: number
+  status: LiveOfferPurchaseRightStatus
+  expires_at: string
+  order_id?: number | null
+  created_at: string
+}
+
+export interface LiveOfferPurchaseResult {
+  order_id: number
+  purchase_right: LiveOfferPurchaseRight
 }
 
 export interface AdminInAppNotification {

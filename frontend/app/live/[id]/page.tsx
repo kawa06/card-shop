@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { liveApi, liveAuctionApi } from '@/lib/api'
+import { liveApi, liveAuctionApi, liveOfferApi } from '@/lib/api'
 import { useLiveEventSource } from '@/hooks/useLiveEventSource'
-import type { LiveAuction, LiveBid, LiveComment, LiveStream } from '@/lib/types'
+import type { LiveAuction, LiveBid, LiveComment, LiveOffer, LiveOfferPublic, LiveStream } from '@/lib/types'
 
 function applyCommentEvent(comments: LiveComment[], evt: { type: string; payload: Record<string, unknown> }): LiveComment[] {
   const payload = evt.payload as unknown as LiveComment
@@ -33,6 +33,26 @@ function formatRemaining(endsAt?: string | null, nowMs = Date.now()): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+
+
+function formatDisplayExpiry(expiresAt?: string | null, nowMs = Date.now()): string {
+  if (!expiresAt) return ''
+  const ms = new Date(expiresAt).getTime() - nowMs
+  if (ms <= 0) return '表示終了'
+  const total = Math.floor(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `残り ${m}:${s.toString().padStart(2, '0')}`
+}
+
+function offerStatusMessage(status: LiveOffer['status']): string {
+  if (status === 'accepted') return '承認されました。ご購入いただけます。'
+  if (status === 'rejected') return '却下されました。'
+  if (status === 'held') return '保留中です。しばらくお待ちください。'
+  if (status === 'pending') return '審査中です。'
+  return status
+}
+
 function minNextBid(auction: LiveAuction): number {
   const current = auction.current_price ?? auction.start_price
   return current + auction.min_bid_increment
@@ -52,6 +72,13 @@ export default function LiveViewerPage() {
   const [bidError, setBidError] = useState('')
   const [nowMs, setNowMs] = useState(() => Date.now())
 
+  const [publicOffers, setPublicOffers] = useState<LiveOfferPublic[]>([])
+  const [myOffers, setMyOffers] = useState<LiveOffer[]>([])
+  const [offerAmount, setOfferAmount] = useState('1500')
+  const [offerError, setOfferError] = useState('')
+  const [offerPurchaseMessage, setOfferPurchaseMessage] = useState('')
+  const [offersEnabled, setOffersEnabled] = useState(true)
+
   const activeAuction = useMemo(() => {
     const running = auctions.find((a) => a.status === 'running' || a.status === 'paused')
     return running ?? auctions[0] ?? null
@@ -62,6 +89,26 @@ export default function LiveViewerPage() {
   const reloadAuctions = useCallback(() => {
     return liveAuctionApi.list(streamId, { limit: 20 }).then((res) => setAuctions(res.data.items))
   }, [streamId])
+
+
+  const reloadPublicOffers = useCallback(() => {
+    return liveOfferApi.listPublic(streamId, { limit: 30 }).then((res) => setPublicOffers(res.data.items))
+  }, [streamId])
+
+  const reloadMyOffers = useCallback(() => {
+    return liveOfferApi.listMine(streamId, { limit: 20 }).then((res) => setMyOffers(res.data.items))
+  }, [streamId])
+
+  const latestMyOffer = useMemo(() => myOffers[0] ?? null, [myOffers])
+
+  const offersFormVisible = useMemo(() => {
+    const product = stream?.active_product || stream?.pinned_product
+    if (!product || !offersEnabled) return false
+    if (stream?.status !== 'live' && stream?.status !== 'paused') return false
+    if (product.offers_enabled === false) return false
+    if (stream?.offers_enabled === false) return false
+    return true
+  }, [stream, offersEnabled])
 
   const reloadBids = useCallback(
     (auctionId: number) => {
@@ -75,6 +122,9 @@ export default function LiveViewerPage() {
     liveApi.getStream(streamId).then((res) => setStream(res.data)).catch(() => setError('配信が見つかりません'))
     reloadComments().catch(() => undefined)
     reloadAuctions().catch(() => undefined)
+
+    reloadPublicOffers().catch(() => undefined)
+    reloadMyOffers().catch(() => undefined)
   }, [streamId, reloadAuctions])
 
   useEffect(() => {
@@ -89,6 +139,23 @@ export default function LiveViewerPage() {
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(timer)
+  }, [])
+
+
+  const upsertPublicOffer = useCallback((offer: LiveOfferPublic) => {
+    setPublicOffers((prev) => {
+      const idx = prev.findIndex((o) => o.id === offer.id)
+      if (idx === -1) return [offer, ...prev]
+      return prev.map((o) => (o.id === offer.id ? offer : o))
+    })
+  }, [])
+
+  const upsertMyOffer = useCallback((offer: LiveOffer) => {
+    setMyOffers((prev) => {
+      const idx = prev.findIndex((o) => o.id === offer.id)
+      if (idx === -1) return [offer, ...prev]
+      return prev.map((o) => (o.id === offer.id ? offer : o))
+    })
   }, [])
 
   const upsertAuction = useCallback((auction: LiveAuction) => {
@@ -113,6 +180,24 @@ export default function LiveViewerPage() {
         upsertAuction(evt.payload as unknown as LiveAuction)
         return
       }
+
+      if (evt.type.startsWith('offer.')) {
+        const payload = evt.payload as unknown as LiveOffer
+        const pub: LiveOfferPublic = {
+          id: payload.id,
+          amount: payload.amount,
+          status: payload.status,
+          sender_name: payload.sender_name,
+          live_product_id: payload.live_product_id,
+          product: payload.product,
+          created_at: payload.created_at,
+        }
+        upsertPublicOffer(pub)
+        upsertMyOffer(payload)
+        reloadMyOffers().catch(() => undefined)
+        return
+      }
+
       if (evt.type.startsWith('bid.')) {
         const auctionId = Number(evt.payload.auction_id)
         if (activeAuction?.id === auctionId) {
@@ -125,7 +210,7 @@ export default function LiveViewerPage() {
         liveApi.getStream(streamId).then((res) => setStream(res.data)).catch(() => undefined)
       }
     },
-    [streamId, activeAuction?.id, upsertAuction, reloadBids],
+    [streamId, activeAuction?.id, upsertAuction, reloadBids, upsertPublicOffer, upsertMyOffer, reloadMyOffers],
   )
 
   useLiveEventSource(streamId ? `/api/live/streams/${streamId}/events` : null, onLiveEvent)
@@ -139,6 +224,40 @@ export default function LiveViewerPage() {
       await reloadComments()
     } catch {
       setError('コメント送信にはログインが必要です')
+    }
+  }
+
+
+  const submitOffer = async () => {
+    const product = stream?.active_product || stream?.pinned_product
+    if (!product) return
+    setOfferError('')
+    const amount = Number(offerAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setOfferError('金額を入力してください')
+      return
+    }
+    try {
+      const res = await liveOfferApi.create(streamId, {
+        live_product_id: product.id,
+        amount,
+      })
+      upsertMyOffer(res.data)
+      await reloadPublicOffers()
+      setOfferAmount(String(amount))
+    } catch {
+      setOfferError('希望額の送信に失敗しました')
+    }
+  }
+
+  const purchaseAcceptedOffer = async () => {
+    if (!latestMyOffer || latestMyOffer.status !== 'accepted') return
+    setOfferPurchaseMessage('')
+    try {
+      const res = await liveOfferApi.purchase(latestMyOffer.id, { shipping_address: 'E2E Offer Purchase' })
+      setOfferPurchaseMessage(`注文 #${res.data.order_id} を作成しました`)
+    } catch {
+      setOfferPurchaseMessage('購入に失敗しました')
     }
   }
 
@@ -194,6 +313,57 @@ export default function LiveViewerPage() {
             </div>
           )}
 
+
+          <div data-testid="live-offers-panel" className="rounded-xl border border-emerald-700/40 bg-emerald-950/20 p-4 mb-4 min-h-[280px] flex flex-col">
+            <h2 className="font-semibold mb-3 text-emerald-200 text-lg">希望額</h2>
+            <ul className="space-y-2 flex-1 overflow-y-auto max-h-52 mb-4 text-sm">
+              {publicOffers.map((o) => (
+                <li key={o.id} className="flex justify-between gap-2 border-b border-gray-800/60 py-1">
+                  <span className="text-gray-300 truncate">{o.sender_name || 'ユーザー'} · {o.status}</span>
+                  <span className="font-medium">¥{o.amount.toLocaleString('ja-JP')}</span>
+                </li>
+              ))}
+              {publicOffers.length === 0 && <li className="text-gray-500">希望額はありません</li>}
+            </ul>
+            <p className="text-xs text-gray-500 mb-3">表示期限はカードに表示されみす</p>
+
+            {offersFormVisible && (
+              <div className="flex gap-2 mb-4">
+                <input
+                  data-testid="offer-amount-input"
+                  value={offerAmount}
+                  onChange={(e) => setOfferAmount(e.target.value)}
+                  className="flex-1 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2"
+                />
+                <button data-testid="offer-submit" type="button" onClick={submitOffer} className="rounded-lg bg-emerald-600 px-4 py-2 font-medium">
+                  提出
+                </button>
+              </div>
+            )}
+            {offerError && <p className="text-red-400 text-sm mb-2">{offerError}</p>}
+
+            {latestMyOffer && (
+              <div data-testid="offer-my-status" className="rounded-lg border border-gray-700 bg-black/30 p-3 text-sm">
+                <p className="font-medium text-emerald-200">あなたの希望額: ¥{latestMyOffer.amount.toLocaleString('ja-JP')}</p>
+                <p className="text-gray-300 mt-1">{offerStatusMessage(latestMyOffer.status)}</p>
+                {latestMyOffer.display_expires_at && latestMyOffer.status === 'pending' && (
+                  <p className="text-xs text-gray-500 mt-1">{formatDisplayExpiry(latestMyOffer.display_expires_at, nowMs)}</p>
+                )}
+                {latestMyOffer.status === 'accepted' && (
+                  <button
+                    data-testid="offer-purchase"
+                    type="button"
+                    onClick={purchaseAcceptedOffer}
+                    className="mt-3 rounded-lg bg-yellow-500 text-gray-900 px-4 py-2 font-medium"
+                  >
+                    承認額で購入
+                  </button>
+                )}
+                {offerPurchaseMessage && <p className="text-emerald-300 mt-2">{offerPurchaseMessage}</p>}
+              </div>
+            )}
+          </div>
+
           {activeAuction && (
             <div data-testid="live-auction-panel" className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">
               <h2 className="font-semibold mb-3 text-amber-200">オークション</h2>
@@ -244,7 +414,7 @@ export default function LiveViewerPage() {
             </div>
           )}
         </section>
-        <section className="flex flex-col min-h-[420px]">
+        <section className="flex flex-col min-h-[320px] lg:min-h-[420px]">
           <h2 className="font-semibold mb-3">コメント</h2>
           <div className="flex-1 overflow-y-auto space-y-2 mb-4 rounded-xl border border-gray-800 p-3 bg-black/20">
             {comments.map((c) => (

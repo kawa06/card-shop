@@ -36,6 +36,7 @@ class LiveStream(Base):
     created_by_admin_id = Column(Integer, ForeignKey("admin_users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    offers_enabled = Column(Boolean, default=True, nullable=False)
 
     products = relationship(
         "LiveProduct",
@@ -57,6 +58,7 @@ class LiveProduct(Base):
     display_price = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=False, nullable=False)
     is_pinned = Column(Boolean, default=False, nullable=False)
+    offers_enabled = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     stream = relationship("LiveStream", back_populates="products", foreign_keys=[stream_id])
