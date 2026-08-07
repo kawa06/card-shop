@@ -77,7 +77,7 @@ def admin_update_settings(
         models_points.PointAuditLog(
             actor_admin_user_id=ctx.user.id,
             action="settings_update",
-            target_user_id=ctx.admin_user.id,
+            target_user_id=ctx.user.id,
             before_json=json.dumps(before_data, ensure_ascii=False),
             after_json=json.dumps(after_data, ensure_ascii=False),
             reason="point settings updated",
