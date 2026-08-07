@@ -149,7 +149,7 @@ test('02 auction bid flow', async ({ page }) => {
   await page.reload()
   await page.getByRole('button', { name: new RegExp(`#${auction.id}`) }).click()
   await expect(page.getByText(/\u5165\u672d 1\u4ef6/)).toBeVisible({ timeout: 30_000 })
-  await expect(page.getByText('\u00a51,100')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('dd').filter({ hasText: '\u00a51,100' })).toBeVisible({ timeout: 15_000 })
   await page.getByRole('button', { name: '\u7d42\u4e86' }).click()
   await page.waitForTimeout(1000)
   await shot(page, '04-admin-auction-finished')
