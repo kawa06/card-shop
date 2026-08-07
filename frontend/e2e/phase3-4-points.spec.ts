@@ -154,6 +154,14 @@ async function fillCheckoutAddress(page: import('@playwright/test').Page) {
   if (await fullName.isVisible().catch(() => false)) await fullName.fill('E2E Test User')
 }
 
+async function ensureFullPointsCheckoutSettings(page: import('@playwright/test').Page) {
+  await ensureAdminSession(page)
+  const patch = await page.request.patch('/api/admin/points/settings', {
+    data: { max_usage_percent: 100, points_apply_to_shipping: true },
+  })
+  expect(patch.ok(), await patch.text()).toBeTruthy()
+}
+
 async function getUserPointHistory(page: import('@playwright/test').Page, authHeaders: Record<string, string>) {
   const res = await page.request.get('/api/points/history', { headers: authHeaders, params: { limit: 20 } })
   expect(res.ok(), await res.text()).toBeTruthy()
@@ -276,6 +284,7 @@ test('Scenario 2: partial points full checkout flow', async ({ page }) => {
 })
 
 test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) => {
+  await ensureFullPointsCheckoutSettings(page)
   const user = await resolveTestUser(page)
   const authHeaders = await getUserAuthHeaders(page)
   const card = await findOrCreateSellableCard(page)
@@ -295,13 +304,18 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
     data: {
       items_subtotal: unitPrice,
       shipping_fee: shippingFee,
-      requested_points: totalBeforePoints + 1000,
+      packaging_fee: Math.max(0, shippingFee - (quote.base_shipping_fee_jpy ?? shippingFee)),
+      requested_points: totalBeforePoints + 5000,
     },
   })
   expect(preview.ok(), await preview.text()).toBeTruthy()
-  const previewBody = (await preview.json()) as { applied_points: number; total_yen: number }
-  expect(previewBody.total_yen).toBe(0)
+  const previewBody = (await preview.json()) as {
+    applied_points: number
+    total_yen: number
+    max_usable_points: number
+  }
   expect(previewBody.applied_points).toBeGreaterThan(0)
+  expect(previewBody.total_yen).toBe(0)
 
   await fillCheckoutAddress(page)
   await page.locator('#points').fill(String(previewBody.applied_points))
