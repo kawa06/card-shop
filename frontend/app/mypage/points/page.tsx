@@ -40,8 +40,12 @@ export default function MypagePointsPage() {
   useEffect(() => {
     if (!isReady || !isLoggedIn) return
     void (async () => {
+      setLoading(true)
       const token = await requireAuth()
-      if (!token) return
+      if (!token) {
+        setLoading(false)
+        return
+      }
       try {
         const [b, h] = await Promise.all([
           pointsApi.getBalance(),

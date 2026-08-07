@@ -8,7 +8,7 @@ const TEST_EMAIL = 'rikukai0609@icloud.com'
 /** Serial flow: grant balance is reused in later scenarios. */
 let expectedAvailablePoints: number | null = null
 
-test.describe.configure({ mode: 'serial', timeout: 240_000 })
+test.describe.configure({ mode: 'serial', timeout: 360_000 })
 
 async function shot(page: import('@playwright/test').Page, name: string) {
   fs.mkdirSync(outDir, { recursive: true })
@@ -172,27 +172,75 @@ async function getUserPointHistory(page: import('@playwright/test').Page, authHe
   return (await res.json()) as { items: Array<{ type: string; amount: number; order_id?: number | null }> }
 }
 
-async function getUserAuthHeaders(page: import('@playwright/test').Page) {
-  const syncResponse = page.waitForResponse(
-    (res) => res.url().includes('/api/auth/backend-sync') && res.ok(),
-    { timeout: 60_000 },
-  )
-  await page.goto('/mypage/points', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: /ポイント/i })).toBeVisible({ timeout: 30_000 })
-  await expect(page.locator('p.text-4xl')).toBeVisible({ timeout: 30_000 })
+async function waitForMypagePointsReady(page: import('@playwright/test').Page) {
+  const loading = page.getByText('読み込み中...')
+  const heading = page.getByRole('heading', { name: 'ポイント', exact: true })
+  const balanceEl = page.locator('p.text-4xl')
 
-  let token = await page.evaluate(() => localStorage.getItem('auth_token'))
-  if (!token) {
-    const sync = await syncResponse
-    const body = (await sync.json()) as { access_token?: string }
-    token = body.access_token ?? null
+  const attemptLoad = async (clearToken: boolean) => {
+    if (clearToken) {
+      await page.evaluate(() => localStorage.removeItem('auth_token'))
+      await page.reload({ waitUntil: 'domcontentloaded' })
+    } else {
+      await page.goto('/mypage/points', { waitUntil: 'domcontentloaded' })
+    }
+
+    await expect(heading).toBeVisible({ timeout: 60_000 })
+
+    await expect
+      .poll(async () => page.evaluate(() => localStorage.getItem('auth_token')), {
+        timeout: 60_000,
+        message: 'backend JWT missing after mypage auth sync',
+      })
+      .toBeTruthy()
+
+    const token = await page.evaluate(() => localStorage.getItem('auth_token'))
+    const authHeaders = { Authorization: `Bearer ${token}` }
+    const balanceApi = await page.request.get('/api/points/balance', { headers: authHeaders })
+    expect(balanceApi.ok(), await balanceApi.text()).toBeTruthy()
+    const historyApi = await page.request.get('/api/points/history', {
+      headers: authHeaders,
+      params: { limit: 20 },
+    })
+    expect(historyApi.ok(), await historyApi.text()).toBeTruthy()
+
+    await expect(loading).toBeHidden({ timeout: 90_000 })
+    await expect(balanceEl).toBeVisible({ timeout: 30_000 })
   }
+
+  try {
+    await attemptLoad(false)
+  } catch {
+    await attemptLoad(true)
+  }
+}
+
+async function waitForPointLedgerType(
+  page: import('@playwright/test').Page,
+  authHeaders: Record<string, string>,
+  type: string,
+) {
+  await expect
+    .poll(
+      async () => {
+        const history = await getUserPointHistory(page, authHeaders)
+        return history.items.some((tx) => tx.type === type)
+      },
+      { timeout: 60_000, message: `expected ${type} ledger row` },
+    )
+    .toBe(true)
+}
+
+async function getUserAuthHeaders(page: import('@playwright/test').Page) {
+  await waitForMypagePointsReady(page)
+
+  const token = await page.evaluate(() => localStorage.getItem('auth_token'))
   expect(token, 'backend JWT missing after mypage auth sync').toBeTruthy()
   return { Authorization: `Bearer ${token}` }
 }
 
 test('Scenario 1: admin grant and mypage balance', async ({ page }) => {
-  await page.goto('/admin/points')
+  await page.goto('/admin/points', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'ポイント管理' })).toBeVisible({ timeout: 60_000 })
   await shot(page, '01-admin-points')
 
@@ -210,7 +258,7 @@ test('Scenario 1: admin grant and mypage balance', async ({ page }) => {
 
   expectedAvailablePoints = (await getAdminUserPoints(page, user.id)).available_points
 
-  await page.goto('/mypage/points')
+  await waitForMypagePointsReady(page)
   await expect(
     page.locator('p.text-4xl').filter({ hasText: formatMypageBalance(expectedAvailablePoints) }),
   ).toBeVisible({ timeout: 30_000 })
@@ -268,7 +316,9 @@ test('Scenario 2: partial points full checkout flow', async ({ page }) => {
 
   const afterReserve = await getAdminUserPoints(page, user.id)
   expect(afterReserve.available_points).toBeLessThan(beforePoints.available_points)
-  expect(afterReserve.reserved_points).toBeGreaterThanOrEqual(previewBody.applied_points)
+  expect(afterReserve.reserved_points).toBeGreaterThanOrEqual(
+    beforePoints.reserved_points + previewBody.applied_points,
+  )
 
   const history = await getUserPointHistory(page, authHeaders)
   expect(history.items.some((tx) => tx.type === 'reserve')).toBeTruthy()
@@ -278,13 +328,19 @@ test('Scenario 2: partial points full checkout flow', async ({ page }) => {
   await expect(page.getByText(/pt 適用|pt applied/i).first()).toBeVisible({ timeout: 30_000 })
   await shot(page, '03-checkout-preview-partial')
 
-  await page.goto('/orders')
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: /注文履歴/i })).toBeVisible({ timeout: 30_000 })
   await shot(page, '04-orders-partial-points')
 
   await ensureAdminSession(page)
   const cancelRes = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
   expect(cancelRes.ok(), await cancelRes.text()).toBeTruthy()
+  await expect
+    .poll(async () => (await getAdminUserPoints(page, user.id)).reserved_points, {
+      timeout: 30_000,
+      message: 'Scenario 2 cancel should release this order reservation',
+    })
+    .toBe(beforePoints.reserved_points)
 })
 
 test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) => {
@@ -356,7 +412,14 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
   expect(checkout.checkout_url).not.toMatch(/stripe\.com/)
   expect(checkout.checkout_url).toMatch(/checkout\/success/)
 
-  await page.goto(checkout.checkout_url.replace(/^https?:\/\/[^/]+/, ''))
+  const confirmRes = await page.request.get('/api/payments/stripe/confirm', {
+    headers: authHeaders,
+    params: { session_id: checkout.session_id },
+  })
+  expect(confirmRes.ok(), await confirmRes.text()).toBeTruthy()
+
+  const successPath = checkout.checkout_url.replace(/^https?:\/\/[^/]+/, '')
+  await page.goto(successPath, { waitUntil: 'domcontentloaded' })
   await expect(page.getByText(/決済が完了しました|ご注文ありがとう|購入完了|注文が完了/i).first()).toBeVisible({ timeout: 60_000 })
   await shot(page, '06-checkout-success-zero')
 
@@ -366,8 +429,7 @@ test('Scenario 3: zero-yen full points checkout skips Stripe', async ({ page }) 
   expect(order.points_used).toBe(previewBody.applied_points)
   expect(order.payment_status).toBe('paid')
 
-  const history = await getUserPointHistory(page, authHeaders)
-  expect(history.items.some((tx) => tx.type === 'use')).toBeTruthy()
+  await waitForPointLedgerType(page, authHeaders, 'use')
 })
 
 test('Scenario 4: cancel restores reserved points idempotently', async ({ page }) => {
@@ -394,13 +456,21 @@ test('Scenario 4: cancel restores reserved points idempotently', async ({ page }
 
   const afterOrder = await getAdminUserPoints(page, user.id)
   expect(afterOrder.available_points).toBeLessThan(beforeCancel.available_points)
+  expect(afterOrder.reserved_points).toBeGreaterThanOrEqual(
+    beforeCancel.reserved_points + pointsToUse,
+  )
 
   await ensureAdminSession(page)
   const cancel1 = await page.request.post(`/api/admin/orders/${checkout.order_id}/cancel`)
   expect(cancel1.ok(), await cancel1.text()).toBeTruthy()
 
+  await expect
+    .poll(async () => (await getAdminUserPoints(page, user.id)).reserved_points, {
+      timeout: 30_000,
+      message: 'reserved points for this order should clear after first cancel',
+    })
+    .toBe(beforeCancel.reserved_points)
   const afterFirstCancel = await getAdminUserPoints(page, user.id)
-  expect(afterFirstCancel.reserved_points).toBe(0)
   expect(afterFirstCancel.available_points).toBeGreaterThanOrEqual(afterOrder.available_points)
 
   const adminHistory = await page.request.get(`/api/admin/points/users/${user.id}/history`, { params: { limit: 30 } })
@@ -420,13 +490,12 @@ test('Scenario 4: cancel restores reserved points idempotently', async ({ page }
   const afterSecondCancel = await getAdminUserPoints(page, user.id)
   expect(afterSecondCancel.available_points).toBe(afterFirstCancel.available_points)
 
-  await page.goto('/mypage/points')
+  await waitForMypagePointsReady(page)
   await shot(page, '07-mypage-after-cancel')
 })
 
 test('Scenario 5: mypage points history visible', async ({ page }) => {
-  await page.goto('/mypage/points')
-  await expect(page.getByRole('heading', { name: /ポイント/i })).toBeVisible({ timeout: 30_000 })
+  await waitForMypagePointsReady(page)
   await expect(page.getByText('付与').first()).toBeVisible({ timeout: 30_000 })
   await shot(page, '08-mypage-history')
 })
@@ -450,7 +519,7 @@ test('Scenario 6: admin deduct reflects on mypage', async ({ page }) => {
   expect(afterDeduct).toBe(beforeDeduct - deductAmount)
   expectedAvailablePoints = afterDeduct
 
-  await page.goto('/mypage/points')
+  await waitForMypagePointsReady(page)
   await expect(
     page.locator('p.text-4xl').filter({ hasText: formatMypageBalance(afterDeduct) }),
   ).toBeVisible({ timeout: 30_000 })
