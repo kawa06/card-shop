@@ -109,6 +109,9 @@ export default function AdminLiveDetailPage() {
           <Radio className="h-6 w-6 text-red-500" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stream.title}</h1>
           <span className="rounded-full bg-gray-100 dark:bg-gray-800 px-3 py-1 text-sm">{stream.status}</span>
+          <Link href={`/admin/live/${stream.id}/auctions`} className="inline-flex items-center gap-1 text-sm text-amber-700 hover:underline">
+            オークション管理
+          </Link>
           <Link href={`/live/${stream.id}`} className="ml-auto inline-flex items-center gap-1 text-sm text-red-600 hover:underline">
             公開ページ <ExternalLink className="h-4 w-4" />
           </Link>

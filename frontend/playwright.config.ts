@@ -25,7 +25,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  reporter: [['list'], ['json', { outputFile: '../artifacts/phase3-1-milestone1/playwright-report.json' }]],
+  reporter: [['list'], ['json', { outputFile: '../artifacts/phase3-2-milestone1/playwright-report.json' }]],
   webServer: {
     command: 'npm run dev',
     url: 'http://127.0.0.1:3000',
@@ -55,6 +55,15 @@ export default defineConfig({
     {
       name: 'phase3-live',
       testMatch: /phase3-live\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+    {
+      name: 'phase3-2-auction',
+      testMatch: /phase3-2-auction\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: authFile,

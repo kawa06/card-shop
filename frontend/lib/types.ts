@@ -640,6 +640,70 @@ export interface LiveCommentList {
   next_cursor?: number | null
 }
 
+export type LiveAuctionStatus = 'draft' | 'waiting' | 'running' | 'paused' | 'finished' | 'cancelled'
+export type LiveBidStatus = 'active' | 'outbid' | 'won' | 'invalidated'
+
+export interface LiveAuctionProduct {
+  id: number
+  stream_id: number
+  card_id: number
+  display_price?: number | null
+  card_name?: string | null
+  card_image_url?: string | null
+}
+
+export interface LiveAuction {
+  id: number
+  stream_id: number
+  live_product_id: number
+  status: LiveAuctionStatus
+  start_price: number
+  current_price?: number | null
+  min_bid_increment: number
+  buy_now_price?: number | null
+  scheduled_start_at?: string | null
+  scheduled_end_at?: string | null
+  ends_at?: string | null
+  extension_seconds: number
+  auto_extend_enabled: boolean
+  max_extensions: number
+  extension_count: number
+  trigger_remaining_seconds: number
+  winner_user_id?: number | null
+  winning_amount?: number | null
+  bid_count: number
+  bidder_count: number
+  created_at: string
+  updated_at?: string | null
+  product?: LiveAuctionProduct | null
+}
+
+export interface LiveAuctionList {
+  items: LiveAuction[]
+  total: number
+}
+
+export interface LiveBid {
+  id: number
+  auction_id: number
+  user_id: number
+  amount: number
+  status: LiveBidStatus
+  created_at: string
+}
+
+export interface LiveBidList {
+  items: LiveBid[]
+  total: number
+}
+
+export interface LiveBidPlaceResult {
+  bid: LiveBid
+  auction: LiveAuction
+  instant_buy: boolean
+  extended: boolean
+}
+
 export interface AdminInAppNotification {
   id: number
   event_key: string

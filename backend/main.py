@@ -35,6 +35,8 @@ from routes.admin_email import router as admin_email_router
 from routes.admin_notifications import router as admin_notifications_router
 from routes.admin_live import router as admin_live_router
 from routes.live import router as live_router
+from routes.admin_live_auctions import router as admin_live_auctions_router
+from routes.live_auctions import router as live_auctions_router
 
 from sqlalchemy import text, inspect
 
@@ -249,6 +251,8 @@ app.include_router(admin_email_router)
 app.include_router(admin_notifications_router)
 app.include_router(admin_live_router)
 app.include_router(live_router)
+app.include_router(admin_live_auctions_router)
+app.include_router(live_auctions_router)
 app.include_router(buyback_router)
 
 

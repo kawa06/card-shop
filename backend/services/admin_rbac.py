@@ -69,12 +69,20 @@ ADMIN_PERMISSION_DEFINITIONS: list[tuple[str, str, str]] = [
     ("live.read", "ライブ配信閲覧", "live"),
     ("live.write", "ライブ配信管理", "live"),
     ("live.moderate", "ライブコメントモデレート", "live"),
+    ("auction.read", "Live auction read", "live"),
+    ("auction.write", "Live auction write", "live"),
+    ("auction.bid", "Live auction bid", "live"),
+    ("auction.manage", "Live auction manage", "live"),
     ("live.broadcast", "ライブ配信操作", "live"),
 ]
 
 ROLE_PERMISSION_CODES: dict[str, set[str]] = {
     "owner": {code for code, _, _ in ADMIN_PERMISSION_DEFINITIONS},
     "admin": {
+        "auction.read",
+        "auction.write",
+        "auction.bid",
+        "auction.manage",
         "admin.users.read",
         "admin.users.write",
         "admin.roles.read",
@@ -124,6 +132,10 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "live.broadcast",
     },
     "sales_manager": {
+        "auction.read",
+        "auction.write",
+        "auction.bid",
+        "auction.manage",
         "admin.audit.read",
         "admin.csv.export",
         "admin.reauth",
@@ -224,6 +236,8 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "buyback.payout.complete",
     },
     "support_manager": {
+        "auction.read",
+        "auction.bid",
         "admin.audit.read",
         "admin.reauth",
         "buyback.request.read",
@@ -233,6 +247,8 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "live.moderate",
     },
     "live_moderator": {
+        "auction.read",
+        "auction.bid",
         "admin.reauth",
         "live.read",
         "live.moderate",

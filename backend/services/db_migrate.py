@@ -45,6 +45,7 @@ def run_schema_upgrades() -> None:
     _migrate_email_auth_schema()
     _migrate_phase2_logistics_schema()
     _migrate_live_schema()
+    _migrate_live_auction_schema()
 
 
 def _migrate_order_pricing_snapshots() -> None:
@@ -993,3 +994,28 @@ def _migrate_live_schema() -> None:
         except Exception:
             db.rollback()
             logger.exception("live schema RBAC seed failed")
+def _migrate_live_auction_schema() -> None:
+    """Phase 3-2 additive tables for live auctions."""
+    import models_live_auction  # noqa: F401
+
+    auction_tables = [
+        ("live_auctions", models_live_auction.LiveAuction),
+        ("live_bids", models_live_auction.LiveBid),
+        ("live_bid_logs", models_live_auction.LiveBidLog),
+        ("live_bid_invalidations", models_live_auction.LiveBidInvalidation),
+        ("live_auction_extensions", models_live_auction.LiveAuctionExtension),
+        ("live_auction_settings", models_live_auction.LiveAuctionSettings),
+    ]
+    for table_name, model in auction_tables:
+        _create_table_if_missing(table_name, model)
+
+    from sqlalchemy.orm import sessionmaker
+    from services.admin_seed import seed_admin_rbac
+
+    Session = sessionmaker(bind=engine)
+    with Session() as db:
+        try:
+            seed_admin_rbac(db)
+        except Exception:
+            db.rollback()
+            logger.exception("live auction schema RBAC seed failed")

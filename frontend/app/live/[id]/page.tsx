@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { liveApi } from '@/lib/api'
+import { liveApi, liveAuctionApi } from '@/lib/api'
 import { useLiveEventSource } from '@/hooks/useLiveEventSource'
-import type { LiveComment, LiveStream } from '@/lib/types'
+import type { LiveAuction, LiveBid, LiveComment, LiveStream } from '@/lib/types'
 
 function applyCommentEvent(comments: LiveComment[], evt: { type: string; payload: Record<string, unknown> }): LiveComment[] {
   const payload = evt.payload as unknown as LiveComment
@@ -23,6 +23,21 @@ function applyCommentEvent(comments: LiveComment[], evt: { type: string; payload
   return comments
 }
 
+function formatRemaining(endsAt?: string | null, nowMs = Date.now()): string {
+  if (!endsAt) return '—'
+  const ms = new Date(endsAt).getTime() - nowMs
+  if (ms <= 0) return '0:00'
+  const total = Math.floor(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function minNextBid(auction: LiveAuction): number {
+  const current = auction.current_price ?? auction.start_price
+  return current + auction.min_bid_increment
+}
+
 export default function LiveViewerPage() {
   const params = useParams<{ id: string }>()
   const streamId = Number(params.id)
@@ -31,13 +46,58 @@ export default function LiveViewerPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
+  const [auctions, setAuctions] = useState<LiveAuction[]>([])
+  const [bids, setBids] = useState<LiveBid[]>([])
+  const [bidAmount, setBidAmount] = useState('')
+  const [bidError, setBidError] = useState('')
+  const [nowMs, setNowMs] = useState(() => Date.now())
+
+  const activeAuction = useMemo(() => {
+    const running = auctions.find((a) => a.status === 'running' || a.status === 'paused')
+    return running ?? auctions[0] ?? null
+  }, [auctions])
+
   const reloadComments = () => liveApi.listComments(streamId, { limit: 100 }).then((res) => setComments(res.data.items.reverse()))
+
+  const reloadAuctions = useCallback(() => {
+    return liveAuctionApi.list(streamId, { limit: 20 }).then((res) => setAuctions(res.data.items))
+  }, [streamId])
+
+  const reloadBids = useCallback(
+    (auctionId: number) => {
+      return liveAuctionApi.listBids(auctionId, { limit: 20 }).then((res) => setBids(res.data.items))
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!streamId) return
     liveApi.getStream(streamId).then((res) => setStream(res.data)).catch(() => setError('配信が見つかりません'))
     reloadComments().catch(() => undefined)
-  }, [streamId])
+    reloadAuctions().catch(() => undefined)
+  }, [streamId, reloadAuctions])
+
+  useEffect(() => {
+    if (!activeAuction) {
+      setBids([])
+      return
+    }
+    reloadBids(activeAuction.id).catch(() => undefined)
+    setBidAmount(String(minNextBid(activeAuction)))
+  }, [activeAuction, reloadBids])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const upsertAuction = useCallback((auction: LiveAuction) => {
+    setAuctions((prev) => {
+      const idx = prev.findIndex((a) => a.id === auction.id)
+      if (idx === -1) return [auction, ...prev]
+      return prev.map((a) => (a.id === auction.id ? auction : a))
+    })
+  }, [])
 
   const onLiveEvent = useCallback(
     (evt: { type: string; payload: Record<string, unknown> }) => {
@@ -49,11 +109,23 @@ export default function LiveViewerPage() {
         setComments((prev) => applyCommentEvent(prev, evt))
         return
       }
+      if (evt.type.startsWith('auction.')) {
+        upsertAuction(evt.payload as unknown as LiveAuction)
+        return
+      }
+      if (evt.type.startsWith('bid.')) {
+        const auctionId = Number(evt.payload.auction_id)
+        if (activeAuction?.id === auctionId) {
+          reloadBids(auctionId).catch(() => undefined)
+        }
+        liveAuctionApi.get(auctionId).then((res) => upsertAuction(res.data)).catch(() => undefined)
+        return
+      }
       if (evt.type === 'product.activated' || evt.type === 'product.pinned') {
         liveApi.getStream(streamId).then((res) => setStream(res.data)).catch(() => undefined)
       }
     },
-    [streamId],
+    [streamId, activeAuction?.id, upsertAuction, reloadBids],
   )
 
   useLiveEventSource(streamId ? `/api/live/streams/${streamId}/events` : null, onLiveEvent)
@@ -70,6 +142,24 @@ export default function LiveViewerPage() {
     }
   }
 
+  const submitBid = async () => {
+    if (!activeAuction) return
+    setBidError('')
+    const amount = Number(bidAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setBidError('入札額を入力してください')
+      return
+    }
+    try {
+      const res = await liveAuctionApi.placeBid(activeAuction.id, amount)
+      upsertAuction(res.data.auction)
+      await reloadBids(activeAuction.id)
+      setBidAmount(String(minNextBid(res.data.auction)))
+    } catch {
+      setBidError('入札に失敗しました')
+    }
+  }
+
   if (error && !stream) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-200">{error}</div>
   }
@@ -78,6 +168,8 @@ export default function LiveViewerPage() {
   }
 
   const product = stream.active_product || stream.pinned_product
+  const currentPrice = activeAuction ? (activeAuction.current_price ?? activeAuction.start_price) : null
+  const minBid = activeAuction ? minNextBid(activeAuction) : null
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -93,12 +185,62 @@ export default function LiveViewerPage() {
             )}
           </div>
           {product && (
-            <div className="rounded-xl border border-gray-800 p-4 flex gap-4 items-center">
+            <div className="rounded-xl border border-gray-800 p-4 flex gap-4 items-center mb-4">
               {product.card_image_url && <img src={product.card_image_url} alt="" className="h-20 w-20 object-contain rounded bg-white/5" />}
               <div>
                 <p className="font-semibold">{product.card_name}</p>
                 <p className="text-yellow-400 text-lg">¥{(product.display_price ?? product.card_price ?? 0).toLocaleString('ja-JP')}</p>
               </div>
+            </div>
+          )}
+
+          {activeAuction && (
+            <div data-testid="live-auction-panel" className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-4">
+              <h2 className="font-semibold mb-3 text-amber-200">オークション</h2>
+              <dl className="grid grid-cols-2 gap-3 text-sm mb-4">
+                <div>
+                  <dt className="text-gray-400">現在価格</dt>
+                  <dd className="text-2xl font-bold text-yellow-400">¥{(currentPrice ?? 0).toLocaleString('ja-JP')}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400">残り時間</dt>
+                  <dd className="text-xl font-semibold">{formatRemaining(activeAuction.ends_at, nowMs)}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400">最小入札額</dt>
+                  <dd>¥{(minBid ?? 0).toLocaleString('ja-JP')}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400">即決価格</dt>
+                  <dd>{activeAuction.buy_now_price != null ? `¥${activeAuction.buy_now_price.toLocaleString('ja-JP')}` : '—'}</dd>
+                </div>
+              </dl>
+
+              {(activeAuction.status === 'running' || activeAuction.status === 'paused') && (
+                <div className="flex gap-2 mb-4">
+                  <input
+                    data-testid="bid-amount-input"
+                    value={bidAmount}
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    className="flex-1 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2"
+                  />
+                  <button data-testid="bid-submit" type="button" onClick={submitBid} className="rounded-lg bg-amber-600 px-4 py-2 font-medium">
+                    入札
+                  </button>
+                </div>
+              )}
+              {bidError && <p className="text-red-400 text-sm mb-3">{bidError}</p>}
+
+              <h3 className="font-medium mb-2 text-gray-200">入札履歴</h3>
+              <ul className="space-y-1 max-h-40 overflow-y-auto text-sm">
+                {bids.map((b) => (
+                  <li key={b.id} className="flex justify-between border-b border-gray-800/60 py-1">
+                    <span className="text-gray-400">#{b.user_id}</span>
+                    <span>¥{b.amount.toLocaleString('ja-JP')}</span>
+                  </li>
+                ))}
+                {bids.length === 0 && <li className="text-gray-500">入札はありません</li>}
+              </ul>
             </div>
           )}
         </section>

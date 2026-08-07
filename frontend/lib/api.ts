@@ -43,6 +43,13 @@ const PROTECTED_API_PREFIXES = [
 
 const PUBLIC_API_PATHS = ['/payments/stripe/config', '/inquiries/meta/categories']
 
+function needsLiveUserAuth(url: string): boolean {
+  if (!url.includes('/live/') || url.includes('/admin/')) return false
+  if (url.includes('/comments')) return true
+  if (url.includes('/auctions/') && url.includes('/bids')) return true
+  return false
+}
+
 function needsBackendAuth(url: string): boolean {
   if (PUBLIC_API_PATHS.some((path) => url.includes(path))) return false
   return PROTECTED_API_PREFIXES.some((prefix) => url.includes(prefix))
@@ -53,6 +60,19 @@ async function resolveRequestToken(url: string): Promise<string | null> {
 
   // Admin routes use Clerk session via the Next.js proxy (never backend JWT).
   if (url.includes('/admin/')) {
+    return getClerkSessionToken()
+  }
+
+  if (needsLiveUserAuth(url)) {
+    if (!syncPromise) {
+      syncPromise = import('@/store/auth')
+        .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
+        .finally(() => {
+          syncPromise = null
+        })
+    }
+    const backendToken = await syncPromise
+    if (backendToken) return backendToken
     return getClerkSessionToken()
   }
 
@@ -1064,4 +1084,62 @@ export const liveApi = {
     apiClient.post<import('./types').LiveComment>(`/live/streams/${streamId}/comments`, { message }),
   reportComment: (streamId: number, commentId: number, reason?: string) =>
     apiClient.post(`/live/streams/${streamId}/comments/${commentId}/report`, { reason }),
+}
+
+export const adminLiveAuctionApi = {
+  list: (streamId: number, params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveAuctionList>(`/admin/live/streams/${streamId}/auctions`, { params }),
+  create: (
+    streamId: number,
+    data: {
+      live_product_id: number
+      start_price: number
+      min_bid_increment?: number
+      buy_now_price?: number
+      duration_seconds?: number
+      extension_seconds?: number
+      auto_extend_enabled?: boolean
+      max_extensions?: number
+      trigger_remaining_seconds?: number
+    },
+  ) => apiClient.post<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions`, data),
+  get: (streamId: number, auctionId: number) =>
+    apiClient.get<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}`),
+  update: (streamId: number, auctionId: number, data: Record<string, unknown>) =>
+    apiClient.patch<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}`, data),
+  start: (streamId: number, auctionId: number, data?: { duration_seconds?: number }) =>
+    apiClient.post<import('./types').LiveAuction>(
+      `/admin/live/streams/${streamId}/auctions/${auctionId}/start`,
+      data ?? {},
+    ),
+  pause: (streamId: number, auctionId: number) =>
+    apiClient.post<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}/pause`),
+  resume: (streamId: number, auctionId: number) =>
+    apiClient.post<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}/resume`),
+  finish: (streamId: number, auctionId: number) =>
+    apiClient.post<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}/finish`),
+  cancel: (streamId: number, auctionId: number) =>
+    apiClient.post<import('./types').LiveAuction>(`/admin/live/streams/${streamId}/auctions/${auctionId}/cancel`),
+  forceEnd: (streamId: number, auctionId: number) =>
+    apiClient.post<import('./types').LiveAuction>(
+      `/admin/live/streams/${streamId}/auctions/${auctionId}/force-end`,
+    ),
+  listBids: (streamId: number, auctionId: number, params?: { limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveBidList>(
+      `/admin/live/streams/${streamId}/auctions/${auctionId}/bids`,
+      { params },
+    ),
+}
+
+export const liveAuctionApi = {
+  list: (streamId: number, params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveAuctionList>(`/live/streams/${streamId}/auctions`, { params }),
+  get: (auctionId: number) => apiClient.get<import('./types').LiveAuction>(`/live/auctions/${auctionId}`),
+  listBids: (auctionId: number, params?: { limit?: number; offset?: number }) =>
+    apiClient.get<import('./types').LiveBidList>(`/live/auctions/${auctionId}/bids`, { params }),
+  placeBid: (auctionId: number, amount: number, idempotencyKey?: string) =>
+    apiClient.post<import('./types').LiveBidPlaceResult>(`/live/auctions/${auctionId}/bids`, {
+      amount,
+      idempotency_key: idempotencyKey,
+    }),
 }
