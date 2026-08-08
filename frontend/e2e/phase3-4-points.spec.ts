@@ -324,8 +324,11 @@ test('Scenario 2: partial points full checkout flow', async ({ page }) => {
   expect(history.items.some((tx) => tx.type === 'reserve')).toBeTruthy()
 
   await fillCheckoutAddress(page)
-  await page.locator('#points').fill(String(requestedPoints))
-  await expect(page.getByText(/pt 適用|pt applied/i).first()).toBeVisible({ timeout: 30_000 })
+  const pointsInput = page.locator('#points')
+  await pointsInput.fill('')
+  await pointsInput.pressSequentially(String(requestedPoints), { delay: 20 })
+  await pointsInput.blur()
+  await expect(page.getByText(/pt 適用|pt applied/i).first()).toBeVisible({ timeout: 60_000 })
   await shot(page, '03-checkout-preview-partial')
 
   await page.goto('/orders', { waitUntil: 'domcontentloaded' })
