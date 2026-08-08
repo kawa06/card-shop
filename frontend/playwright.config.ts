@@ -86,6 +86,15 @@ export default defineConfig({
       dependencies: ['global setup'],
     },
     {
+      name: 'phase3-4-evidence',
+      testMatch: /phase3-4-evidence\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+    {
       name: 'phase3-3-offers',
       testMatch: /phase3-3-offers\.spec\.ts/,
       use: {

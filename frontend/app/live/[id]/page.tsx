@@ -128,6 +128,32 @@ export default function LiveViewerPage() {
   }, [purchaseSubtotal, loadPointsBalance])
 
   useEffect(() => {
+    const finished = auctions.filter((a) => a.status === 'finished' && a.winner_user_id != null)
+    if (!finished.length) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const token =
+          typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null
+        if (!token) return
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const me = (await res.json()) as { id?: number }
+        if (cancelled || !me.id) return
+        const mine = finished.find((a) => a.winner_user_id === me.id)
+        if (mine) setWonAuctionId(mine.id)
+      } catch {
+        // ignore
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [auctions])
+
+  useEffect(() => {
     if (purchaseSubtotal == null || pointsToUse <= 0) {
       setPointsPreviewTotal(null)
       return
@@ -423,14 +449,39 @@ export default function LiveViewerPage() {
                   <p className="text-xs text-gray-500 mt-1">{formatDisplayExpiry(latestMyOffer.display_expires_at, nowMs)}</p>
                 )}
                 {latestMyOffer.status === 'accepted' && (
-                  <button
-                    data-testid="offer-purchase"
-                    type="button"
-                    onClick={purchaseAcceptedOffer}
-                    className="mt-3 rounded-lg bg-yellow-500 text-gray-900 px-4 py-2 font-medium"
-                  >
-                    承認額で購入
-                  </button>
+                  <div data-testid="offer-points-panel" className="mt-3 rounded-lg border border-yellow-700/40 bg-yellow-950/20 p-3">
+                    <p className="text-yellow-200 mb-2">ポイント残高: {pointsBalance.toLocaleString('ja-JP')}pt</p>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        data-testid="offer-points-to-use-input"
+                        type="number"
+                        min={0}
+                        value={pointsToUse}
+                        onChange={(e) => setPointsToUse(Math.max(0, Number(e.target.value) || 0))}
+                        className="flex-1 rounded-lg bg-gray-900 border border-gray-700 px-3 py-2"
+                        placeholder="利用ポイント"
+                      />
+                      <button
+                        type="button"
+                        data-testid="offer-use-all-points"
+                        onClick={() => setPointsToUse(Math.min(pointsBalance, latestMyOffer.amount))}
+                        className="rounded-lg bg-gray-700 px-3 py-2 text-xs whitespace-nowrap"
+                      >
+                        全ポイントを使う
+                      </button>
+                    </div>
+                    {pointsPreviewTotal != null && (
+                      <p className="text-gray-300 mb-2">お支払い予定: ¥{pointsPreviewTotal.toLocaleString('ja-JP')}</p>
+                    )}
+                    <button
+                      data-testid="offer-purchase"
+                      type="button"
+                      onClick={purchaseAcceptedOffer}
+                      className="rounded-lg bg-yellow-500 text-gray-900 px-4 py-2 font-medium"
+                    >
+                      承認額で購入
+                    </button>
+                  </div>
                 )}
                 {offerPurchaseMessage && <p className="text-emerald-300 mt-2">{offerPurchaseMessage}</p>}
               </div>

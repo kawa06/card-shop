@@ -14,3 +14,6 @@ data/buylist-export.json
 
 .vercel
 backups/
+frontend/playwright/.clerk/
+artifacts/phase2-manual-verify/*.png
+artifacts/phase2-manual-verify/buyback-export.csv
