@@ -67,6 +67,7 @@ def _migrate_oripa_schema() -> None:
         ("oripas", models_oripa.Oripa),
         ("oripa_entries", models_oripa.OripaEntry),
         ("oripa_audit_logs", models_oripa.OripaAuditLog),
+        ("oripa_purchases", models_oripa.OripaPurchase),
     ]:
         _create_table_if_missing(table_name, model)
 

@@ -74,3 +74,26 @@ class OripaAuditLog(Base):
     after_json = Column(Text, nullable=True)
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class OripaPurchase(Base):
+    """Purchase of N entries; assignment is idempotent via idempotency_key."""
+
+    __tablename__ = "oripa_purchases"
+    __table_args__ = (
+        Index("ix_oripa_purchases_oripa_user", "oripa_id", "user_id"),
+        Index("ix_oripa_purchases_created", "created_at"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    oripa_id = Column(Integer, ForeignKey("oripas.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False)
+    status = Column(String(32), nullable=False, default="completed", index=True)
+    # pending | completed | failed | cancelled
+    idempotency_key = Column(String(128), nullable=True, unique=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    unit_price = Column(Float, nullable=True)
+    total_amount = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
