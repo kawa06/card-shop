@@ -24,6 +24,7 @@ import {
   BarChart3,
   PackageX,
   Boxes,
+  Ticket,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
@@ -140,6 +141,9 @@ export default function AdminPage() {
             : []),
           ...(hasPermission('inventory_restock.read')
             ? [{ href: '/admin/inventory-restocks', icon: Boxes, label: 'Restocks', count: kpis?.open_restock_count ?? 0, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
+            : []),
+          ...(hasPermission('oripa.read')
+            ? [{ href: '/admin/oripas', icon: Ticket, label: 'Oripa', count: 0, color: 'text-sky-600', bg: 'bg-sky-500/10 border-sky-500/20' }]
             : []),
           { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
           { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },

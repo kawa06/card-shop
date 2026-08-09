@@ -532,6 +532,23 @@ export const adminInventoryApi = {
     apiClient.post<InventoryRestockItem>(`/admin/inventory-restocks/${id}/receive`, data || {}),
 }
 
+export const adminOripaApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/admin/oripas', { params }),
+  create: (data: Record<string, unknown>) => apiClient.post('/admin/oripas', data),
+  get: (id: number) => apiClient.get(`/admin/oripas/${id}`),
+  update: (id: number, data: Record<string, unknown>) => apiClient.patch(`/admin/oripas/${id}`, data),
+  remove: (id: number) => apiClient.delete(`/admin/oripas/${id}`),
+  generateEntries: (id: number, data?: { force?: boolean }) =>
+    apiClient.post(`/admin/oripas/${id}/generate-entries`, data || {}),
+  listEntries: (id: number, params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>(`/admin/oripas/${id}/entries`, { params }),
+  linkEntry: (entryId: number, data: { linked_product_id?: number | null }) =>
+    apiClient.patch(`/admin/oripa-entries/${entryId}`, data),
+  bulkLink: (id: number, data: { start_number: number; product_ids: number[] }) =>
+    apiClient.post(`/admin/oripas/${id}/entries/bulk-link`, data),
+}
+
 export const adminCouponsApi = {
   list: (params?: { q?: string; active_only?: boolean; limit?: number; offset?: number }) =>
     apiClient.get('/admin/coupons', { params }),

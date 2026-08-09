@@ -54,6 +54,27 @@ def run_schema_upgrades() -> None:
     _migrate_notification_schema()
     _migrate_analytics_schema()
     _migrate_inventory_schema()
+    _migrate_oripa_schema()
+
+
+def _migrate_oripa_schema() -> None:
+    """Phase 3-9 additive oripa / entry / audit tables."""
+    import models_oripa  # noqa: F401
+    from services.admin_seed import seed_admin_rbac
+    from database import SessionLocal
+
+    for table_name, model in [
+        ("oripas", models_oripa.Oripa),
+        ("oripa_entries", models_oripa.OripaEntry),
+        ("oripa_audit_logs", models_oripa.OripaAuditLog),
+    ]:
+        _create_table_if_missing(table_name, model)
+
+    db = SessionLocal()
+    try:
+        seed_admin_rbac(db)
+    finally:
+        db.close()
 
 
 def _migrate_inventory_schema() -> None:
