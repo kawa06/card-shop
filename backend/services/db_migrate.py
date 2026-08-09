@@ -52,6 +52,22 @@ def run_schema_upgrades() -> None:
     _migrate_point_schema()
     _migrate_coupon_schema()
     _migrate_notification_schema()
+    _migrate_analytics_schema()
+
+
+def _migrate_analytics_schema() -> None:
+    """Phase 3-7 additive analytics export audit + RBAC permissions."""
+    import models_analytics  # noqa: F401
+    from services.admin_seed import seed_admin_rbac
+    from database import SessionLocal
+
+    _create_table_if_missing("analytics_export_logs", models_analytics.AnalyticsExportLog)
+
+    db = SessionLocal()
+    try:
+        seed_admin_rbac(db)
+    finally:
+        db.close()
 
 
 def _migrate_notification_schema() -> None:

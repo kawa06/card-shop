@@ -447,6 +447,47 @@ export const adminUserNotificationsApi = {
   }) => apiClient.post('/admin/user-notifications/broadcast', data),
 }
 
+export type AnalyticsDomain = 'sales' | 'live' | 'auctions' | 'coupons' | 'points'
+
+export type AnalyticsKpi = {
+  from_at?: string | null
+  to_at?: string | null
+  paid_order_count: number
+  paid_sales_yen: number
+  avg_order_yen: number
+  coupon_discount_yen: number
+  points_used: number
+  points_earned: number
+  live_stream_count: number
+  live_live_count: number
+  auction_count: number
+  auction_sold_count: number
+  auction_gmv_yen: number
+  coupon_active_count: number
+  coupon_redemption_count: number
+  new_members: number
+}
+
+export type AnalyticsList = {
+  domain: string
+  total: number
+  page: number
+  size: number
+  sort: string
+  order: string
+  items: Array<Record<string, unknown>>
+  series?: Array<{ date: string; value: number }>
+}
+
+export const adminAnalyticsApi = {
+  kpi: (params?: { from_at?: string; to_at?: string }) =>
+    apiClient.get<AnalyticsKpi>('/admin/analytics/kpi', { params }),
+  list: (domain: AnalyticsDomain, params?: Record<string, string | number | undefined>) =>
+    apiClient.get<AnalyticsList>(`/admin/analytics/${domain}`, { params }),
+  export: (params: Record<string, string>) =>
+    apiClient.get('/admin/analytics/export', { params, responseType: 'blob' }),
+}
+
 export const adminCouponsApi = {
   list: (params?: { q?: string; active_only?: boolean; limit?: number; offset?: number }) =>
     apiClient.get('/admin/coupons', { params }),

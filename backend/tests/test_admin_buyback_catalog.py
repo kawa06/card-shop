@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 import models_buyback
-from conftest import auth_headers, create_admin_user
+from tests.conftest import auth_headers, create_admin_user
 
 
 def _catalog_payload(**overrides):

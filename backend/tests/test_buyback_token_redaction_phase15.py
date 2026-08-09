@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from database import engine
 import models_buyback
-from conftest import auth_headers, create_admin_user
+from tests.conftest import auth_headers, create_admin_user
 from services.buyback_logistics_logs import write_buyback_audit, write_package_print_log
 from tests.test_buyback_receiving import (
     _application_token,

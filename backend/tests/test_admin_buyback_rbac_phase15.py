@@ -5,7 +5,7 @@ import json
 import pytest
 
 import models_buyback
-from conftest import auth_headers, create_admin_user
+from tests.conftest import auth_headers, create_admin_user
 from services.admin_auth import get_admin_user_for_user, load_permissions
 
 

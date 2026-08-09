@@ -295,8 +295,14 @@ def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
     kyc = identity_stats(db)
     buyback = request_stats(db)
     from services.live_streams import count_live_sessions
+    import models_live_auction
 
     live_count = count_live_sessions(db)
+    auction_sessions = (
+        db.query(func.count(models_live_auction.LiveAuction.id))
+        .filter(models_live_auction.LiveAuction.status.in_(["running", "live", "active"]))
+        .scalar()
+    ) or 0
     return {
         "today_sales": int(today_sales),
         "month_sales": int(month_sales),
@@ -304,7 +310,7 @@ def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
         "pending_ship": int(pending_ship),
         "pending_assess": int(pending_assess),
         "live_sessions": int(live_count),
-        "auction_sessions": 0,
+        "auction_sessions": int(auction_sessions),
         "new_members_today": int(new_members_today),
         "unread_inquiries": int(unreplied),
         "draft_announcements": int(draft_announcements),

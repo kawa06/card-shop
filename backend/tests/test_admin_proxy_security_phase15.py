@@ -9,7 +9,7 @@ import models_admin
 import models_buyback
 from admin_emails import ADMIN_EMAILS
 from auth import hash_password
-from conftest import admin_headers
+from tests.conftest import admin_headers
 from internal_admin_auth import build_admin_proxy_signature
 
 

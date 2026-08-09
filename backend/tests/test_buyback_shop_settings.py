@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from conftest import auth_headers, create_admin_user
+from tests.conftest import auth_headers, create_admin_user
 
 
 def test_public_shop_settings_create_on_read(api_client, db):

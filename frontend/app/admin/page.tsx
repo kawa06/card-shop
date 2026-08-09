@@ -21,6 +21,7 @@ import {
   Mail,
   Radio,
   Coins,
+  BarChart3,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
@@ -128,6 +129,9 @@ export default function AdminPage() {
             : []),
           ...(hasPermission('coupon.read')
             ? [{ href: '/admin/coupons', icon: Coins, label: 'クーポン管理', count: 0, color: 'text-lime-500', bg: 'bg-lime-500/10 border-lime-500/20' }]
+            : []),
+          ...(hasPermission('analytics.read')
+            ? [{ href: '/admin/analytics', icon: BarChart3, label: '分析ダッシュボード', count: 0, color: 'text-indigo-500', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
             : []),
           { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
           { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },
