@@ -114,7 +114,9 @@ test('Scenario 4: create restock requested', async ({ page }) => {
   await page.getByTestId('restock-qty').fill('10')
   await page.getByTestId('restock-note').fill(`phase3-8 e2e ${stamp}`)
   await page.getByTestId('restock-create-btn').click()
-  await expect(page.getByText('補充リクエストを作成しました')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByText('\u88dc\u5145\u30ea\u30af\u30a8\u30b9\u30c8\u3092\u4f5c\u6210\u3057\u307e\u3057\u305f').first()).toBeVisible({
+    timeout: 30_000,
+  })
 
   const list = await page.request.get('/api/admin/inventory-restocks', {
     params: { product_id: cardId, status: 'requested' },

@@ -1,0 +1,41 @@
+{
+  "status": "PASS",
+  "method": "phase3-8-inventory-restock Playwright E2E against production API via Next rewrite",
+  "flow": [
+    "create product with low_stock_threshold=3",
+    "set stock=3 -> low_stock alert open",
+    "set stock=0 -> out_of_stock alert open",
+    "create restock requested",
+    "receive restock -> stock=10",
+    "open alerts resolved",
+    "double receive idempotent (stock unchanged)",
+    "unauthenticated restock write denied 401/403",
+    "analytics inventory domain loads"
+  ],
+  "screenshots": [
+    "01-inventory-alerts-threshold-set.png",
+    "02-low-stock.png",
+    "03-out-of-stock.png",
+    "04-restock-create.png",
+    "05-restock-list-detail.png",
+    "06-restock-received.png",
+    "06b-double-receive-guard.png",
+    "07-alert-resolved.png",
+    "08-analytics.png",
+    "09-rbac-permission-evidence.png"
+  ],
+  "railway_health": {
+    "status": "ok",
+    "version": "phase3-8-v1",
+    "database": { "engine": "postgresql", "persistent": true }
+  },
+  "vercel": {
+    "deployment_id": "dpl_8PrdDXJCDpAr5W1Fn9nmgVsvpTkT",
+    "production_url": "https://frontend-one-topaz-20.vercel.app",
+    "routes": [
+      "/admin/inventory-alerts",
+      "/admin/inventory-restocks"
+    ]
+  },
+  "note": "Isolated P38 Inv Card* test products only; no production catalog destruction."
+}

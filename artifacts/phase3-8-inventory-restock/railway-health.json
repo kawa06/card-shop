@@ -1,0 +1,9 @@
+{
+    "status":  "ok",
+    "version":  "phase3-8-v1",
+    "database":  {
+                     "engine":  "postgresql",
+                     "persistent":  true,
+                     "warning":  null
+                 }
+}

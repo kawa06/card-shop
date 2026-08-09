@@ -1,0 +1,36 @@
+{
+  "phase": "3-8",
+  "status": "PHASE_3_8_FORMALLY_COMPLETED",
+  "railway": {
+    "deployment_id": "349fae34-8b3f-4d61-98e0-30fe383807ca",
+    "health": "ok",
+    "version": "phase3-8-v1",
+    "postgresql_persistent": true
+  },
+  "vercel": {
+    "deployment_id": "dpl_8PrdDXJCDpAr5W1Fn9nmgVsvpTkT",
+    "production_url": "https://frontend-one-topaz-20.vercel.app"
+  },
+  "backend_tests": {
+    "phase3_8": "15 passed",
+    "full_pytest": "429 passed, 1 skipped, 0 failed"
+  },
+  "frontend": {
+    "build": "PASS",
+    "tsc": "PASS",
+    "lint": "PASS (existing live-page warnings only)"
+  },
+  "playwright": {
+    "phase3_8": "9 passed",
+    "regression_3_4_to_3_7": "22 passed"
+  },
+  "feat_commit": "79809ca",
+  "known_limitations": [
+    "Partial refund coupon restore: not implemented",
+    "Partial refund points restore: FULL REFUND only",
+    "coupon assignment notification: in-app only",
+    "order/shipping/buyback email remain on existing paths; notification layer does not double-send",
+    "announcement email: admin explicit broadcast only",
+    "analytics PDF: Helvetica simple text / non-ASCII replaced"
+  ]
+}
