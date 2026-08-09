@@ -1,0 +1,1345 @@
+﻿........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+........................................................................ [ 69%]
+........................................................................ [ 86%]
+................s......................................                  [100%]
+============================== warnings summary ===============================
+config.py:11
+  C:\users\user1\projects\card-shop\backend\config.py:11: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Settings(BaseSettings):
+
+database.py:22
+  C:\users\user1\projects\card-shop\backend\database.py:22: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+schemas_email.py:11
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:11: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EmailBrandSettingsOut(BaseModel):
+
+schemas_email.py:65
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:65: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EmailTemplateOut(BaseModel):
+
+schemas_email.py:82
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:82: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EmailTemplateListItem(BaseModel):
+
+schemas_email.py:126
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:126: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EmailCampaignOut(BaseModel):
+
+schemas_email.py:265
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:265: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AdminInAppNotificationOut(BaseModel):
+
+schemas_email.py:285
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:285: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class EmailSendLogOut(BaseModel):
+
+schemas_email.py:306
+  C:\users\user1\projects\card-shop\backend\schemas_email.py:306: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class LoginHistoryOut(BaseModel):
+
+schemas.py:40
+  C:\users\user1\projects\card-shop\backend\schemas.py:40: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class UserOut(UserBase):
+
+schemas.py:118
+  C:\users\user1\projects\card-shop\backend\schemas.py:118: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CategoryOut(CategoryBase):
+
+schemas.py:146
+  C:\users\user1\projects\card-shop\backend\schemas.py:146: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class PackOut(PackBase):
+
+schemas.py:206
+  C:\users\user1\projects\card-shop\backend\schemas.py:206: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CardOut(CardBase):
+
+schemas.py:253
+  C:\users\user1\projects\card-shop\backend\schemas.py:253: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CartItemOut(CartItemBase):
+
+schemas.py:264
+  C:\users\user1\projects\card-shop\backend\schemas.py:264: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FavoriteOut(BaseModel):
+
+schemas.py:274
+  C:\users\user1\projects\card-shop\backend\schemas.py:274: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class FavoriteActionOut(BaseModel):
+
+schemas.py:285
+  C:\users\user1\projects\card-shop\backend\schemas.py:285: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class OrderItemOut(BaseModel):
+
+schemas.py:337
+  C:\users\user1\projects\card-shop\backend\schemas.py:337: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class OrderOut(BaseModel):
+
+schemas.py:403
+  C:\users\user1\projects\card-shop\backend\schemas.py:403: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AdminOrderOut(OrderOut):
+
+schemas.py:411
+  C:\users\user1\projects\card-shop\backend\schemas.py:411: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AdminOrderDetailOut(AdminOrderOut):
+
+schemas.py:446
+  C:\users\user1\projects\card-shop\backend\schemas.py:446: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AdminClickPostOrderOut(BaseModel):
+
+schemas.py:470
+  C:\users\user1\projects\card-shop\backend\schemas.py:470: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquiryMessageOut(BaseModel):
+
+schemas.py:483
+  C:\users\user1\projects\card-shop\backend\schemas.py:483: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquiryAttachmentOut(BaseModel):
+
+schemas.py:496
+  C:\users\user1\projects\card-shop\backend\schemas.py:496: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquiryListOut(BaseModel):
+
+schemas.py:536
+  C:\users\user1\projects\card-shop\backend\schemas.py:536: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquiryTemplateOut(BaseModel):
+
+schemas.py:587
+  C:\users\user1\projects\card-shop\backend\schemas.py:587: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquiryReplyDraftOut(BaseModel):
+
+schemas.py:628
+  C:\users\user1\projects\card-shop\backend\schemas.py:628: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class InquirySettingsOut(BaseModel):
+
+schemas.py:671
+  C:\users\user1\projects\card-shop\backend\schemas.py:671: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AnnouncementImageOut(BaseModel):
+
+schemas.py:727
+  C:\users\user1\projects\card-shop\backend\schemas.py:727: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AnnouncementOut(AnnouncementBase):
+
+schemas.py:757
+  C:\users\user1\projects\card-shop\backend\schemas.py:757: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AnnouncementAdminOut(BaseModel):
+
+schemas.py:806
+  C:\users\user1\projects\card-shop\backend\schemas.py:806: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class ShippingRateOut(BaseModel):
+
+schemas.py:869
+  C:\users\user1\projects\card-shop\backend\schemas.py:869: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class OrderShipmentLogOut(BaseModel):
+
+schemas.py:885
+  C:\users\user1\projects\card-shop\backend\schemas.py:885: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class OrderBarcodeOut(BaseModel):
+
+routes\auth.py:44
+  C:\users\user1\projects\card-shop\backend\routes\auth.py:44: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class AuthResponse(BaseModel):
+
+..\..\..\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:211: 84 warnings
+tests/test_admin_analytics.py: 640 warnings
+  C:\Users\user1\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\fastapi\routing.py:211: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+routes\cards.py:38
+  C:\users\user1\projects\card-shop\backend\routes\cards.py:38: DeprecationWarning: `regex` has been deprecated, please use `pattern` instead
+    sort: str = Query("created_at_desc", regex="^(price_asc|price_desc|name_asc|created_at_desc)$"),
+
+schemas_buyback.py:27
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:27: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackUserOut(BaseModel):
+
+schemas_buyback.py:83
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:83: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackProductOut(BaseModel):
+
+schemas_buyback.py:215
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:215: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackCartItemOut(BaseModel):
+
+schemas_buyback.py:290
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:290: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackRequestItemOut(BaseModel):
+
+schemas_buyback.py:325
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:325: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackAppraisalEstimateOut(BaseModel):
+
+schemas_buyback.py:337
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:337: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackRequestSummaryOut(BaseModel):
+
+schemas_buyback.py:363
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:363: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackRequestDetailOut(BaseModel):
+
+schemas_buyback.py:1204
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:1204: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackPromoBannerOut(BaseModel):
+
+schemas_buyback.py:1294
+  C:\users\user1\projects\card-shop\backend\schemas_buyback.py:1294: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class BuybackStoreReservationOut(BaseModel):
+
+tests/test_admin_analytics.py: 1070 warnings
+tests/test_admin_buyback.py: 2496 warnings
+tests/test_admin_buyback_catalog.py: 3559 warnings
+tests/test_admin_buyback_rbac_phase15.py: 7129 warnings
+tests/test_admin_email.py: 2471 warnings
+tests/test_admin_notify_email_templates.py: 2379 warnings
+tests/test_admin_order_detail.py: 700 warnings
+tests/test_admin_proxy_security_phase15.py: 3833 warnings
+tests/test_admin_security.py: 4212 warnings
+tests/test_announcements.py: 4253 warnings
+tests/test_broadcast_email_templates.py: 1831 warnings
+tests/test_buyback_admin_dashboard.py: 3526 warnings
+tests/test_buyback_age.py: 1388 warnings
+tests/test_buyback_application_form.py: 1849 warnings
+tests/test_buyback_assessment_response.py: 2974 warnings
+tests/test_buyback_auth.py: 1392 warnings
+tests/test_buyback_barcode_security_phase1.py: 2712 warnings
+tests/test_buyback_cart.py: 1416 warnings
+tests/test_buyback_channel.py: 3516 warnings
+tests/test_buyback_compliance.py: 703 warnings
+tests/test_buyback_concurrency_phase15.py: 2165 warnings
+tests/test_buyback_customer_review.py: 702 warnings
+tests/test_buyback_e2e_flow.py: 764 warnings
+tests/test_buyback_email_templates.py: 2278 warnings
+tests/test_buyback_emails.py: 1773 warnings
+tests/test_buyback_firestore_import.py: 705 warnings
+tests/test_buyback_guardian.py: 1403 warnings
+tests/test_buyback_identity.py: 3160 warnings
+tests/test_buyback_item_assessment.py: 1476 warnings
+tests/test_buyback_kyc_storage.py: 1041 warnings
+tests/test_buyback_label_yasan.py: 2194 warnings
+tests/test_buyback_logistics.py: 1425 warnings
+tests/test_buyback_logistics_e2e.py: 830 warnings
+tests/test_buyback_logistics_rbac.py: 2183 warnings
+tests/test_buyback_packages.py: 1511 warnings
+tests/test_buyback_payout.py: 1401 warnings
+tests/test_buyback_receiving.py: 1831 warnings
+tests/test_buyback_requests.py: 1792 warnings
+tests/test_buyback_shipping.py: 2302 warnings
+tests/test_buyback_shop_settings.py: 702 warnings
+tests/test_buyback_token_redaction_phase15.py: 1779 warnings
+tests/test_coupons.py: 3573 warnings
+tests/test_customer_auth_security.py: 1402 warnings
+tests/test_email_broadcast.py: 2863 warnings
+tests/test_email_delivery.py: 1166 warnings
+tests/test_inquiries.py: 1937 warnings
+tests/test_inquiry_email_templates.py: 2194 warnings
+tests/test_inquiry_upload.py: 694 warnings
+tests/test_invoice_config.py: 2084 warnings
+tests/test_kyc_email_templates.py: 2240 warnings
+tests/test_live_auction_purchase.py: 1121 warnings
+tests/test_live_auctions.py: 2890 warnings
+tests/test_live_offers.py: 9046 warnings
+tests/test_live_streams.py: 2483 warnings
+tests/test_loyalty_email_templates.py: 2248 warnings
+tests/test_member_email_templates.py: 2260 warnings
+tests/test_notifications.py: 2828 warnings
+tests/test_order_checkout.py: 352 warnings
+tests/test_order_emails.py: 1760 warnings
+tests/test_order_number.py: 1055 warnings
+tests/test_order_payment_templates.py: 1463 warnings
+tests/test_points.py: 6153 warnings
+tests/test_shipping_email_templates.py: 2644 warnings
+tests/test_shipping_rates.py: 2085 warnings
+tests/test_stripe_bank_transfer.py: 3542 warnings
+tests/test_stripe_events.py: 1045 warnings
+tests/test_tracking_urls.py: 2429 warnings
+tests/test_user_linking.py: 1395 warnings
+  C:\Users\user1\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\sqlalchemy\sql\schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_points.py:19: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class PointTransactionOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_points.py:58: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class PointSettingsOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_points.py:105: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class PointAuditLogOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_coupons.py:14: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CouponOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_coupons.py:138: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class CouponAuditLogOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_notifications.py:11: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationOut(BaseModel):
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\schemas_notifications.py:41: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class NotificationSettingsOut(BaseModel):
+
+tests/test_admin_analytics.py: 16 warnings
+tests/test_admin_buyback_catalog.py: 36 warnings
+tests/test_admin_buyback_rbac_phase15.py: 62 warnings
+tests/test_admin_email.py: 7 warnings
+tests/test_admin_proxy_security_phase15.py: 34 warnings
+tests/test_admin_security.py: 30 warnings
+tests/test_announcements.py: 12 warnings
+tests/test_buyback_admin_dashboard.py: 7 warnings
+tests/test_buyback_application_form.py: 12 warnings
+tests/test_buyback_auth.py: 10 warnings
+tests/test_buyback_barcode_security_phase1.py: 84 warnings
+tests/test_buyback_e2e_flow.py: 25 warnings
+tests/test_buyback_guardian.py: 3 warnings
+tests/test_buyback_label_yasan.py: 17 warnings
+tests/test_buyback_logistics_e2e.py: 32 warnings
+tests/test_buyback_logistics_rbac.py: 17 warnings
+tests/test_buyback_packages.py: 13 warnings
+tests/test_buyback_receiving.py: 13 warnings
+tests/test_buyback_shipping.py: 33 warnings
+tests/test_buyback_shop_settings.py: 6 warnings
+tests/test_buyback_token_redaction_phase15.py: 6 warnings
+tests/test_coupons.py: 8 warnings
+tests/test_email_broadcast.py: 7 warnings
+tests/test_live_auctions.py: 9 warnings
+tests/test_live_offers.py: 15 warnings
+tests/test_live_streams.py: 26 warnings
+tests/test_notifications.py: 15 warnings
+tests/test_points.py: 6 warnings
+  C:\Users\user1\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_utils.py:42: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    return asyncio.iscoroutinefunction(obj) or (
+
+tests/test_admin_analytics.py: 3 warnings
+tests/test_admin_buyback_catalog.py: 10 warnings
+tests/test_admin_buyback_rbac_phase15.py: 20 warnings
+tests/test_admin_email.py: 3 warnings
+tests/test_admin_proxy_security_phase15.py: 11 warnings
+tests/test_admin_security.py: 12 warnings
+tests/test_announcements.py: 4 warnings
+tests/test_buyback_admin_dashboard.py: 3 warnings
+tests/test_buyback_application_form.py: 4 warnings
+tests/test_buyback_auth.py: 4 warnings
+tests/test_buyback_barcode_security_phase1.py: 7 warnings
+tests/test_buyback_e2e_flow.py: 2 warnings
+tests/test_buyback_guardian.py: 1 warning
+tests/test_buyback_label_yasan.py: 5 warnings
+tests/test_buyback_logistics_e2e.py: 2 warnings
+tests/test_buyback_logistics_rbac.py: 5 warnings
+tests/test_buyback_packages.py: 4 warnings
+tests/test_buyback_receiving.py: 5 warnings
+tests/test_buyback_shipping.py: 6 warnings
+tests/test_buyback_shop_settings.py: 2 warnings
+tests/test_buyback_token_redaction_phase15.py: 3 warnings
+tests/test_coupons.py: 2 warnings
+tests/test_email_broadcast.py: 3 warnings
+tests/test_live_auctions.py: 2 warnings
+tests/test_live_offers.py: 6 warnings
+tests/test_live_streams.py: 3 warnings
+tests/test_notifications.py: 3 warnings
+tests/test_points.py: 2 warnings
+  C:\Users\user1\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\starlette\_utils.py:43: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    callable(obj) and asyncio.iscoroutinefunction(obj.__call__)
+
+tests/test_admin_analytics.py: 3 warnings
+tests/test_admin_buyback_catalog.py: 10 warnings
+tests/test_admin_buyback_rbac_phase15.py: 20 warnings
+tests/test_admin_email.py: 3 warnings
+tests/test_admin_proxy_security_phase15.py: 11 warnings
+tests/test_admin_security.py: 12 warnings
+tests/test_announcements.py: 4 warnings
+tests/test_buyback_admin_dashboard.py: 3 warnings
+tests/test_buyback_application_form.py: 4 warnings
+tests/test_buyback_auth.py: 5 warnings
+tests/test_buyback_barcode_security_phase1.py: 7 warnings
+tests/test_buyback_channel.py: 6 warnings
+tests/test_buyback_e2e_flow.py: 3 warnings
+tests/test_buyback_guardian.py: 1 warning
+tests/test_buyback_label_yasan.py: 5 warnings
+tests/test_buyback_logistics_e2e.py: 2 warnings
+tests/test_buyback_logistics_rbac.py: 5 warnings
+tests/test_buyback_packages.py: 4 warnings
+tests/test_buyback_receiving.py: 5 warnings
+tests/test_buyback_shipping.py: 6 warnings
+tests/test_buyback_shop_settings.py: 2 warnings
+tests/test_buyback_token_redaction_phase15.py: 3 warnings
+tests/test_coupons.py: 2 warnings
+tests/test_email_broadcast.py: 3 warnings
+tests/test_live_auctions.py: 2 warnings
+tests/test_live_offers.py: 6 warnings
+tests/test_live_streams.py: 3 warnings
+tests/test_notifications.py: 3 warnings
+tests/test_points.py: 2 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_channel.py:41: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_admin_analytics.py: 24 warnings
+tests/test_admin_buyback_catalog.py: 80 warnings
+tests/test_admin_buyback_rbac_phase15.py: 160 warnings
+tests/test_admin_email.py: 24 warnings
+tests/test_admin_proxy_security_phase15.py: 88 warnings
+tests/test_admin_security.py: 96 warnings
+tests/test_announcements.py: 32 warnings
+tests/test_buyback_admin_dashboard.py: 24 warnings
+tests/test_buyback_application_form.py: 32 warnings
+tests/test_buyback_auth.py: 32 warnings
+tests/test_buyback_barcode_security_phase1.py: 56 warnings
+tests/test_buyback_e2e_flow.py: 16 warnings
+tests/test_buyback_guardian.py: 8 warnings
+tests/test_buyback_label_yasan.py: 40 warnings
+tests/test_buyback_logistics_e2e.py: 16 warnings
+tests/test_buyback_logistics_rbac.py: 40 warnings
+tests/test_buyback_packages.py: 32 warnings
+tests/test_buyback_receiving.py: 40 warnings
+tests/test_buyback_shipping.py: 48 warnings
+tests/test_buyback_shop_settings.py: 16 warnings
+tests/test_buyback_token_redaction_phase15.py: 24 warnings
+tests/test_coupons.py: 16 warnings
+tests/test_email_broadcast.py: 24 warnings
+tests/test_live_auctions.py: 16 warnings
+tests/test_live_offers.py: 48 warnings
+tests/test_live_streams.py: 24 warnings
+tests/test_notifications.py: 24 warnings
+tests/test_points.py: 16 warnings
+  C:\users\user1\projects\card-shop\backend\services\shipping_rates.py:513: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db_rate.updated_at = datetime.utcnow()
+
+tests/test_admin_analytics.py: 9 warnings
+tests/test_admin_buyback_catalog.py: 30 warnings
+tests/test_admin_buyback_rbac_phase15.py: 60 warnings
+tests/test_admin_email.py: 9 warnings
+tests/test_admin_proxy_security_phase15.py: 33 warnings
+tests/test_admin_security.py: 36 warnings
+tests/test_announcements.py: 12 warnings
+tests/test_buyback_admin_dashboard.py: 9 warnings
+tests/test_buyback_application_form.py: 12 warnings
+tests/test_buyback_auth.py: 12 warnings
+tests/test_buyback_barcode_security_phase1.py: 21 warnings
+tests/test_buyback_e2e_flow.py: 6 warnings
+tests/test_buyback_guardian.py: 3 warnings
+tests/test_buyback_label_yasan.py: 15 warnings
+tests/test_buyback_logistics_e2e.py: 6 warnings
+tests/test_buyback_logistics_rbac.py: 15 warnings
+tests/test_buyback_packages.py: 12 warnings
+tests/test_buyback_receiving.py: 15 warnings
+tests/test_buyback_shipping.py: 18 warnings
+tests/test_buyback_shop_settings.py: 6 warnings
+tests/test_buyback_token_redaction_phase15.py: 9 warnings
+tests/test_coupons.py: 6 warnings
+tests/test_email_broadcast.py: 9 warnings
+tests/test_live_auctions.py: 6 warnings
+tests/test_live_offers.py: 18 warnings
+tests/test_live_streams.py: 9 warnings
+tests/test_notifications.py: 9 warnings
+tests/test_points.py: 6 warnings
+  C:\users\user1\projects\card-shop\backend\services\shipping_rates.py:538: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db_rate.updated_at = datetime.utcnow()
+
+tests/test_admin_analytics.py: 6 warnings
+tests/test_admin_buyback_catalog.py: 20 warnings
+tests/test_admin_buyback_rbac_phase15.py: 40 warnings
+tests/test_admin_email.py: 6 warnings
+tests/test_admin_proxy_security_phase15.py: 22 warnings
+tests/test_admin_security.py: 24 warnings
+tests/test_announcements.py: 8 warnings
+tests/test_buyback_admin_dashboard.py: 6 warnings
+tests/test_buyback_application_form.py: 8 warnings
+tests/test_buyback_auth.py: 8 warnings
+tests/test_buyback_barcode_security_phase1.py: 14 warnings
+tests/test_buyback_e2e_flow.py: 4 warnings
+tests/test_buyback_guardian.py: 2 warnings
+tests/test_buyback_label_yasan.py: 10 warnings
+tests/test_buyback_logistics_e2e.py: 4 warnings
+tests/test_buyback_logistics_rbac.py: 10 warnings
+tests/test_buyback_packages.py: 8 warnings
+tests/test_buyback_receiving.py: 10 warnings
+tests/test_buyback_shipping.py: 12 warnings
+tests/test_buyback_shop_settings.py: 4 warnings
+tests/test_buyback_token_redaction_phase15.py: 6 warnings
+tests/test_coupons.py: 4 warnings
+tests/test_email_broadcast.py: 6 warnings
+tests/test_live_auctions.py: 4 warnings
+tests/test_live_offers.py: 12 warnings
+tests/test_live_streams.py: 6 warnings
+tests/test_notifications.py: 6 warnings
+tests/test_points.py: 4 warnings
+  C:\users\user1\projects\card-shop\backend\services\shipping_rates.py:582: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    db_intl.updated_at = datetime.utcnow()
+
+tests/test_admin_analytics.py: 39 warnings
+tests/test_admin_buyback_catalog.py: 130 warnings
+tests/test_admin_buyback_rbac_phase15.py: 260 warnings
+tests/test_admin_email.py: 39 warnings
+tests/test_admin_proxy_security_phase15.py: 143 warnings
+tests/test_admin_security.py: 156 warnings
+tests/test_announcements.py: 52 warnings
+tests/test_buyback_admin_dashboard.py: 39 warnings
+tests/test_buyback_application_form.py: 52 warnings
+tests/test_buyback_auth.py: 52 warnings
+tests/test_buyback_barcode_security_phase1.py: 91 warnings
+tests/test_buyback_e2e_flow.py: 26 warnings
+tests/test_buyback_guardian.py: 13 warnings
+tests/test_buyback_label_yasan.py: 65 warnings
+tests/test_buyback_logistics_e2e.py: 26 warnings
+tests/test_buyback_logistics_rbac.py: 65 warnings
+tests/test_buyback_packages.py: 52 warnings
+tests/test_buyback_receiving.py: 65 warnings
+tests/test_buyback_shipping.py: 78 warnings
+tests/test_buyback_shop_settings.py: 26 warnings
+tests/test_buyback_token_redaction_phase15.py: 39 warnings
+tests/test_coupons.py: 26 warnings
+tests/test_email_broadcast.py: 39 warnings
+tests/test_live_auctions.py: 26 warnings
+tests/test_live_offers.py: 78 warnings
+tests/test_live_streams.py: 39 warnings
+tests/test_notifications.py: 39 warnings
+tests/test_points.py: 26 warnings
+  C:\users\user1\projects\card-shop\backend\services\shipping_rates.py:600: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_admin_analytics.py::test_kpi_and_sales_list
+  C:\users\user1\projects\card-shop\backend\tests\test_admin_analytics.py:31: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_admin_buyback.py: 8 warnings
+tests/test_buyback_e2e_flow.py: 2 warnings
+tests/test_buyback_identity.py: 6 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_identity.py:189: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    identity.updated_at = datetime.utcnow()
+
+tests/test_admin_buyback.py: 15 warnings
+tests/test_admin_buyback_rbac_phase15.py: 4 warnings
+tests/test_admin_notify_email_templates.py: 2 warnings
+tests/test_buyback_admin_dashboard.py: 1 warning
+tests/test_buyback_barcode_security_phase1.py: 1 warning
+tests/test_buyback_e2e_flow.py: 10 warnings
+tests/test_buyback_email_templates.py: 1 warning
+tests/test_buyback_emails.py: 6 warnings
+tests/test_buyback_guardian.py: 2 warnings
+tests/test_buyback_identity.py: 5 warnings
+tests/test_buyback_logistics_e2e.py: 1 warning
+tests/test_buyback_receiving.py: 1 warning
+tests/test_buyback_shipping.py: 2 warnings
+tests/test_customer_auth_security.py: 6 warnings
+tests/test_email_broadcast.py: 10 warnings
+tests/test_email_delivery.py: 3 warnings
+tests/test_inquiry_email_templates.py: 1 warning
+tests/test_kyc_email_templates.py: 1 warning
+tests/test_loyalty_email_templates.py: 1 warning
+tests/test_member_email_templates.py: 1 warning
+tests/test_order_emails.py: 4 warnings
+tests/test_shipping_email_templates.py: 10 warnings
+tests/test_stripe_bank_transfer.py: 9 warnings
+  C:\users\user1\projects\card-shop\backend\services\email_delivery.py:155: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "date": datetime.utcnow().strftime("%Y/%m/%d %H:%M"),
+
+tests/test_admin_buyback.py: 14 warnings
+tests/test_buyback_e2e_flow.py: 4 warnings
+tests/test_buyback_guardian.py: 2 warnings
+tests/test_buyback_identity.py: 5 warnings
+tests/test_kyc_email_templates.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\services\kyc_emails.py:70: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    sent_at=datetime.utcnow() if ok else None,
+
+tests/test_admin_buyback.py::test_approve_identity
+tests/test_admin_buyback.py::test_approve_identity_blocked_for_minor_without_guardian
+tests/test_admin_buyback.py::test_reject_identity_requires_reason
+tests/test_admin_buyback.py::test_reject_identity
+tests/test_buyback_e2e_flow.py::test_buyback_full_api_flow
+tests/test_buyback_identity.py::test_upload_and_submit_identity
+tests/test_buyback_identity.py::test_my_number_card_requires_front_only
+  C:\users\user1\projects\card-shop\backend\services\buyback_identity.py:244: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_admin_buyback.py::test_approve_identity
+tests/test_buyback_e2e_flow.py::test_buyback_full_api_flow
+  C:\users\user1\projects\card-shop\backend\services\buyback_admin.py:293: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_admin_buyback.py::test_reject_identity
+  C:\users\user1\projects\card-shop\backend\services\buyback_admin.py:341: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_admin_buyback.py: 1 warning
+tests/test_admin_buyback_rbac_phase15.py: 4 warnings
+tests/test_buyback_admin_dashboard.py: 1 warning
+tests/test_buyback_e2e_flow.py: 6 warnings
+tests/test_buyback_logistics_e2e.py: 3 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_admin.py:643: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_admin_buyback.py: 1 warning
+tests/test_admin_buyback_rbac_phase15.py: 4 warnings
+tests/test_buyback_admin_dashboard.py: 1 warning
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_barcode_security_phase1.py: 1 warning
+tests/test_buyback_e2e_flow.py: 6 warnings
+tests/test_buyback_email_templates.py: 1 warning
+tests/test_buyback_emails.py: 6 warnings
+tests/test_buyback_logistics_e2e.py: 1 warning
+tests/test_buyback_receiving.py: 1 warning
+tests/test_buyback_shipping.py: 2 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_emails.py:292: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    sent_at=datetime.utcnow() if ok else None,
+
+tests/test_admin_buyback_catalog.py: 11 warnings
+tests/test_admin_buyback_rbac_phase15.py: 22 warnings
+tests/test_admin_email.py: 3 warnings
+tests/test_admin_security.py: 3 warnings
+tests/test_announcements.py: 1 warning
+tests/test_buyback_application_form.py: 5 warnings
+tests/test_buyback_barcode_security_phase1.py: 43 warnings
+tests/test_buyback_e2e_flow.py: 1 warning
+tests/test_buyback_guardian.py: 1 warning
+tests/test_buyback_label_yasan.py: 9 warnings
+tests/test_buyback_logistics_e2e.py: 5 warnings
+tests/test_buyback_logistics_rbac.py: 8 warnings
+tests/test_buyback_packages.py: 7 warnings
+tests/test_buyback_receiving.py: 6 warnings
+tests/test_buyback_shipping.py: 21 warnings
+tests/test_buyback_shop_settings.py: 1 warning
+tests/test_buyback_token_redaction_phase15.py: 3 warnings
+tests/test_coupons.py: 4 warnings
+tests/test_email_broadcast.py: 3 warnings
+tests/test_live_auctions.py: 1 warning
+tests/test_live_offers.py: 1 warning
+tests/test_live_streams.py: 5 warnings
+tests/test_notifications.py: 9 warnings
+tests/test_points.py: 3 warnings
+  C:\users\user1\projects\card-shop\backend\auth.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + (
+
+tests/test_admin_buyback_catalog.py: 20 warnings
+tests/test_admin_buyback_rbac_phase15.py: 25 warnings
+tests/test_admin_email.py: 3 warnings
+tests/test_admin_security.py: 3 warnings
+tests/test_announcements.py: 1 warning
+tests/test_buyback_application_form.py: 5 warnings
+tests/test_buyback_barcode_security_phase1.py: 43 warnings
+tests/test_buyback_e2e_flow.py: 9 warnings
+tests/test_buyback_guardian.py: 2 warnings
+tests/test_buyback_label_yasan.py: 9 warnings
+tests/test_buyback_logistics_e2e.py: 25 warnings
+tests/test_buyback_logistics_rbac.py: 8 warnings
+tests/test_buyback_packages.py: 7 warnings
+tests/test_buyback_receiving.py: 6 warnings
+tests/test_buyback_shipping.py: 22 warnings
+tests/test_buyback_shop_settings.py: 2 warnings
+tests/test_buyback_token_redaction_phase15.py: 3 warnings
+tests/test_coupons.py: 6 warnings
+tests/test_email_broadcast.py: 3 warnings
+tests/test_inquiry_upload.py: 2 warnings
+tests/test_live_auctions.py: 1 warning
+tests/test_live_offers.py: 1 warning
+tests/test_live_streams.py: 5 warnings
+tests/test_notifications.py: 9 warnings
+tests/test_points.py: 3 warnings
+  C:\Users\user1\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\jose\jwt.py:311: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = timegm(datetime.utcnow().utctimetuple())
+
+tests/test_admin_buyback_catalog.py::test_update_and_soft_delete
+  C:\users\user1\projects\card-shop\backend\services\buyback_catalog.py:286: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    product.updated_at = datetime.utcnow()
+
+tests/test_admin_buyback_catalog.py::test_update_and_soft_delete
+  C:\users\user1\projects\card-shop\backend\services\buyback_catalog.py:308: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    price.effective_from = datetime.utcnow()
+
+tests/test_admin_buyback_catalog.py::test_update_and_soft_delete
+tests/test_admin_buyback_catalog.py::test_create_after_soft_delete_allows_same_name
+  C:\users\user1\projects\card-shop\backend\services\buyback_catalog.py:344: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    product.updated_at = datetime.utcnow()
+
+tests/test_admin_email.py::test_admin_email_requires_permission
+tests/test_admin_security.py::test_admin_login_success_audit_log
+tests/test_admin_security.py::test_deactivated_admin_cannot_login
+tests/test_admin_security.py::test_deactivated_admin_cannot_login
+tests/test_admin_security.py::test_admin_can_create_viewer
+tests/test_admin_security.py::test_permission_change_writes_audit_log
+tests/test_admin_security.py::test_permission_change_writes_audit_log
+tests/test_admin_security.py::test_login_failure_audit_log
+tests/test_admin_security.py::test_regular_user_cannot_call_admin_cards
+  C:\users\user1\projects\card-shop\backend\services\admin_audit.py:76: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_admin_notify_email_templates.py::test_admin_notify_sample_no_sensitive_data
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\admin_notify_email_variables.py:120: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    value = dt or datetime.utcnow()
+
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\admin_notify_emails.py:68: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ref_id = reference_id or f"{event_key}:{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\admin_notify_emails.py:101: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    started_at=datetime.utcnow(),
+
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+tests/test_admin_notify_email_templates.py::test_send_admin_notify_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\admin_notify_emails.py:165: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    campaign.completed_at = datetime.utcnow()
+
+tests/test_admin_order_detail.py: 1 warning
+tests/test_inquiries.py: 1 warning
+tests/test_order_emails.py: 5 warnings
+tests/test_shipping_email_templates.py: 2 warnings
+tests/test_stripe_bank_transfer.py: 1 warning
+tests/test_stripe_events.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\tests\conftest.py:165: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_admin_order_detail.py::test_to_admin_order_detail_includes_document_fields
+  C:\users\user1\projects\card-shop\backend\tests\test_admin_order_detail.py:15: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_order.updated_at = datetime.utcnow()
+
+tests/test_admin_security.py::test_admin_login_success_audit_log
+  C:\users\user1\projects\card-shop\backend\services\admin_auth.py:40: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_announcements.py::test_public_feed_localizes_by_lang
+tests/test_announcements.py::test_detail_marks_read
+tests/test_announcements.py::test_search_filters_title_and_body
+tests/test_announcements.py::test_search_filters_title_and_body
+tests/test_announcements.py::test_scheduled_not_visible_until_publish_at
+tests/test_announcements.py::test_expired_not_visible
+tests/test_announcements.py::test_legacy_public_api_still_works
+tests/test_announcements.py::test_feed_requires_auth
+tests/test_announcements.py::test_authenticated_detail
+  C:\Users\user1\projects\card-shop\backend\tests\test_announcements.py:24: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "publish_at": datetime.utcnow() - timedelta(hours=1),
+
+tests/test_announcements.py: 16 warnings
+  C:\users\user1\projects\card-shop\backend\services\announcements.py:24: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_announcements.py::test_scheduled_not_visible_until_publish_at
+  C:\Users\user1\projects\card-shop\backend\tests\test_announcements.py:100: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    future = datetime.utcnow() + timedelta(days=2)
+
+tests/test_announcements.py::test_expired_not_visible
+  C:\Users\user1\projects\card-shop\backend\tests\test_announcements.py:108: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire_at=datetime.utcnow() - timedelta(minutes=1),
+
+tests/test_announcements.py::test_admin_crud
+  C:\Users\user1\projects\card-shop\backend\tests\test_announcements.py:154: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    json={"status": "published", "publish_at": datetime.utcnow().isoformat()},
+
+tests/test_buyback_admin_dashboard.py::test_phase2_order_shipment_log
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_admin_dashboard.py:97: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_buyback_admin_dashboard.py::test_phase2_order_barcode
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_admin_dashboard.py:127: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_buyback_admin_dashboard.py::test_phase2_order_scan_fallbacks
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_admin_dashboard.py:152: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_buyback_admin_dashboard.py::test_phase2_order_scan_api
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_admin_dashboard.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_buyback_admin_dashboard.py::test_phase2_order_barcode_svg_api
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_admin_dashboard.py:209: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    paid_at=datetime.utcnow(),
+
+tests/test_buyback_admin_dashboard.py::test_phase2_dashboard_stats_api
+  C:\users\user1\projects\card-shop\backend\services\barcode_render.py:228: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_buyback_admin_dashboard.py::test_phase2_dashboard_stats_api
+  C:\users\user1\projects\card-shop\backend\services\barcode_render.py:234: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_buyback_application_form.py: 5 warnings
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_barcode_security_phase1.py: 9 warnings
+tests/test_buyback_cart.py: 4 warnings
+tests/test_buyback_channel.py: 3 warnings
+tests/test_buyback_e2e_flow.py: 1 warning
+tests/test_buyback_item_assessment.py: 4 warnings
+tests/test_buyback_label_yasan.py: 3 warnings
+tests/test_buyback_logistics.py: 1 warning
+tests/test_buyback_logistics_e2e.py: 3 warnings
+tests/test_buyback_logistics_rbac.py: 3 warnings
+tests/test_buyback_packages.py: 4 warnings
+tests/test_buyback_receiving.py: 3 warnings
+tests/test_buyback_requests.py: 3 warnings
+tests/test_buyback_shipping.py: 6 warnings
+tests/test_buyback_token_redaction_phase15.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:149: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cart.updated_at = datetime.utcnow()
+
+tests/test_buyback_application_form.py: 5 warnings
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_barcode_security_phase1.py: 9 warnings
+tests/test_buyback_channel.py: 2 warnings
+tests/test_buyback_e2e_flow.py: 1 warning
+tests/test_buyback_item_assessment.py: 4 warnings
+tests/test_buyback_label_yasan.py: 3 warnings
+tests/test_buyback_logistics.py: 1 warning
+tests/test_buyback_logistics_e2e.py: 3 warnings
+tests/test_buyback_logistics_rbac.py: 3 warnings
+tests/test_buyback_packages.py: 4 warnings
+tests/test_buyback_receiving.py: 3 warnings
+tests/test_buyback_requests.py: 2 warnings
+tests/test_buyback_shipping.py: 6 warnings
+tests/test_buyback_token_redaction_phase15.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\services\buyback_requests.py:126: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_application_form.py: 5 warnings
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_barcode_security_phase1.py: 9 warnings
+tests/test_buyback_channel.py: 2 warnings
+tests/test_buyback_e2e_flow.py: 1 warning
+tests/test_buyback_item_assessment.py: 4 warnings
+tests/test_buyback_label_yasan.py: 3 warnings
+tests/test_buyback_logistics.py: 1 warning
+tests/test_buyback_logistics_e2e.py: 3 warnings
+tests/test_buyback_logistics_rbac.py: 3 warnings
+tests/test_buyback_packages.py: 4 warnings
+tests/test_buyback_receiving.py: 3 warnings
+tests/test_buyback_requests.py: 4 warnings
+tests/test_buyback_shipping.py: 6 warnings
+tests/test_buyback_token_redaction_phase15.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\services\buyback_request_number.py:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_buyback_application_form.py: 10 warnings
+tests/test_buyback_assessment_response.py: 16 warnings
+tests/test_buyback_barcode_security_phase1.py: 18 warnings
+tests/test_buyback_channel.py: 2 warnings
+tests/test_buyback_e2e_flow.py: 2 warnings
+tests/test_buyback_item_assessment.py: 8 warnings
+tests/test_buyback_label_yasan.py: 6 warnings
+tests/test_buyback_logistics.py: 6 warnings
+tests/test_buyback_logistics_e2e.py: 6 warnings
+tests/test_buyback_logistics_rbac.py: 6 warnings
+tests/test_buyback_packages.py: 8 warnings
+tests/test_buyback_receiving.py: 6 warnings
+tests/test_buyback_requests.py: 4 warnings
+tests/test_buyback_shipping.py: 12 warnings
+tests/test_buyback_token_redaction_phase15.py: 2 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_public_ids.py:18: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_buyback_application_form.py::test_get_application_form_payload_is_pii_minimized
+tests/test_buyback_application_form.py::test_issue_application_form_logs_print
+tests/test_buyback_application_form.py::test_issue_application_form_logs_print
+tests/test_buyback_logistics_e2e.py::test_logistics_e2e_flow
+tests/test_buyback_logistics_e2e.py::test_logistics_e2e_flow
+  C:\users\user1\projects\card-shop\backend\services\buyback_application_form.py:175: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_item_assessment.py: 4 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_admin.py:893: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    request.assessed_at = datetime.utcnow()
+
+tests/test_buyback_assessment_response.py: 8 warnings
+tests/test_buyback_item_assessment.py: 4 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_admin.py:895: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    request.updated_at = datetime.utcnow()
+
+tests/test_buyback_assessment_response.py::test_submit_all_accept
+tests/test_buyback_assessment_response.py::test_submit_partial_reject
+tests/test_buyback_assessment_response.py::test_submit_all_reject
+tests/test_buyback_assessment_response.py::test_submit_already_confirmed
+  C:\users\user1\projects\card-shop\backend\services\buyback_assessment_response.py:241: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+tests/test_buyback_barcode_security_phase1.py::test_ship_rejects_inactive_and_other_package_tokens_without_mutation
+tests/test_buyback_cart.py::test_merge_same_cart_line
+tests/test_buyback_channel.py::test_double_booking_rejected
+tests/test_buyback_e2e_flow.py::test_buyback_full_api_flow
+tests/test_buyback_logistics_e2e.py::test_incomplete_address_and_cancelled_block_ship
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:68: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    product.updated_at = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_barcode_security_phase1.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    barcode.expires_at = datetime.utcnow() - timedelta(seconds=1)
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+  C:\users\user1\projects\card-shop\backend\services\buyback_barcodes.py:112: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if expires_at is not None and expires_at <= datetime.utcnow():
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+tests/test_buyback_barcode_security_phase1.py::test_ship_rejects_inactive_and_other_package_tokens_without_mutation
+  C:\users\user1\projects\card-shop\backend\services\buyback_barcodes.py:123: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    barcode.revoked_at = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_rejects_inactive_expired_wrong_purpose_and_other_request_tokens
+tests/test_buyback_barcode_security_phase1.py::test_ship_rejects_inactive_and_other_package_tokens_without_mutation
+  C:\users\user1\projects\card-shop\backend\services\buyback_barcodes.py:124: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    barcode.updated_at = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py::test_receive_duplicate_is_rejected_without_second_state_change
+tests/test_buyback_concurrency_phase15.py::test_simultaneous_receive_creates_one_receipt_and_history
+tests/test_buyback_concurrency_phase15.py::test_receive_rolls_back_when_success_audit_fails
+tests/test_buyback_e2e_flow.py::test_buyback_full_api_flow
+tests/test_buyback_logistics_e2e.py::test_logistics_e2e_flow
+tests/test_buyback_receiving.py::test_scan_and_receive_flow
+tests/test_buyback_token_redaction_phase15.py::test_notification_exception_cannot_log_raw_scanner_token
+  C:\users\user1\projects\card-shop\backend\services\buyback_receiving.py:411: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py: 4 warnings
+tests/test_buyback_label_yasan.py: 3 warnings
+tests/test_buyback_logistics_e2e.py: 3 warnings
+tests/test_buyback_logistics_rbac.py: 2 warnings
+tests/test_buyback_packages.py: 2 warnings
+tests/test_buyback_shipping.py: 6 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_packages.py:236: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_barcode_security_phase1.py: 4 warnings
+tests/test_buyback_concurrency_phase15.py: 1 warning
+tests/test_buyback_logistics_e2e.py: 4 warnings
+tests/test_buyback_packages.py: 1 warning
+tests/test_buyback_shipping.py: 6 warnings
+  C:\users\user1\projects\card-shop\backend\services\buyback_packages.py:349: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_cart.py::test_merge_same_cart_line
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:136: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cart.updated_at = datetime.utcnow()
+
+tests/test_buyback_cart.py::test_update_and_delete_cart_item
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:178: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    item.cart.updated_at = datetime.utcnow()
+
+tests/test_buyback_cart.py::test_update_and_delete_cart_item
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:198: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cart.updated_at = datetime.utcnow()
+
+tests/test_buyback_cart.py::test_clear_cart
+  C:\users\user1\projects\card-shop\backend\services\buyback_cart.py:213: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cart.updated_at = datetime.utcnow()
+
+tests/test_buyback_channel.py::test_banner_active_window
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:92: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_channel.py::test_banner_update_with_timezone_aware_datetimes
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:116: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_channel.py::test_banner_update_with_timezone_aware_datetimes
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:165: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    is_active=_banner_is_active(banner, datetime.utcnow()),
+
+tests/test_buyback_channel.py::test_banner_update_with_timezone_aware_datetimes
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:175: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert _banner_is_active(banner, datetime.utcnow()) is True
+
+tests/test_buyback_channel.py::test_product_promo_badge_active_window
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:187: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    promo_badge_starts_at=datetime.utcnow() - timedelta(hours=1),
+
+tests/test_buyback_channel.py::test_product_promo_badge_active_window
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:188: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    promo_badge_ends_at=datetime.utcnow() + timedelta(hours=1),
+
+tests/test_buyback_channel.py::test_product_promo_badge_active_window
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:197: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    product.promo_badge_ends_at = datetime.utcnow() - timedelta(minutes=1)
+
+tests/test_buyback_channel.py::test_past_slot_not_bookable
+  C:\Users\user1\projects\card-shop\backend\tests\test_buyback_channel.py:212: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    past = datetime.utcnow() - timedelta(hours=2)
+
+tests/test_buyback_concurrency_phase15.py::test_simultaneous_same_return_package_is_safe_and_not_500
+tests/test_buyback_concurrency_phase15.py::test_simultaneous_final_two_return_boxes_set_request_returned_once
+tests/test_buyback_concurrency_phase15.py::test_simultaneous_final_two_return_boxes_set_request_returned_once
+tests/test_buyback_concurrency_phase15.py::test_stale_package_completion_cannot_regress_shipped_state
+tests/test_buyback_concurrency_phase15.py::test_ship_rolls_back_when_success_audit_fails
+tests/test_buyback_logistics_e2e.py::test_logistics_e2e_flow
+tests/test_buyback_shipping.py::test_ship_scan_and_confirm
+tests/test_buyback_shipping.py::test_double_ship_blocked
+  C:\users\user1\projects\card-shop\backend\services\buyback_shipping.py:489: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_e2e_flow.py::test_buyback_full_api_flow
+tests/test_buyback_e2e_flow.py::test_firestore_import_idempotent_via_admin_api
+tests/test_buyback_e2e_flow.py::test_firestore_import_idempotent_via_admin_api
+tests/test_buyback_firestore_import.py::test_import_firestore_export_creates_products_and_prices
+tests/test_buyback_firestore_import.py::test_import_firestore_export_creates_products_and_prices
+tests/test_buyback_firestore_import.py::test_import_is_idempotent
+tests/test_buyback_firestore_import.py::test_import_is_idempotent
+  C:\users\user1\projects\card-shop\backend\services\buyback_firestore_import.py:137: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    product.updated_at = datetime.utcnow()
+
+tests/test_buyback_guardian.py::test_guardian_consent_request_and_sign
+  C:\users\user1\projects\card-shop\backend\services\buyback_guardian.py:342: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_buyback_guardian.py::test_guardian_consent_request_and_sign
+  C:\users\user1\projects\card-shop\backend\services\buyback_guardian.py:355: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expires_at = datetime.utcnow() + timedelta(days=settings.BUYBACK_GUARDIAN_CONSENT_EXPIRE_DAYS)
+
+tests/test_buyback_guardian.py::test_guardian_consent_request_and_sign
+  C:\users\user1\projects\card-shop\backend\services\buyback_guardian.py:427: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if consent.expires_at and consent.expires_at < datetime.utcnow():
+
+tests/test_buyback_guardian.py::test_guardian_consent_request_and_sign
+  C:\users\user1\projects\card-shop\backend\services\buyback_guardian.py:392: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if consent.expires_at and consent.expires_at < datetime.utcnow():
+
+tests/test_buyback_guardian.py::test_guardian_consent_request_and_sign
+  C:\users\user1\projects\card-shop\backend\services\buyback_guardian.py:400: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    consent.signed_at = datetime.utcnow()
+
+tests/test_buyback_identity.py::test_pending_without_submitted_at_is_repaired_for_first_upload
+  C:\users\user1\projects\card-shop\backend\services\buyback_identity.py:71: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_buyback_identity.py::test_upload_blocked_with_clear_message[pending-\u73fe\u5728\u5be9\u67fb\u4e2d]
+tests/test_buyback_identity.py::test_upload_blocked_with_clear_message[approved-\u627f\u8a8d\u6e08\u307f]
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_identity.py:130: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _identity(db, user.id, status=status, submitted_at=datetime.utcnow())
+
+tests/test_buyback_identity.py::test_pending_blocks_submit_with_clear_message
+  C:\users\user1\projects\card-shop\backend\tests\test_buyback_identity.py:186: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    submitted_at=datetime.utcnow(),
+
+tests/test_buyback_payout.py::test_set_default_and_delete_payout_account
+  C:\users\user1\projects\card-shop\backend\services\buyback_payout_accounts.py:174: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    account.updated_at = datetime.utcnow()
+
+tests/test_buyback_payout.py::test_set_default_and_delete_payout_account
+  C:\users\user1\projects\card-shop\backend\services\buyback_payout_accounts.py:205: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    replacement.updated_at = datetime.utcnow()
+
+tests/test_buyback_shop_settings.py::test_admin_shop_settings_upsert
+  C:\users\user1\projects\card-shop\backend\services\buyback_shop_settings.py:67: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_coupons.py: 11 warnings
+  C:\users\user1\projects\card-shop\backend\services\coupon_calculator.py:69: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_coupons.py::test_min_subtotal_and_expired
+  C:\users\user1\projects\card-shop\backend\tests\test_coupons.py:187: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    ends_at=datetime.utcnow() - timedelta(days=1),
+
+tests/test_coupons.py::test_max_uses_per_user
+tests/test_coupons.py::test_reserve_confirm_release_idempotent
+  C:\users\user1\projects\card-shop\backend\services\coupon_ledger.py:185: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_coupons.py::test_reserve_confirm_release_idempotent
+tests/test_coupons.py::test_coupon_then_points_stack
+  C:\users\user1\projects\card-shop\backend\services\coupon_ledger.py:201: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_coupons.py: 1 warning
+tests/test_live_auction_purchase.py: 1 warning
+tests/test_points.py: 10 warnings
+  C:\users\user1\projects\card-shop\backend\services\point_ledger.py:33: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_coupons.py::test_assign_appears_in_mine
+  C:\users\user1\projects\card-shop\backend\routes\coupons.py:51: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+  C:\users\user1\projects\card-shop\backend\services\member_emails.py:187: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    reference_id=f"{user.id}:fail:{datetime.utcnow().strftime('%Y%m%d%H')}",
+
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_record_login_success_clears_failures
+tests/test_customer_auth_security.py::test_login_otp_verify
+tests/test_member_email_templates.py::test_send_member_event_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\member_email_variables.py:74: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    value = dt or datetime.utcnow()
+
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_account_lockout_after_failures
+tests/test_customer_auth_security.py::test_record_login_success_clears_failures
+tests/test_customer_auth_security.py::test_login_otp_verify
+tests/test_customer_auth_security.py::test_login_otp_verify
+tests/test_customer_auth_security.py::test_login_otp_verify
+  C:\users\user1\projects\card-shop\backend\services\customer_auth_security.py:29: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_customer_auth_security.py::test_record_login_success_clears_failures
+  C:\users\user1\projects\card-shop\backend\services\member_emails.py:168: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    reference_id=f"{user.id}:{datetime.utcnow().strftime('%Y%m%d%H%M')}",
+
+tests/test_email_broadcast.py::test_announcement_email_preview
+tests/test_email_broadcast.py::test_announcement_email_preview
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+  C:\users\user1\projects\card-shop\backend\services\broadcast_email_variables.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    value = dt or datetime.utcnow()
+
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+  C:\users\user1\projects\card-shop\backend\services\email_broadcast.py:218: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    campaign.started_at = datetime.utcnow()
+
+tests/test_email_broadcast.py::test_announcement_email_send_mocked
+  C:\users\user1\projects\card-shop\backend\services\email_broadcast.py:267: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    campaign.completed_at = datetime.utcnow()
+
+tests/test_inquiries.py::test_create_inquiry_assigns_number
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+tests/test_inquiries.py::test_customer_cannot_use_unrelated_product
+tests/test_inquiries.py::test_customer_cannot_access_other_users_inquiry
+tests/test_inquiries.py::test_closed_inquiry_rejects_customer_reply_when_reopen_disabled
+  C:\users\user1\projects\card-shop\backend\services\inquiry_service.py:66: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    since = datetime.utcnow() - timedelta(minutes=1)
+
+tests/test_inquiries.py::test_create_inquiry_assigns_number
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+tests/test_inquiries.py::test_customer_cannot_use_unrelated_product
+tests/test_inquiries.py::test_customer_cannot_access_other_users_inquiry
+tests/test_inquiries.py::test_closed_inquiry_rejects_customer_reply_when_reopen_disabled
+  C:\users\user1\projects\card-shop\backend\services\inquiry_service.py:128: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    models.Inquiry.created_at >= datetime.utcnow() - timedelta(minutes=5),
+
+tests/test_inquiries.py::test_create_inquiry_assigns_number
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+tests/test_inquiries.py::test_customer_cannot_access_other_users_inquiry
+tests/test_inquiries.py::test_closed_inquiry_rejects_customer_reply_when_reopen_disabled
+  C:\users\user1\projects\card-shop\backend\services\inquiry_service.py:145: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_inquiries.py::test_create_inquiry_assigns_number
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+tests/test_inquiries.py::test_customer_cannot_access_other_users_inquiry
+tests/test_inquiries.py::test_closed_inquiry_rejects_customer_reply_when_reopen_disabled
+  C:\users\user1\projects\card-shop\backend\services\inquiry_number.py:13: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+  C:\users\user1\projects\card-shop\backend\services\inquiry_service.py:260: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_inquiries.py::test_customer_cannot_see_internal_notes
+  C:\users\user1\projects\card-shop\backend\services\inquiry_service.py:89: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_inquiries.py::test_closed_inquiry_rejects_customer_reply_when_reopen_disabled
+  C:\users\user1\projects\card-shop\backend\tests\test_inquiries.py:138: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    inquiry.closed_at = datetime.utcnow()
+
+tests/test_inquiry_email_templates.py::test_inquiry_sample_variables_no_urls_in_attachments
+tests/test_inquiry_email_templates.py::test_inquiry_sample_variables_no_urls_in_attachments
+tests/test_inquiry_email_templates.py::test_send_inquiry_event_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\inquiry_email_variables.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    value = dt or datetime.utcnow()
+
+tests/test_inquiry_upload.py::test_attachment_download_token_roundtrip
+tests/test_inquiry_upload.py::test_admin_attachment_download_token
+  C:\users\user1\projects\card-shop\backend\services\inquiry_upload.py:93: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expire = datetime.utcnow() + timedelta(minutes=DOWNLOAD_TOKEN_MINUTES)
+
+tests/test_invoice_config.py::test_update_invoice_settings_stores_valid_config
+  C:\users\user1\projects\card-shop\backend\services\invoice_config.py:115: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_live_auction_purchase.py: 6 warnings
+tests/test_live_auctions.py: 14 warnings
+tests/test_live_offers.py: 46 warnings
+tests/test_live_streams.py: 12 warnings
+tests/test_points.py: 2 warnings
+  C:\users\user1\projects\card-shop\backend\services\live_streams.py:19: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_auction_purchase.py: 12 warnings
+tests/test_live_auctions.py: 16 warnings
+tests/test_live_offers.py: 2 warnings
+  C:\users\user1\projects\card-shop\backend\services\live_auctions.py:20: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_auction_purchase.py::test_finish_auction_creates_purchase_right
+tests/test_live_auction_purchase.py::test_auction_purchase_with_points
+tests/test_live_auction_purchase.py::test_auction_purchase_wrong_user_forbidden
+tests/test_live_auctions.py::test_bid_validation_and_increment
+tests/test_live_auctions.py::test_bid_validation_and_increment
+tests/test_live_auctions.py::test_snipe_extension
+tests/test_live_auctions.py::test_instant_buy
+tests/test_live_auctions.py::test_finish_auction
+tests/test_live_auctions.py::test_public_bid_requires_auth
+  C:\users\user1\projects\card-shop\backend\services\live_auction_rate_limit.py:32: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_live_auction_purchase.py: 9 warnings
+tests/test_live_auctions.py: 15 warnings
+  C:\users\user1\projects\card-shop\backend\services\live_bids.py:20: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_auction_purchase.py::test_auction_purchase_with_points
+  C:\users\user1\projects\card-shop\backend\services\live_auction_purchase.py:19: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_auction_purchase.py::test_auction_purchase_with_points
+tests/test_live_offers.py::test_double_purchase_idempotent
+tests/test_live_offers.py::test_purchase_via_api
+tests/test_order_number.py::test_assign_order_number_format_and_sequence
+tests/test_order_number.py::test_assign_order_number_format_and_sequence
+tests/test_order_number.py::test_assign_order_number_increments_existing_sequence_row
+tests/test_points.py::test_live_offer_order_with_points
+tests/test_stripe_bank_transfer.py::test_fulfill_order_marks_paid_and_assigns_order_number
+tests/test_stripe_bank_transfer.py::test_fulfill_paid_order_is_idempotent
+  C:\users\user1\projects\card-shop\backend\services\order_number.py:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_live_auctions.py::test_snipe_extension
+  C:\users\user1\projects\card-shop\backend\tests\test_live_auctions.py:110: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    auction.ends_at = datetime.utcnow() + timedelta(seconds=10)
+
+tests/test_live_offers.py: 23 warnings
+tests/test_points.py: 1 warning
+  C:\users\user1\projects\card-shop\backend\services\live_offer_rate_limit.py:30: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_live_offers.py: 52 warnings
+tests/test_points.py: 4 warnings
+  C:\users\user1\projects\card-shop\backend\services\live_offers.py:38: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_offers.py::test_purchase_right_expiry
+  C:\users\user1\projects\card-shop\backend\tests\test_live_offers.py:234: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    right.expires_at = datetime.utcnow() - timedelta(seconds=1)
+
+tests/test_live_offers.py::test_purchase_right_expiry
+tests/test_live_offers.py::test_double_purchase_idempotent
+tests/test_live_offers.py::test_stock_conflict
+tests/test_live_offers.py::test_purchase_via_api
+tests/test_points.py::test_live_offer_order_with_points
+  C:\users\user1\projects\card-shop\backend\services\live_offer_purchase.py:19: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_live_offers.py::test_offer_expiry
+  C:\users\user1\projects\card-shop\backend\tests\test_live_offers.py:356: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    offer.display_expires_at = datetime.utcnow() - timedelta(seconds=1)
+
+tests/test_live_streams.py::test_ng_word_blocks_comment
+tests/test_live_streams.py::test_public_live_list_and_comment
+tests/test_live_streams.py::test_comment_moderation_flow
+tests/test_live_streams.py::test_comment_moderation_flow
+tests/test_live_streams.py::test_comment_moderation_flow
+  C:\users\user1\projects\card-shop\backend\services\live_rate_limit.py:31: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_live_streams.py::test_ng_word_blocks_comment
+tests/test_live_streams.py::test_public_live_list_and_comment
+tests/test_live_streams.py::test_comment_moderation_flow
+tests/test_live_streams.py::test_comment_moderation_flow
+tests/test_live_streams.py::test_comment_moderation_flow
+  C:\users\user1\projects\card-shop\backend\services\live_moderation.py:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow()
+
+tests/test_loyalty_email_templates.py::test_send_loyalty_event_respects_auto_send
+  C:\users\user1\projects\card-shop\backend\services\loyalty_email_variables.py:110: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    value = dt or datetime.utcnow()
+
+tests/test_notifications.py::test_list_mark_read_privacy
+  C:\users\user1\projects\card-shop\backend\services\user_notifications.py:183: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.read_at = datetime.utcnow()
+
+tests/test_notifications.py::test_mark_all_read
+  C:\users\user1\projects\card-shop\backend\services\user_notifications.py:189: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_notifications.py::test_settings_block_in_app
+tests/test_notifications.py::test_settings_api
+  C:\users\user1\projects\card-shop\backend\services\notification_settings.py:54: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.updated_at = datetime.utcnow()
+
+tests/test_order_emails.py::test_send_purchase_confirmation_email_success
+tests/test_order_emails.py::test_send_purchase_confirmation_dedup
+tests/test_stripe_bank_transfer.py::test_bank_transfer_pending_handler_sets_status
+tests/test_stripe_bank_transfer.py::test_cancel_unpaid_order_releases_stock
+tests/test_stripe_bank_transfer.py::test_expire_overdue_bank_transfer_orders
+tests/test_stripe_bank_transfer.py::test_bank_transfer_pending_email_mock
+tests/test_stripe_bank_transfer.py::test_bank_transfer_cancel_email_mock
+tests/test_stripe_bank_transfer.py::test_purchase_email_includes_payment_method
+  C:\users\user1\projects\card-shop\backend\services\order_email_variables.py:146: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "date": datetime.utcnow().strftime("%Y/%m/%d %H:%M"),
+
+tests/test_order_emails.py::test_send_purchase_confirmation_email_success
+tests/test_order_emails.py::test_send_purchase_confirmation_dedup
+tests/test_stripe_bank_transfer.py::test_purchase_email_includes_payment_method
+  C:\users\user1\projects\card-shop\backend\services\order_emails.py:200: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_order_emails.py::test_send_shipping_email_success
+tests/test_order_emails.py::test_send_shipping_email_allows_teikei_without_tracking
+tests/test_shipping_email_templates.py::test_send_shipping_email_success
+tests/test_shipping_email_templates.py::test_legacy_template_key_resolves_to_shipping_shipped
+  C:\users\user1\projects\card-shop\backend\services\shipping_email_variables.py:166: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "date": shipped or datetime.utcnow().strftime("%Y/%m/%d %H:%M"),
+
+tests/test_order_emails.py::test_send_shipping_email_success
+tests/test_order_emails.py::test_send_shipping_email_allows_teikei_without_tracking
+tests/test_shipping_email_templates.py::test_send_shipping_email_success
+tests/test_shipping_email_templates.py::test_legacy_template_key_resolves_to_shipping_shipped
+  C:\users\user1\projects\card-shop\backend\services\shipping_emails.py:128: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_order_number.py::test_assign_order_number_format_and_sequence
+  C:\users\user1\projects\card-shop\backend\tests\test_order_number.py:9: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_order_number.py::test_assign_order_number_increments_existing_sequence_row
+  C:\users\user1\projects\card-shop\backend\tests\test_order_number.py:41: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today = datetime.utcnow().strftime("%Y%m%d")
+
+tests/test_points.py::test_expiration
+  C:\users\user1\projects\card-shop\backend\tests\test_points.py:262: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    lot.expires_at = datetime.utcnow() - timedelta(hours=1)
+
+tests/test_stripe_bank_transfer.py::test_bank_transfer_pending_handler_sets_status
+tests/test_stripe_bank_transfer.py::test_fulfill_order_marks_paid_and_assigns_order_number
+tests/test_stripe_bank_transfer.py::test_fulfill_paid_order_is_idempotent
+tests/test_stripe_bank_transfer.py::test_cancel_unpaid_order_releases_stock
+tests/test_stripe_bank_transfer.py::test_expire_overdue_bank_transfer_orders
+tests/test_stripe_bank_transfer.py::test_bank_transfer_pending_email_mock
+tests/test_stripe_bank_transfer.py::test_bank_transfer_cancel_email_mock
+  C:\users\user1\projects\card-shop\backend\tests\test_stripe_bank_transfer.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    payment_deadline=datetime.utcnow() + timedelta(hours=48),
+
+tests/test_stripe_bank_transfer.py::test_fulfill_order_marks_paid_and_assigns_order_number
+tests/test_stripe_bank_transfer.py::test_fulfill_paid_order_is_idempotent
+  C:\users\user1\projects\card-shop\backend\services\order_checkout.py:268: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    order.paid_at = datetime.utcnow()
+
+tests/test_stripe_bank_transfer.py::test_expire_overdue_bank_transfer_orders
+  C:\users\user1\projects\card-shop\backend\tests\test_stripe_bank_transfer.py:143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    order.payment_deadline = datetime.utcnow() - timedelta(hours=1)
+
+tests/test_stripe_bank_transfer.py::test_expire_overdue_bank_transfer_orders
+  C:\users\user1\projects\card-shop\backend\services\order_checkout.py:339: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+414 passed, 1 skipped, 158412 warnings in 900.24s (0:15:00)

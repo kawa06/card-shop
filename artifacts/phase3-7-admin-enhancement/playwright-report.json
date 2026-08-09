@@ -1,0 +1,874 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\user1\\projects\\card-shop\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--project=global setup",
+      "--project=phase3-4-points",
+      "--project=phase3-5-coupons",
+      "--project=phase3-6-notifications"
+    ],
+    "configFile": "C:\\Users\\user1\\projects\\card-shop\\frontend\\playwright.config.ts",
+    "rootDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "global setup",
+        "name": "global setup",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/global\\.setup\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase2-admin-ui",
+        "name": "phase2-admin-ui",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase2-admin-ui\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-live",
+        "name": "phase3-live",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-live\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-2-auction",
+        "name": "phase3-2-auction",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-2-auction\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-4-points",
+        "name": "phase3-4-points",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-4-points\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-4-evidence",
+        "name": "phase3-4-evidence",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-4-evidence\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-5-coupons",
+        "name": "phase3-5-coupons",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-5-coupons\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-6-notifications",
+        "name": "phase3-6-notifications",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-6-notifications\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-7-admin-enhancement",
+        "name": "phase3-7-admin-enhancement",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-7-admin-enhancement\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-3-offers",
+        "name": "phase3-3-offers",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-3-offers\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-2-milestone1/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-3-offers/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-4-points/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-5-coupons/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-6-notifications/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-7-admin-enhancement/playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://127.0.0.1:3000",
+      "reuseExistingServer": true,
+      "timeout": 180000
+    }
+  },
+  "suites": [
+    {
+      "title": "global.setup.ts",
+      "file": "global.setup.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "configure Clerk testing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "global setup",
+              "projectName": "global setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 816,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "[dotenv@17.2.2] injecting env (0) from .env.local,.env -- tip: 📡 observe env with Radar: https://dotenvx.com/radar\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:09:36.777Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e4eb4d1272d956fb120f-49763ae4227c2b961306",
+          "file": "global.setup.ts",
+          "line": 14,
+          "column": 6
+        },
+        {
+          "title": "authenticate admin and save storageState",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "global setup",
+              "projectName": "global setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10000,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:09:37.633Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e4eb4d1272d956fb120f-7dcfd46134c3a341ff2d",
+          "file": "global.setup.ts",
+          "line": 18,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "title": "phase3-4-points.spec.ts",
+      "file": "phase3-4-points.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Scenario 1: admin grant and mypage balance",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20850,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:09:48.800Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-c424a77764994dbc9d61",
+          "file": "phase3-4-points.spec.ts",
+          "line": 242,
+          "column": 5
+        },
+        {
+          "title": "Scenario 2: partial points full checkout flow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 43912,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:10:09.831Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-ab2bd021289d62df8602",
+          "file": "phase3-4-points.spec.ts",
+          "line": 269,
+          "column": 5
+        },
+        {
+          "title": "Scenario 3: zero-yen full points checkout skips Stripe",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 48275,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:10:53.759Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-d46a1a48487411c19499",
+          "file": "phase3-4-points.spec.ts",
+          "line": 349,
+          "column": 5
+        },
+        {
+          "title": "Scenario 4: cancel restores reserved points idempotently",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 30827,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:11:42.045Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-697ad1abb43512c70711",
+          "file": "phase3-4-points.spec.ts",
+          "line": 438,
+          "column": 5
+        },
+        {
+          "title": "Scenario 5: mypage points history visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 17769,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:12:12.884Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-efae3ad80f4c27f61bc2",
+          "file": "phase3-4-points.spec.ts",
+          "line": 500,
+          "column": 5
+        },
+        {
+          "title": "Scenario 6: admin deduct reflects on mypage",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19132,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:12:30.663Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-61cadc96984fca244d0f",
+          "file": "phase3-4-points.spec.ts",
+          "line": 506,
+          "column": 5
+        },
+        {
+          "title": "Scenario 7: over-balance checkout preview rejected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 17784,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:12:49.807Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-d76ea4a4813f32c6be9b",
+          "file": "phase3-4-points.spec.ts",
+          "line": 532,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "phase3-5-coupons.spec.ts",
+      "file": "phase3-5-coupons.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Scenario 1: admin create fixed/percent/free_shipping + CSV",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-5-coupons",
+              "projectName": "phase3-5-coupons",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9490,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:13:08.358Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "49057a8623c3e139cf81-3904d3e676698309b547",
+          "file": "phase3-5-coupons.spec.ts",
+          "line": 125,
+          "column": 5
+        },
+        {
+          "title": "Scenario 2: checkout preview apply with points + unpaid cancel restore",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-5-coupons",
+              "projectName": "phase3-5-coupons",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 35731,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:13:18.050Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "49057a8623c3e139cf81-abd3a2673bbf31f8b6dd",
+          "file": "phase3-5-coupons.spec.ts",
+          "line": 169,
+          "column": 5
+        },
+        {
+          "title": "Scenario 3: mypage assigned list + reject expired/min/over-limit",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-5-coupons",
+              "projectName": "phase3-5-coupons",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 29264,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:13:53.794Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "49057a8623c3e139cf81-9387ffefb04fea65211e",
+          "file": "phase3-5-coupons.spec.ts",
+          "line": 265,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "phase3-6-notifications.spec.ts",
+      "file": "phase3-6-notifications.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Scenario 1: notification list + badge",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-6-notifications",
+              "projectName": "phase3-6-notifications",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 23530,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:14:23.813Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "23c424a31d688036d195-807fe7618e71f971a926",
+          "file": "phase3-6-notifications.spec.ts",
+          "line": 46,
+          "column": 5
+        },
+        {
+          "title": "Scenario 2: mark one read",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-6-notifications",
+              "projectName": "phase3-6-notifications",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 25058,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:14:47.548Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "23c424a31d688036d195-23b1cf28b2e101d5cff1",
+          "file": "phase3-6-notifications.spec.ts",
+          "line": 77,
+          "column": 5
+        },
+        {
+          "title": "Scenario 3: mark all read",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-6-notifications",
+              "projectName": "phase3-6-notifications",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21265,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:15:12.621Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "23c424a31d688036d195-159bee05fce8091aba55",
+          "file": "phase3-6-notifications.spec.ts",
+          "line": 100,
+          "column": 5
+        },
+        {
+          "title": "Scenario 4: coupon assignment event notification",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-6-notifications",
+              "projectName": "phase3-6-notifications",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20933,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:15:33.899Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "23c424a31d688036d195-8736bd8fb7d9097aba6f",
+          "file": "phase3-6-notifications.spec.ts",
+          "line": 120,
+          "column": 5
+        },
+        {
+          "title": "Scenario 5: settings disable campaign in-app",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-6-notifications",
+              "projectName": "phase3-6-notifications",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21959,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T13:15:54.843Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "23c424a31d688036d195-c7ddb0220c629878d46d",
+          "file": "phase3-6-notifications.spec.ts",
+          "line": 156,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-09T13:09:25.656Z",
+    "duration": 411681.47000000003,
+    "expected": 17,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

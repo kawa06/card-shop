@@ -1,0 +1,43 @@
+{
+  "status": "PHASE_3_7_FORMALLY_COMPLETED",
+  "phase": "3-7",
+  "title": "Admin Enhancement / Analytics Dashboard",
+  "git": {
+    "feature_commit": "83a82ce",
+    "branch": "main"
+  },
+  "backend": {
+    "pytest": "414 passed / 1 skipped / 0 failed",
+    "health_version": "phase3-7-v1"
+  },
+  "frontend": {
+    "build": "pass",
+    "tsc": "pass",
+    "lint": "pass (existing live-page warnings only)"
+  },
+  "playwright": {
+    "phase3_7": "7 passed",
+    "phase3_4_regression": "9 passed (incl setup)",
+    "phase3_5_regression": "3 passed",
+    "phase3_6_regression": "5 passed"
+  },
+  "railway": {
+    "deployment_id": "b2344641-63ff-4b59-8711-63e636eb4d7d",
+    "health": "ok",
+    "version": "phase3-7-v1",
+    "postgresql_persistent": true,
+    "url": "https://backend-production-054e.up.railway.app"
+  },
+  "vercel": {
+    "deployment_id": "dpl_8pAXvin7vXsViUcNkHUvBLKqTjLX",
+    "production_url": "https://frontend-one-topaz-20.vercel.app"
+  },
+  "known_limitations_unchanged": [
+    "Partial refund coupon restore: not implemented",
+    "Partial refund points restore: FULL REFUND only",
+    "coupon assignment notification: in-app only",
+    "order / shipping / buyback email keep existing paths",
+    "notification layer must not double-send existing emails",
+    "announcement email remains admin explicit broadcast"
+  ]
+}
