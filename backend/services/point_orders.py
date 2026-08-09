@@ -177,6 +177,10 @@ def apply_points_on_order_created(
 
 def on_order_paid(db: Session, order: models.Order) -> None:
     """Confirm point use and grant earn on payment success (idempotent)."""
+    from services.coupon_orders import on_order_paid_coupon
+
+    on_order_paid_coupon(db, order)
+
     settings = get_point_settings(db)
     points_used = int(order.points_used or 0)
 
@@ -229,6 +233,9 @@ def on_order_cancelled_or_failed(db: Session, order: models.Order) -> None:
 
 def on_order_cancelled_after_paid(db: Session, order: models.Order) -> None:
     """Restore used points and reverse earned points after paid order cancel."""
+    from services.coupon_orders import on_coupon_order_cancelled
+
+    on_coupon_order_cancelled(db, order)
     points_used = int(order.points_used or 0)
     if points_used > 0:
         restore_used_points_for_order(

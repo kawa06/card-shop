@@ -170,7 +170,14 @@ def create_stripe_checkout_session(
         payment_deadline=bank_transfer_payment_deadline() if is_bank_transfer else None,
     )
 
+    from services.coupon_orders import apply_coupon_on_order_created
     from services.point_orders import apply_points_on_order_created
+
+    coupon_code = (payload.coupon_code or "").strip() or None
+    if coupon_code:
+        apply_coupon_on_order_created(db, order, coupon_code=coupon_code)
+        db.commit()
+        db.refresh(order)
 
     points_requested = int(payload.points_to_use or 0)
     if points_requested > 0:
@@ -196,8 +203,8 @@ def create_stripe_checkout_session(
         }
 
     shipping_label = payload.shipping_method or "送料"
-    line_items = build_line_items(cart_items, shipping_fee_total, shipping_label)
-    if int(order.points_used or 0) > 0:
+    line_items = build_line_items(cart_items, int(order.shipping_fee or 0) + int(order.packaging_fee or 0), shipping_label)
+    if int(order.points_used or 0) > 0 or int(order.discount_amount or 0) > 0:
         line_items = adjust_line_items_to_total(line_items, int(round(order.total_amount)))
     try:
         session = create_checkout_session(
@@ -399,8 +406,10 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             order = db.query(models.Order).filter(models.Order.id == order_id).first()
             if order and order.payment_status == "paid" and _is_full_stripe_refund(session, event_type, order):
                 from services.point_orders import on_order_cancelled_after_paid
+                from services.coupon_orders import on_coupon_order_cancelled
 
                 on_order_cancelled_after_paid(db, order)
+                on_coupon_order_cancelled(db, order)
             db.commit()
 
     return {"received": True}

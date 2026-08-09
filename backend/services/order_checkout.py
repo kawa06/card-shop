@@ -314,8 +314,10 @@ def cancel_unpaid_order(
 
     release_inventory_for_order(db, order)
     from services.point_orders import on_order_cancelled_or_failed
+    from services.coupon_orders import on_coupon_order_cancelled
 
     on_order_cancelled_or_failed(db, order)
+    on_coupon_order_cancelled(db, order)
     order.payment_status = "expired" if as_expired else "cancelled"
     order.status = models.OrderStatus.cancelled
     order.shipping_status = "cancelled"

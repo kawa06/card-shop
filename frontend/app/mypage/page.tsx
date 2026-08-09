@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth, useUser } from '@clerk/nextjs'
-import { User, Package, Heart, MapPin, Coins, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell, UserRound } from 'lucide-react'
+import { User, Package, Heart, MapPin, Coins, Trash2, AlertTriangle, Key, ShieldCheck, Mail, CheckCircle2, Phone, Smartphone, MessageSquare, Bell, UserRound, Ticket } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { ordersApi, authApi, favoritesApi, inquiriesApi, announcementsApi } from '@/lib/api'
 import { Order, User as UserType } from '@/lib/types'
@@ -498,6 +498,17 @@ export default function MypagePage() {
               <div>
                 <p className="text-gray-900 font-medium text-sm">ポイント</p>
                 <p className="text-gray-500 text-[10px]">残高・履歴</p>
+              </div>
+            </div>
+          </Link>
+          <Link href="/mypage/coupons">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-emerald-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-emerald-400/10 text-emerald-600 group-hover:bg-emerald-400 group-hover:text-white transition-colors">
+                <Ticket className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">クーポン</p>
+                <p className="text-gray-500 text-[10px]">保有・利用可能</p>
               </div>
             </div>
           </Link>

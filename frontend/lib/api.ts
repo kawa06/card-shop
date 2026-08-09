@@ -379,6 +379,7 @@ export const paymentsApi = {
     locale?: string
     checkout_type?: 'card' | 'bank_transfer'
     points_to_use?: number
+    coupon_code?: string
   }) => apiClient.post('/payments/stripe/create-checkout-session', data),
   confirmStripeCheckout: (sessionId: string) =>
     apiClient.get('/payments/stripe/confirm', { params: { session_id: sessionId } }),
@@ -411,6 +412,30 @@ export const adminPointsApi = {
     apiClient.post('/admin/points/deduct', data),
   getAuditLogs: (params?: { limit?: number; offset?: number }) =>
     apiClient.get('/admin/points/audit', { params }),
+}
+
+export const couponsApi = {
+  listMine: () => apiClient.get('/coupons/mine'),
+  checkoutPreview: (data: {
+    coupon_code: string
+    items_subtotal: number
+    shipping_fee?: number
+    packaging_fee?: number
+    cart_items?: Array<{ card_id: number; category_id?: number | null; quantity: number; unit_price: number }>
+    requested_points?: number
+  }) => apiClient.post('/coupons/checkout-preview', data),
+}
+
+export const adminCouponsApi = {
+  list: (params?: { q?: string; active_only?: boolean; limit?: number; offset?: number }) =>
+    apiClient.get('/admin/coupons', { params }),
+  create: (data: Record<string, unknown>) => apiClient.post('/admin/coupons', data),
+  update: (id: number, data: Record<string, unknown>) => apiClient.patch(`/admin/coupons/${id}`, data),
+  assign: (id: number, data: { user_id: number; note?: string }) =>
+    apiClient.post(`/admin/coupons/${id}/assign`, data),
+  exportCsv: () => apiClient.get('/admin/coupons/export.csv', { responseType: 'blob' }),
+  getAuditLogs: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get('/admin/coupons/audit', { params }),
 }
 
 // Admin API

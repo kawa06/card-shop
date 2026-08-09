@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useBackendAuth } from '@/hooks/useBackendAuth'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore } from '@/store/cart'
-import { ordersApi, authApi, shippingApi, paymentsApi, pointsApi } from '@/lib/api'
+import { ordersApi, authApi, shippingApi, paymentsApi, pointsApi, couponsApi } from '@/lib/api'
 import { toast } from '@/lib/use-toast'
 import { formatPrice, usePrice } from '@/lib/format'
 import { useLangStore } from '@/store/lang'
@@ -126,6 +126,18 @@ export default function CheckoutPage() {
     applied_points: number
     total_yen: number
     estimated_earn_points: number
+  } | null>(null)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponPreview, setCouponPreview] = useState<{
+    valid: boolean
+    coupon_code?: string | null
+    coupon_name?: string | null
+    coupon_type?: string | null
+    discount_amount: number
+    shipping_fee_after: number
+    shipping_discount: number
+    total_yen_before_points: number
+    message?: string | null
   } | null>(null)
 
   const isInternational = !isDomesticJapan(country)
@@ -329,10 +341,36 @@ export default function CheckoutPage() {
       try {
         const token = await requireAuth()
         if (!token) return
+        const cartPayload = items.map((it) => ({
+          card_id: it.card_id,
+          category_id: (it as any).card?.category_id ?? null,
+          quantity: it.quantity,
+          unit_price: Math.round(Number((it as any).card?.price ?? (it as any).unit_price ?? 0)),
+        }))
+        let discountAmount = 0
+        let shippingAfter = shippingFee
+        if (couponCode.trim()) {
+          const cpn = await couponsApi.checkoutPreview({
+            coupon_code: couponCode.trim(),
+            items_subtotal: Math.round(total),
+            shipping_fee: shippingFee,
+            packaging_fee: selectedQuote?.packaging_fee_jpy ?? 0,
+            cart_items: cartPayload,
+            requested_points: pointsToUse,
+          })
+          setCouponPreview(cpn.data)
+          if (cpn.data.valid) {
+            discountAmount = Number(cpn.data.discount_amount || 0)
+            shippingAfter = Number(cpn.data.shipping_fee_after ?? shippingFee)
+          }
+        } else {
+          setCouponPreview(null)
+        }
         const res = await pointsApi.checkoutPreview({
           items_subtotal: Math.round(total),
-          shipping_fee: shippingFee,
+          shipping_fee: shippingAfter,
           packaging_fee: selectedQuote?.packaging_fee_jpy ?? 0,
+          discount_amount: discountAmount,
           requested_points: pointsToUse,
         })
         setPointPreview(res.data)
@@ -340,7 +378,7 @@ export default function CheckoutPage() {
         setPointPreview(null)
       }
     })()
-  }, [isMounted, isReady, isLoggedIn, total, shippingFee, pointsToUse, selectedQuote, requireAuth])
+  }, [isMounted, isReady, isLoggedIn, total, shippingFee, pointsToUse, selectedQuote, requireAuth, couponCode, items])
 
   useEffect(() => {
     if (!isMounted || !isReady || !isLoggedIn) return
@@ -463,6 +501,7 @@ export default function CheckoutPage() {
           locale: lang,
           checkout_type: paymentMethod === 'bank_transfer' ? 'bank_transfer' : 'card',
           points_to_use: pointPreview?.applied_points ?? pointsToUse,
+          coupon_code: couponPreview?.valid ? (couponPreview.coupon_code || couponCode.trim() || undefined) : undefined,
         })
 
         window.location.href = stripeRes.data.checkout_url
@@ -492,6 +531,36 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">{t('注文確認', lang)}</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          <section className="bg-emerald-50 rounded-lg border border-emerald-200 p-5 space-y-3">
+            <h2 className="text-gray-900 font-semibold">クーポン</h2>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <Label htmlFor="coupon">クーポンコード</Label>
+                <Input
+                  id="coupon"
+                  data-testid="checkout-coupon-input"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="例: SAVE500"
+                />
+              </div>
+            </div>
+            {couponPreview?.valid && (
+              <p className="text-sm text-emerald-700" data-testid="checkout-coupon-applied">
+                {couponPreview.coupon_name || couponPreview.coupon_code} 適用 /
+                割引 ¥{(couponPreview.discount_amount || 0).toLocaleString()}
+                {couponPreview.shipping_discount > 0
+                  ? ` / 送料割引 ¥${couponPreview.shipping_discount.toLocaleString()}`
+                  : ''}
+              </p>
+            )}
+            {couponCode.trim() && couponPreview && !couponPreview.valid && (
+              <p className="text-sm text-red-600" data-testid="checkout-coupon-error">
+                {couponPreview.message || 'クーポンを適用できません'}
+              </p>
+            )}
+          </section>
 
           {pointPreview?.enabled && (
             <section className="bg-yellow-50 rounded-lg border border-yellow-200 p-5 space-y-3">
@@ -846,6 +915,12 @@ export default function CheckoutPage() {
                   <span>{t('小計', lang)}</span>
                   <span>{formatPrice(total)}</span>
                 </div>
+                {couponPreview?.valid && (couponPreview.discount_amount || 0) > 0 && (
+                  <div className="flex justify-between text-emerald-700 text-sm">
+                    <span>クーポン割引</span>
+                    <span>-{formatPrice(couponPreview.discount_amount)}</span>
+                  </div>
+                )}
                 {pointPreview && pointPreview.applied_points > 0 && (
                   <div className="flex justify-between text-green-700 text-sm">
                     <span>ポイント利用</span>
@@ -854,7 +929,15 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex justify-between text-gray-400">
                   <span>{t('送料', lang)}</span>
-                  <span>{selectedQuote ? formatPrice(baseShippingFee) : t('計算中...', lang)}</span>
+                  <span>
+                    {selectedQuote
+                      ? formatPrice(
+                          couponPreview?.valid
+                            ? Number(couponPreview.shipping_fee_after ?? baseShippingFee)
+                            : baseShippingFee,
+                        )
+                      : t('計算中...', lang)}
+                  </span>
                 </div>
                 {packagingFee > 0 && (
                   <div className="flex justify-between text-gray-400">

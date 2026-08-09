@@ -30,6 +30,7 @@ export default defineConfig({
     ['json', { outputFile: '../artifacts/phase3-2-milestone1/playwright-report.json' }],
     ['json', { outputFile: '../artifacts/phase3-3-offers/playwright-report.json' }],
     ['json', { outputFile: '../artifacts/phase3-4-points/playwright-report.json' }],
+    ['json', { outputFile: '../artifacts/phase3-5-coupons/playwright-report.json' }],
   ],
   webServer: {
     command: 'npm run dev',
@@ -88,6 +89,15 @@ export default defineConfig({
     {
       name: 'phase3-4-evidence',
       testMatch: /phase3-4-evidence\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+    {
+      name: 'phase3-5-coupons',
+      testMatch: /phase3-5-coupons\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: authFile,

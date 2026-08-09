@@ -50,6 +50,21 @@ def run_schema_upgrades() -> None:
     _migrate_live_auction_schema()
     _migrate_live_offer_schema()
     _migrate_point_schema()
+    _migrate_coupon_schema()
+
+
+def _migrate_coupon_schema() -> None:
+    """Phase 3-5 additive coupon tables."""
+    import models_coupons  # noqa: F401
+
+    coupon_tables = [
+        ("coupons", models_coupons.Coupon),
+        ("coupon_assignments", models_coupons.CouponAssignment),
+        ("coupon_redemptions", models_coupons.CouponRedemption),
+        ("coupon_audit_logs", models_coupons.CouponAuditLog),
+    ]
+    for table_name, model in coupon_tables:
+        _create_table_if_missing(table_name, model)
 
 
 def _migrate_point_schema() -> None:

@@ -42,6 +42,8 @@ from routes.admin_live_offers import router as admin_live_offers_router
 from routes.live_offers import router as live_offers_router
 from routes.points import router as points_router
 from routes.admin_points import router as admin_points_router
+from routes.coupons import router as coupons_router
+from routes.admin_coupons import router as admin_coupons_router
 
 from sqlalchemy import text, inspect
 
@@ -278,6 +280,8 @@ app.include_router(admin_live_offers_router)
 app.include_router(live_offers_router)
 app.include_router(points_router)
 app.include_router(admin_points_router)
+app.include_router(coupons_router)
+app.include_router(admin_coupons_router)
 app.include_router(buyback_router)
 
 

@@ -319,6 +319,7 @@ class StripeCheckoutSessionCreate(BaseModel):
     locale: Optional[str] = "ja"
     checkout_type: Optional[str] = "card"
     points_to_use: int = Field(0, ge=0)
+    coupon_code: Optional[str] = Field(None, max_length=64)
 
 
 class StripeCheckoutSessionOut(BaseModel):
