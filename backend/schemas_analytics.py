@@ -25,6 +25,9 @@ class AnalyticsKpiOut(BaseModel):
     coupon_active_count: int = 0
     coupon_redemption_count: int = 0
     new_members: int = 0
+    low_stock_products: int = 0
+    out_of_stock_products: int = 0
+    pending_restocks: int = 0
 
 
 class AnalyticsSeriesPoint(BaseModel):
@@ -96,6 +99,17 @@ class AnalyticsPointRow(BaseModel):
     source_type: Optional[str] = None
     source_id: Optional[int] = None
     created_at: Optional[datetime] = None
+
+
+class AnalyticsInventoryRow(BaseModel):
+    product_id: int
+    product_name: str
+    stock_quantity: int
+    low_stock_threshold: int
+    inventory_status: str
+    alert_enabled: bool
+    open_alert_type: Optional[str] = None
+    open_restock_status: Optional[str] = None
 
 
 class AnalyticsListOut(BaseModel):

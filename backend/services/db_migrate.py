@@ -53,6 +53,30 @@ def run_schema_upgrades() -> None:
     _migrate_coupon_schema()
     _migrate_notification_schema()
     _migrate_analytics_schema()
+    _migrate_inventory_schema()
+
+
+def _migrate_inventory_schema() -> None:
+    """Phase 3-8 additive inventory alert / restock tables and card columns."""
+    import models_inventory  # noqa: F401
+    from services.admin_seed import seed_admin_rbac
+    from database import SessionLocal
+
+    _add_column_if_missing("cards", "low_stock_threshold", "INTEGER")
+    _add_column_if_missing("cards", "inventory_alert_enabled", "BOOLEAN DEFAULT TRUE")
+
+    for table_name, model in [
+        ("inventory_alerts", models_inventory.InventoryAlert),
+        ("inventory_restocks", models_inventory.InventoryRestock),
+        ("inventory_audit_logs", models_inventory.InventoryAuditLog),
+    ]:
+        _create_table_if_missing(table_name, model)
+
+    db = SessionLocal()
+    try:
+        seed_admin_rbac(db)
+    finally:
+        db.close()
 
 
 def _migrate_analytics_schema() -> None:

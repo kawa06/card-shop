@@ -447,7 +447,7 @@ export const adminUserNotificationsApi = {
   }) => apiClient.post('/admin/user-notifications/broadcast', data),
 }
 
-export type AnalyticsDomain = 'sales' | 'live' | 'auctions' | 'coupons' | 'points'
+export type AnalyticsDomain = 'sales' | 'live' | 'auctions' | 'coupons' | 'points' | 'inventory'
 
 export type AnalyticsKpi = {
   from_at?: string | null
@@ -466,6 +466,9 @@ export type AnalyticsKpi = {
   coupon_active_count: number
   coupon_redemption_count: number
   new_members: number
+  low_stock_products?: number
+  out_of_stock_products?: number
+  pending_restocks?: number
 }
 
 export type AnalyticsList = {
@@ -486,6 +489,47 @@ export const adminAnalyticsApi = {
     apiClient.get<AnalyticsList>(`/admin/analytics/${domain}`, { params }),
   export: (params: Record<string, string>) =>
     apiClient.get('/admin/analytics/export', { params, responseType: 'blob' }),
+}
+
+export type InventoryAlertItem = {
+  id: number
+  product_id: number
+  product_name?: string | null
+  alert_type: string
+  stock_quantity: number
+  threshold: number
+  status: string
+  created_at: string
+  resolved_at?: string | null
+}
+
+export type InventoryRestockItem = {
+  id: number
+  product_id: number
+  product_name?: string | null
+  requested_quantity: number
+  received_quantity?: number | null
+  status: string
+  note?: string | null
+  created_at: string
+  updated_at?: string | null
+  completed_at?: string | null
+  current_stock?: number | null
+}
+
+export const adminInventoryApi = {
+  listAlerts: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: InventoryAlertItem[] }>('/admin/inventory-alerts', { params }),
+  resolveAlert: (id: number) => apiClient.post(`/admin/inventory-alerts/${id}/resolve`),
+  listRestocks: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: InventoryRestockItem[] }>('/admin/inventory-restocks', { params }),
+  createRestock: (data: { product_id: number; requested_quantity: number; note?: string }) =>
+    apiClient.post<InventoryRestockItem>('/admin/inventory-restocks', data),
+  getRestock: (id: number) => apiClient.get<InventoryRestockItem>(`/admin/inventory-restocks/${id}`),
+  updateRestock: (id: number, data: Record<string, unknown>) =>
+    apiClient.patch<InventoryRestockItem>(`/admin/inventory-restocks/${id}`, data),
+  receiveRestock: (id: number, data?: { received_quantity?: number }) =>
+    apiClient.post<InventoryRestockItem>(`/admin/inventory-restocks/${id}/receive`, data || {}),
 }
 
 export const adminCouponsApi = {

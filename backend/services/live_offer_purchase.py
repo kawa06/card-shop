@@ -101,6 +101,9 @@ def create_order_from_offer(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Insufficient stock")
 
     card.stock -= 1
+    from services.inventory_alerts import evaluate_card_inventory
+
+    evaluate_card_inventory(db, card.id, source="live_offer_purchase")
     unit_price = float(right.accepted_price)
     order = models.Order(
         user_id=user_id,

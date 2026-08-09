@@ -303,6 +303,10 @@ def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
         .filter(models_live_auction.LiveAuction.status.in_(["running", "live", "active"]))
         .scalar()
     ) or 0
+    from services.inventory_alerts import count_open_alerts
+    from services.inventory_constants import ALERT_TYPE_LOW_STOCK, ALERT_TYPE_OUT_OF_STOCK
+    from services.inventory_restock import count_open_restocks
+
     return {
         "today_sales": int(today_sales),
         "month_sales": int(month_sales),
@@ -317,4 +321,7 @@ def get_admin_dashboard_stats(db: Session) -> dict[str, int]:
         "buyback_pending_kyc": int(kyc.get("pending_count", 0)),
         "buyback_submitted_requests": int(buyback.get("submitted_count", 0)),
         "buyback_payout_pending": int(buyback.get("payout_pending_count", 0)),
+        "low_stock_count": count_open_alerts(db, alert_type=ALERT_TYPE_LOW_STOCK),
+        "out_of_stock_count": count_open_alerts(db, alert_type=ALERT_TYPE_OUT_OF_STOCK),
+        "open_restock_count": count_open_restocks(db),
     }

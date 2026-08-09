@@ -16,7 +16,7 @@ import models_points
 import schemas_analytics
 
 
-ALLOWED_DOMAINS = ("sales", "live", "auctions", "coupons", "points")
+ALLOWED_DOMAINS = ("sales", "live", "auctions", "coupons", "points", "inventory")
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 200
 MAX_EXPORT_ROWS = 5000
@@ -146,6 +146,25 @@ def build_kpi(
 
     avg_order = int(paid_sales / paid_order_count) if paid_order_count else 0
 
+    from services.inventory_alerts import (
+        inventory_status_for_card,
+    )
+    from services.inventory_constants import (
+        INVENTORY_STATUS_LOW_STOCK,
+        INVENTORY_STATUS_OUT_OF_STOCK,
+    )
+    from services.inventory_restock import count_open_restocks
+
+    # Product-level status counts (not only open alerts)
+    low_stock_products = 0
+    out_of_stock_products = 0
+    for card in db.query(models.Card).all():
+        st = inventory_status_for_card(card)
+        if st == INVENTORY_STATUS_LOW_STOCK:
+            low_stock_products += 1
+        elif st == INVENTORY_STATUS_OUT_OF_STOCK:
+            out_of_stock_products += 1
+
     return schemas_analytics.AnalyticsKpiOut(
         from_at=from_at,
         to_at=to_at,
@@ -163,6 +182,9 @@ def build_kpi(
         coupon_active_count=coupon_active,
         coupon_redemption_count=coupon_redemption_count,
         new_members=new_members,
+        low_stock_products=low_stock_products,
+        out_of_stock_products=out_of_stock_products,
+        pending_restocks=count_open_restocks(db),
     )
 
 
@@ -586,6 +608,97 @@ def list_points(
     )
 
 
+def list_inventory(
+    db: Session,
+    *,
+    from_at: Optional[datetime] = None,
+    to_at: Optional[datetime] = None,
+    q: Optional[str] = None,
+    status: Optional[str] = None,
+    sort: str = "created_at",
+    order: str = "desc",
+    page: int = 1,
+    size: int = DEFAULT_PAGE_SIZE,
+    payment_status: Optional[str] = None,
+    shipping_status: Optional[str] = None,
+) -> schemas_analytics.AnalyticsListOut:
+    # from_at/to_at unused for current stock snapshot; accepted for API uniformity
+    _ = (from_at, to_at, payment_status, shipping_status)
+    page, size = _clamp_paging(page, size)
+    from services.inventory_alerts import (
+        alerts_enabled,
+        effective_threshold,
+        inventory_status_for_card,
+    )
+    from services.inventory_constants import ALERT_STATUS_OPEN
+    import models_inventory
+
+    cards = db.query(models.Card).all()
+    rows: list[schemas_analytics.AnalyticsInventoryRow] = []
+    for card in cards:
+        inv_status = inventory_status_for_card(card)
+        if status and status != inv_status:
+            continue
+        if q:
+            like = q.strip().lower()
+            name = (card.name or "").lower()
+            name_en = (card.name_en or "").lower()
+            if like not in name and like not in name_en and like != str(card.id):
+                continue
+        open_alert = (
+            db.query(models_inventory.InventoryAlert)
+            .filter(
+                models_inventory.InventoryAlert.product_id == card.id,
+                models_inventory.InventoryAlert.status == ALERT_STATUS_OPEN,
+            )
+            .order_by(models_inventory.InventoryAlert.id.desc())
+            .first()
+        )
+        open_restock = (
+            db.query(models_inventory.InventoryRestock)
+            .filter(
+                models_inventory.InventoryRestock.product_id == card.id,
+                models_inventory.InventoryRestock.status.in_(["requested", "ordered"]),
+            )
+            .order_by(models_inventory.InventoryRestock.id.desc())
+            .first()
+        )
+        rows.append(
+            schemas_analytics.AnalyticsInventoryRow(
+                product_id=card.id,
+                product_name=card.name,
+                stock_quantity=int(card.stock or 0),
+                low_stock_threshold=effective_threshold(card),
+                inventory_status=inv_status,
+                alert_enabled=alerts_enabled(card),
+                open_alert_type=open_alert.alert_type if open_alert else None,
+                open_restock_status=open_restock.status if open_restock else None,
+            )
+        )
+
+    sort_key = {
+        "stock_quantity": lambda r: r.stock_quantity,
+        "low_stock_threshold": lambda r: r.low_stock_threshold,
+        "product_id": lambda r: r.product_id,
+        "product_name": lambda r: r.product_name or "",
+        "inventory_status": lambda r: r.inventory_status,
+        "created_at": lambda r: r.product_id,
+    }.get(sort, lambda r: r.product_id)
+    reverse = order != "asc"
+    rows.sort(key=sort_key, reverse=reverse)
+    total = len(rows)
+    page_rows = rows[(page - 1) * size : page * size]
+    return schemas_analytics.AnalyticsListOut(
+        domain="inventory",
+        total=total,
+        page=page,
+        size=size,
+        sort=sort,
+        order="asc" if order == "asc" else "desc",
+        items=page_rows,
+    )
+
+
 def list_domain(db: Session, domain: str, **kwargs: Any) -> schemas_analytics.AnalyticsListOut:
     if domain == "sales":
         return list_sales(db, **kwargs)
@@ -597,6 +710,8 @@ def list_domain(db: Session, domain: str, **kwargs: Any) -> schemas_analytics.An
         return list_coupons(db, **kwargs)
     if domain == "points":
         return list_points(db, **kwargs)
+    if domain == "inventory":
+        return list_inventory(db, **kwargs)
     raise ValueError(f"Unknown domain: {domain}")
 
 

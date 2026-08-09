@@ -6,6 +6,9 @@ export interface Card {
   price: number
   price_usd: number | null
   stock: number
+  low_stock_threshold?: number | null
+  inventory_alert_enabled?: boolean
+  inventory_status?: 'in_stock' | 'low_stock' | 'out_of_stock' | string | null
   image_url: string | null
   image_urls: string | null  // JSON array string e.g. '["url1","url2"]'
   rarity: string
@@ -585,6 +588,9 @@ export interface AdminDashboardStats {
   buyback_pending_kyc: number
   buyback_submitted_requests: number
   buyback_payout_pending: number
+  low_stock_count?: number
+  out_of_stock_count?: number
+  open_restock_count?: number
 }
 
 export interface LiveProduct {

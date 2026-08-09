@@ -87,6 +87,16 @@ def admin_create_card(
     db.add(card)
     safe_commit(db, action="カード作成")
     db.refresh(card)
+    from services.inventory_alerts import evaluate_card_inventory
+
+    evaluate_card_inventory(
+        db,
+        card.id,
+        actor_admin_user_id=getattr(_, "id", None),
+        source="admin_card_create",
+    )
+    safe_commit(db, action="カード在庫評価")
+    db.refresh(card)
     return card
 
 
@@ -114,6 +124,28 @@ def admin_update_card(
         raise HTTPException(status_code=404, detail="カードが見つかりません")
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(card, field, value)
+    data = payload.model_dump(exclude_unset=True)
+    if "stock" in data or "low_stock_threshold" in data or "inventory_alert_enabled" in data:
+        from services.inventory_alerts import evaluate_card_inventory, write_inventory_audit
+
+        if "low_stock_threshold" in data or "inventory_alert_enabled" in data:
+            write_inventory_audit(
+                db,
+                action="threshold_changed",
+                actor_admin_user_id=getattr(_, "id", None),
+                product_id=card.id,
+                after={
+                    "low_stock_threshold": getattr(card, "low_stock_threshold", None),
+                    "inventory_alert_enabled": getattr(card, "inventory_alert_enabled", None),
+                    "stock": int(card.stock or 0),
+                },
+            )
+        evaluate_card_inventory(
+            db,
+            card.id,
+            actor_admin_user_id=getattr(_, "id", None),
+            source="admin_card_update",
+        )
     safe_commit(db, action="カード作成")
     db.refresh(card)
     return card

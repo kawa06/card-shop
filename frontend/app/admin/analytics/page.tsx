@@ -17,6 +17,7 @@ const DOMAINS: Array<{ id: AnalyticsDomain; label: string }> = [
   { id: 'auctions', label: 'オークション分析' },
   { id: 'coupons', label: 'クーポン分析' },
   { id: 'points', label: 'ポイント分析' },
+  { id: 'inventory', label: '在庫分析' },
 ]
 
 export default function AdminAnalyticsPage() {
@@ -158,6 +159,9 @@ export default function AdminAnalyticsPage() {
               { label: '配信中', value: kpi.live_live_count },
               { label: 'オークション', value: kpi.auction_count },
               { label: '落札GMV', value: `¥${kpi.auction_gmv_yen.toLocaleString('ja-JP')}` },
+              { label: 'Low Stock', value: kpi.low_stock_products ?? 0 },
+              { label: 'Out of Stock', value: kpi.out_of_stock_products ?? 0 },
+              { label: 'Pending Restocks', value: kpi.pending_restocks ?? 0 },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-lg border bg-gray-50 px-4 py-3">
                 <p className="text-xs text-gray-500">{label}</p>

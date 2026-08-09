@@ -107,6 +107,8 @@ class Card(Base):
     price = Column(Float, nullable=False)
     price_usd = Column(Float, nullable=True)
     stock = Column(Integer, default=0)
+    low_stock_threshold = Column(Integer, nullable=True)  # Phase 3-8; None => DEFAULT_LOW_STOCK_THRESHOLD
+    inventory_alert_enabled = Column(Boolean, default=True, nullable=True)  # Phase 3-8
     image_url = Column(Text, nullable=True)
     image_urls = Column(Text, nullable=True)  # JSON array of up to 10 image URLs
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)

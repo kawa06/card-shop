@@ -26,6 +26,7 @@ import models_points  # noqa: F401 — register points tables
 import models_coupons  # noqa: F401 — register coupon tables
 import models_notifications  # noqa: F401 — register notification tables
 import models_analytics  # noqa: F401 — register analytics tables
+import models_inventory  # noqa: F401 — register inventory tables
 from admin_emails import ADMIN_EMAILS, normalize_email
 from services.admin_auth import bootstrap_admin_user
 from services.admin_seed import seed_admin_rbac

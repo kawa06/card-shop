@@ -47,6 +47,7 @@ from routes.admin_coupons import router as admin_coupons_router
 from routes.notifications import router as notifications_router
 from routes.admin_user_notifications import router as admin_user_notifications_router
 from routes.admin_analytics import router as admin_analytics_router
+from routes.admin_inventory import router as admin_inventory_router
 
 from sqlalchemy import text, inspect
 
@@ -288,6 +289,7 @@ app.include_router(admin_coupons_router)
 app.include_router(notifications_router)
 app.include_router(admin_user_notifications_router)
 app.include_router(admin_analytics_router)
+app.include_router(admin_inventory_router)
 app.include_router(buyback_router)
 
 
@@ -297,7 +299,7 @@ def health():
     db = database_info()
     return {
         "status": "ok",
-        "version": "phase3-7-v1",
+        "version": "phase3-8-v1",
         "database": db,
     }
 

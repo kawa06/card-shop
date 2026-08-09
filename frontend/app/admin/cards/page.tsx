@@ -34,6 +34,8 @@ interface CardForm {
   priceJpy: string
   priceUsd: string
   stock: string
+  low_stock_threshold: string
+  inventory_alert_enabled: boolean
   rarity: string
   condition: string
   category_id: string
@@ -44,6 +46,7 @@ interface CardForm {
 
 const emptyForm: CardForm = {
   name: '', name_en: '', description: '', priceCurrency: 'jpy', priceJpy: '', priceUsd: '', stock: '',
+  low_stock_threshold: '3', inventory_alert_enabled: true,
   rarity: 'C', condition: '', category_id: '', pack_id: '', images: [''],
   allowed_shipping_methods: [],
 }
@@ -129,6 +132,8 @@ export default function AdminCardsPage() {
       priceJpy: card.price.toString(),
       priceUsd: card.price_usd?.toString() || '',
       stock: card.stock.toString(),
+      low_stock_threshold: (card.low_stock_threshold ?? 3).toString(),
+      inventory_alert_enabled: card.inventory_alert_enabled !== false,
       rarity: card.rarity || 'C',
       condition: card.condition || '',
       category_id: card.category_id?.toString() || '',
@@ -219,6 +224,8 @@ export default function AdminCardsPage() {
       price,
       price_usd,
       stock: parseInt(form.stock),
+      low_stock_threshold: parseInt(form.low_stock_threshold || '3', 10),
+      inventory_alert_enabled: form.inventory_alert_enabled,
       rarity: form.rarity,
       condition: form.condition || null,
       category_id: form.category_id ? parseInt(form.category_id) : null,
@@ -422,7 +429,39 @@ export default function AdminCardsPage() {
                 {/* 在庫 */}
                 <div className="space-y-1">
                   <Label className="text-gray-600">在庫数 *</Label>
-                  <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} required min="0" className="bg-white border-gray-300 text-gray-900" />
+                  <Input
+                    type="number"
+                    data-testid="card-stock-input"
+                    value={form.stock}
+                    onChange={e => setForm({...form, stock: e.target.value})}
+                    required
+                    min="0"
+                    className="bg-white border-gray-300 text-gray-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-gray-600">Low stock threshold</Label>
+                  <Input
+                    type="number"
+                    data-testid="card-low-stock-threshold"
+                    value={form.low_stock_threshold}
+                    onChange={e => setForm({...form, low_stock_threshold: e.target.value})}
+                    min="0"
+                    className="bg-white border-gray-300 text-gray-900"
+                  />
+                </div>
+
+                <div className="space-y-1 flex items-end gap-2 pb-1">
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      data-testid="card-inventory-alert-enabled"
+                      checked={form.inventory_alert_enabled}
+                      onChange={e => setForm({...form, inventory_alert_enabled: e.target.checked})}
+                    />
+                    Inventory alert enabled
+                  </label>
                 </div>
 
                 {/* 状態 */}
@@ -644,12 +683,13 @@ export default function AdminCardsPage() {
                     <th className="text-left text-gray-400 font-medium px-4 py-3">ステータス</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">価格</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">在庫</th>
+                    <th className="text-left text-gray-400 font-medium px-4 py-3">在庫状態</th>
                     <th className="text-right text-gray-400 font-medium px-4 py-3">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cards.map((card) => (
-                    <tr key={card.id} className={`border-b border-gray-100 hover:bg-gray-100 ${!card.is_active ? 'opacity-50 bg-black/20' : ''}`}>
+                    <tr key={card.id} className={`border-b border-gray-100 hover:bg-gray-100 ${!card.is_active ? 'opacity-50 bg-black/20' : ''}`} data-testid={`admin-card-row-${card.id}`}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="relative w-8 h-10 rounded overflow-hidden bg-white flex-shrink-0">
@@ -679,10 +719,15 @@ export default function AdminCardsPage() {
                           <div className="text-[10px] text-gray-400">${card.price_usd.toFixed(2)}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-400">{card.stock}</td>
+                      <td className="px-4 py-3 text-right text-gray-400" data-testid={`card-stock-${card.id}`}>{card.stock}</td>
+                      <td className="px-4 py-3" data-testid={`card-inventory-status-${card.id}`}>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-100 text-gray-700 border-gray-200 uppercase">
+                          {(card.inventory_status || 'in_stock').replace(/_/g, ' ')}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(card)} className="h-8 w-8 text-blue-400 hover:text-blue-300">
+                          <Button variant="ghost" size="icon" data-testid={`card-edit-${card.id}`} onClick={() => handleEdit(card)} className="h-8 w-8 text-blue-400 hover:text-blue-300">
                             <Pencil className="h-3 w-3" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleDelete(card.id, card.name)} className="h-8 w-8 text-red-400 hover:text-red-300">

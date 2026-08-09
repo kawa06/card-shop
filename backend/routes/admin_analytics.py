@@ -236,9 +236,39 @@ def analytics_points(
     )
 
 
+@router.get("/inventory", response_model=schemas_analytics.AnalyticsListOut)
+def analytics_inventory(
+    from_at: Optional[str] = Query(None),
+    to_at: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
+    status: Optional[str] = Query(None, description="in_stock|low_stock|out_of_stock"),
+    sort: str = Query("stock_quantity"),
+    order: str = Query("asc"),
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(get_current_admin_context),
+):
+    return _list_common(
+        domain="inventory",
+        from_at=from_at,
+        to_at=to_at,
+        q=q,
+        status=status,
+        payment_status=None,
+        shipping_status=None,
+        sort=sort,
+        order=order,
+        page=page,
+        size=size,
+        db=db,
+        ctx=ctx,
+    )
+
+
 @router.get("/export")
 def analytics_export_route(
-    domain: str = Query(..., pattern="^(sales|live|auctions|coupons|points|kpi)$"),
+    domain: str = Query(..., pattern="^(sales|live|auctions|coupons|points|inventory|kpi)$"),
     format: str = Query("csv", alias="format", pattern="^(csv|xlsx|pdf)$"),
     from_at: Optional[str] = Query(None),
     to_at: Optional[str] = Query(None),

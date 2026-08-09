@@ -22,6 +22,8 @@ import {
   Radio,
   Coins,
   BarChart3,
+  PackageX,
+  Boxes,
 } from 'lucide-react'
 import { useAdminGuard } from '@/hooks/useAdminGuard'
 import { useAdminPermissions } from '@/hooks/useAdminPermissions'
@@ -133,6 +135,12 @@ export default function AdminPage() {
           ...(hasPermission('analytics.read')
             ? [{ href: '/admin/analytics', icon: BarChart3, label: '分析ダッシュボード', count: 0, color: 'text-indigo-500', bg: 'bg-indigo-500/10 border-indigo-500/20' }]
             : []),
+          ...(hasPermission('inventory_alert.read')
+            ? [{ href: '/admin/inventory-alerts', icon: PackageX, label: 'Inventory Alerts', count: kpis?.low_stock_count ?? 0, color: 'text-amber-600', bg: 'bg-amber-500/10 border-amber-500/20' }]
+            : []),
+          ...(hasPermission('inventory_restock.read')
+            ? [{ href: '/admin/inventory-restocks', icon: Boxes, label: 'Restocks', count: kpis?.open_restock_count ?? 0, color: 'text-emerald-600', bg: 'bg-emerald-500/10 border-emerald-500/20' }]
+            : []),
           { href: '/admin/shipping', icon: Truck, label: t('送料管理', lang), count: stats.shipping || 0, color: 'text-orange-400', bg: 'bg-orange-400/10 border-orange-400/20' },
           { href: '/admin/settings/invoice', icon: Settings, label: 'インボイス設定', count: 0, color: 'text-gray-600', bg: 'bg-gray-100 border-gray-200' },
           ...(hasPermission('admin.email.read')
@@ -183,18 +191,33 @@ export default function AdminPage() {
         {kpis && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
             {[
-              { label: '今日の売上', value: `¥${kpis.today_sales.toLocaleString('ja-JP')}` },
-              { label: '今月売上', value: `¥${kpis.month_sales.toLocaleString('ja-JP')}` },
-              { label: '本日注文', value: kpis.orders_today },
-              { label: '発送待ち', value: kpis.pending_ship },
-              { label: '査定待ち', value: kpis.pending_assess },
-              { label: '新規会員(本日)', value: kpis.new_members_today },
-              { label: '未読問い合わせ', value: kpis.unread_inquiries },
-              { label: '下書きお知らせ', value: kpis.draft_announcements },
-            ].map(({ label, value }) => (
+              { label: '今日の売上', value: `¥${kpis.today_sales.toLocaleString('ja-JP')}` as string | number, href: undefined as string | undefined },
+              { label: '今月売上', value: `¥${kpis.month_sales.toLocaleString('ja-JP')}`, href: undefined },
+              { label: '本日注文', value: kpis.orders_today, href: undefined },
+              { label: '発送待ち', value: kpis.pending_ship, href: undefined },
+              { label: '査定待ち', value: kpis.pending_assess, href: undefined },
+              { label: '新規会員(本日)', value: kpis.new_members_today, href: undefined },
+              { label: '未読問い合わせ', value: kpis.unread_inquiries, href: undefined },
+              { label: '下書きお知らせ', value: kpis.draft_announcements, href: undefined },
+              ...(hasPermission('inventory_alert.read')
+                ? [
+                    { label: 'Low Stock', value: kpis.low_stock_count ?? 0, href: '/admin/inventory-alerts' as string | undefined },
+                    { label: 'Out of Stock', value: kpis.out_of_stock_count ?? 0, href: '/admin/inventory-alerts' as string | undefined },
+                  ]
+                : []),
+              ...(hasPermission('inventory_restock.read')
+                ? [{ label: 'Open Restock', value: kpis.open_restock_count ?? 0, href: '/admin/inventory-restocks' as string | undefined }]
+                : []),
+            ].map(({ label, value, href }) => (
               <div key={label} className="rounded-lg border bg-gray-50 px-4 py-3">
                 <p className="text-xs text-gray-500">{label}</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+                {href ? (
+                  <Link href={href} className="text-xl font-bold text-gray-900 mt-1 block underline" data-testid={`dashboard-kpi-${label}`}>
+                    {value}
+                  </Link>
+                ) : (
+                  <p className="text-xl font-bold text-gray-900 mt-1">{value}</p>
+                )}
               </div>
             ))}
           </div>

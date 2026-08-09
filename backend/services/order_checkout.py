@@ -106,6 +106,13 @@ def _deduct_stock_locked(db: Session, order: models.Order) -> None:
                 detail=f"カード「{card.name}」の在庫が不足しています（取り置き競合）",
             )
         card.stock -= order_item.quantity
+    from services.inventory_alerts import evaluate_cards_inventory
+
+    evaluate_cards_inventory(
+        db,
+        [int(oi.card_id) for oi in order.items if oi.card_id],
+        source="order_stock_deduct",
+    )
 
 
 def reserve_inventory_for_order(db: Session, order: models.Order) -> None:
@@ -136,6 +143,13 @@ def release_inventory_for_order(db: Session, order: models.Order) -> None:
         if card:
             card.stock += order_item.quantity
     order.stock_reserved = False
+    from services.inventory_alerts import evaluate_cards_inventory
+
+    evaluate_cards_inventory(
+        db,
+        [int(oi.card_id) for oi in order_items if oi.card_id],
+        source="order_stock_release",
+    )
 
 
 def bank_transfer_payment_deadline() -> datetime:

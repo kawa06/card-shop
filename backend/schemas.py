@@ -159,6 +159,8 @@ class CardBase(BaseModel):
     price: float
     price_usd: Optional[float] = None
     stock: int = 0
+    low_stock_threshold: Optional[int] = None
+    inventory_alert_enabled: Optional[bool] = True
     image_url: Optional[str] = None
     image_urls: Optional[str] = None  # JSON array string
     category_id: Optional[int] = None
@@ -188,6 +190,8 @@ class CardUpdate(BaseModel):
     price: Optional[float] = None
     price_usd: Optional[float] = None
     stock: Optional[int] = None
+    low_stock_threshold: Optional[int] = None
+    inventory_alert_enabled: Optional[bool] = None
     image_url: Optional[str] = None
     image_urls: Optional[str] = None
     category_id: Optional[int] = None
@@ -208,6 +212,7 @@ class CardOut(CardBase):
     created_at: datetime
     category: Optional[CategoryOut] = None
     pack: Optional[PackOut] = None
+    inventory_status: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -218,6 +223,17 @@ class CardOut(CardBase):
             translated = translate_pokemon_name(self.name)
             if translated:
                 self.name_en = translated
+        return self
+
+    @model_validator(mode='after')
+    def populate_inventory_status(self) -> 'CardOut':
+        from services.inventory_alerts import effective_threshold, inventory_status_for_stock
+        from services.inventory_constants import DEFAULT_LOW_STOCK_THRESHOLD
+
+        threshold = self.low_stock_threshold
+        if threshold is None:
+            threshold = DEFAULT_LOW_STOCK_THRESHOLD
+        self.inventory_status = inventory_status_for_stock(int(self.stock or 0), int(threshold))
         return self
 
 
@@ -864,6 +880,9 @@ class AdminDashboardStatsOut(BaseModel):
     buyback_pending_kyc: int = 0
     buyback_submitted_requests: int = 0
     buyback_payout_pending: int = 0
+    low_stock_count: int = 0
+    out_of_stock_count: int = 0
+    open_restock_count: int = 0
 
 
 class OrderShipmentLogOut(BaseModel):
