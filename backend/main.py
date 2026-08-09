@@ -291,7 +291,7 @@ def health():
     db = database_info()
     return {
         "status": "ok",
-        "version": "phase3-3-v2",
+        "version": "phase3-5-v1",
         "database": db,
     }
 

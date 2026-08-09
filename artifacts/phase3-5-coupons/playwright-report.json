@@ -1,0 +1,539 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "C:\\Users\\user1\\projects\\card-shop\\frontend\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "--project=phase3-4-points"
+    ],
+    "configFile": "C:\\Users\\user1\\projects\\card-shop\\frontend\\playwright.config.ts",
+    "rootDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "global setup",
+        "name": "global setup",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/global\\.setup\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase2-admin-ui",
+        "name": "phase2-admin-ui",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase2-admin-ui\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-live",
+        "name": "phase3-live",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-live\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-2-auction",
+        "name": "phase3-2-auction",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-2-auction\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-4-points",
+        "name": "phase3-4-points",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-4-points\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-4-evidence",
+        "name": "phase3-4-evidence",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-4-evidence\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-5-coupons",
+        "name": "phase3-5-coupons",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-5-coupons\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "C:/Users/user1/projects/card-shop/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "phase3-3-offers",
+        "name": "phase3-3-offers",
+        "testDir": "C:/Users/user1/projects/card-shop/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/phase3-3-offers\\.spec\\.ts/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-2-milestone1/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-3-offers/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-4-points/playwright-report.json"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../artifacts/phase3-5-coupons/playwright-report.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.1",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://127.0.0.1:3000",
+      "reuseExistingServer": true,
+      "timeout": 180000
+    }
+  },
+  "suites": [
+    {
+      "title": "global.setup.ts",
+      "file": "global.setup.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "configure Clerk testing",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "global setup",
+              "projectName": "global setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 554,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "[dotenv@17.2.2] injecting env (0) from .env.local,.env -- tip: ⚙️  suppress all logs with { quiet: true }\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:11:45.492Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e4eb4d1272d956fb120f-49763ae4227c2b961306",
+          "file": "global.setup.ts",
+          "line": 14,
+          "column": 6
+        },
+        {
+          "title": "authenticate admin and save storageState",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 120000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "global setup",
+              "projectName": "global setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 8907,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:11:46.087Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e4eb4d1272d956fb120f-7dcfd46134c3a341ff2d",
+          "file": "global.setup.ts",
+          "line": 18,
+          "column": 6
+        }
+      ]
+    },
+    {
+      "title": "phase3-4-points.spec.ts",
+      "file": "phase3-4-points.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "Scenario 1: admin grant and mypage balance",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 20986,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:11:57.188Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-c424a77764994dbc9d61",
+          "file": "phase3-4-points.spec.ts",
+          "line": 242,
+          "column": 5
+        },
+        {
+          "title": "Scenario 2: partial points full checkout flow",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 37171,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:12:18.436Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-ab2bd021289d62df8602",
+          "file": "phase3-4-points.spec.ts",
+          "line": 269,
+          "column": 5
+        },
+        {
+          "title": "Scenario 3: zero-yen full points checkout skips Stripe",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 52308,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:12:55.620Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-d46a1a48487411c19499",
+          "file": "phase3-4-points.spec.ts",
+          "line": 349,
+          "column": 5
+        },
+        {
+          "title": "Scenario 4: cancel restores reserved points idempotently",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 29509,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:13:47.944Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-697ad1abb43512c70711",
+          "file": "phase3-4-points.spec.ts",
+          "line": 438,
+          "column": 5
+        },
+        {
+          "title": "Scenario 5: mypage points history visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14934,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:14:17.467Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-efae3ad80f4c27f61bc2",
+          "file": "phase3-4-points.spec.ts",
+          "line": 500,
+          "column": 5
+        },
+        {
+          "title": "Scenario 6: admin deduct reflects on mypage",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 19524,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:14:32.414Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-61cadc96984fca244d0f",
+          "file": "phase3-4-points.spec.ts",
+          "line": 506,
+          "column": 5
+        },
+        {
+          "title": "Scenario 7: over-balance checkout preview rejected",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 360000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "phase3-4-points",
+              "projectName": "phase3-4-points",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 17395,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-09T10:14:51.949Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "a98f47a81ee1902350bd-d76ea4a4813f32c6be9b",
+          "file": "phase3-4-points.spec.ts",
+          "line": 532,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-09T10:11:32.674Z",
+    "duration": 217086.212,
+    "expected": 9,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
