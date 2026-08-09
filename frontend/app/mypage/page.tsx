@@ -512,6 +512,17 @@ export default function MypagePage() {
               </div>
             </div>
           </Link>
+          <Link href="/mypage/notifications">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-blue-400/30 transition-colors cursor-pointer group">
+              <div className="p-2 rounded-md bg-blue-400/10 text-blue-600 group-hover:bg-blue-400 group-hover:text-white transition-colors">
+                <Bell className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-gray-900 font-medium text-sm">通知</p>
+                <p className="text-gray-500 text-[10px]">お知らせ・イベント</p>
+              </div>
+            </div>
+          </Link>
           <Link href="/mypage/favorites">
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center gap-3 hover:border-pink-400/30 transition-colors cursor-pointer group">
               <div className="p-2 rounded-md bg-pink-400/10 text-pink-400 group-hover:bg-pink-400 group-hover:text-white transition-colors">

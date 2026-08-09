@@ -252,6 +252,29 @@ def admin_assign_coupon(
             reason=payload.note,
         )
         db.commit()
+        db.refresh(coupon)
+        try:
+            assignment = (
+                db.query(models_coupons.CouponAssignment)
+                .filter(
+                    models_coupons.CouponAssignment.coupon_id == coupon_id,
+                    models_coupons.CouponAssignment.user_id == payload.user_id,
+                )
+                .first()
+            )
+            if assignment:
+                from services.notification_events import notify_coupon_assigned
+
+                notify_coupon_assigned(
+                    db,
+                    user_id=payload.user_id,
+                    coupon=coupon,
+                    assignment_id=assignment.id,
+                )
+                db.commit()
+        except Exception:
+            pass
+        return _to_out(db, coupon)
     db.refresh(coupon)
     return _to_out(db, coupon)
 

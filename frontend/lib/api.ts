@@ -426,6 +426,27 @@ export const couponsApi = {
   }) => apiClient.post('/coupons/checkout-preview', data),
 }
 
+export const notificationsApi = {
+  list: (params?: { limit?: number; offset?: number; unread_only?: boolean }) =>
+    apiClient.get('/notifications', { params }),
+  unreadCount: () => apiClient.get('/notifications/unread-count'),
+  markRead: (id: number) => apiClient.post(`/notifications/${id}/read`),
+  markAllRead: () => apiClient.post('/notifications/read-all'),
+  getSettings: () => apiClient.get('/notifications/settings'),
+  updateSettings: (data: Record<string, boolean>) => apiClient.patch('/notifications/settings', data),
+}
+
+export const adminUserNotificationsApi = {
+  broadcast: (data: {
+    title: string
+    body: string
+    user_id?: number
+    action_url?: string
+    category?: string
+    type?: string
+  }) => apiClient.post('/admin/user-notifications/broadcast', data),
+}
+
 export const adminCouponsApi = {
   list: (params?: { q?: string; active_only?: boolean; limit?: number; offset?: number }) =>
     apiClient.get('/admin/coupons', { params }),

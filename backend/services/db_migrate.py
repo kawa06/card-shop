@@ -51,6 +51,26 @@ def run_schema_upgrades() -> None:
     _migrate_live_offer_schema()
     _migrate_point_schema()
     _migrate_coupon_schema()
+    _migrate_notification_schema()
+
+
+def _migrate_notification_schema() -> None:
+    """Phase 3-6 additive user notification tables."""
+    import models_notifications  # noqa: F401
+    from services.admin_seed import seed_admin_rbac
+    from database import SessionLocal
+
+    for table_name, model in [
+        ("user_notifications", models_notifications.UserNotification),
+        ("user_notification_settings", models_notifications.UserNotificationSettings),
+    ]:
+        _create_table_if_missing(table_name, model)
+
+    db = SessionLocal()
+    try:
+        seed_admin_rbac(db)
+    finally:
+        db.close()
 
 
 def _migrate_coupon_schema() -> None:

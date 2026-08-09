@@ -414,6 +414,13 @@ def _transition_offer(
     db.commit()
     db.refresh(offer)
     _emit_offer(db, offer, action)
+    try:
+        from services.notification_events import notify_live_offer_reviewed
+
+        notify_live_offer_reviewed(db, offer, status=target_status)
+        db.commit()
+    except Exception:
+        pass
     return offer
 
 

@@ -87,6 +87,8 @@ ADMIN_PERMISSION_DEFINITIONS: list[tuple[str, str, str]] = [
     ("coupon.assign", "クーポン配布", "coupons"),
     ("coupon.export", "クーポンCSV出力", "coupons"),
     ("coupon.audit", "クーポン監査ログ", "coupons"),
+    ("notification.read", "ユーザー通知閲覧", "notifications"),
+    ("notification.write", "ユーザー通知作成・配信", "notifications"),
     ("live.broadcast", "ライブ配信操作", "live"),
 ]
 
@@ -111,6 +113,8 @@ ROLE_PERMISSION_CODES: dict[str, set[str]] = {
         "coupon.assign",
         "coupon.export",
         "coupon.audit",
+        "notification.read",
+        "notification.write",
         "admin.users.read",
         "admin.users.write",
         "admin.roles.read",

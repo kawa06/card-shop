@@ -280,6 +280,13 @@ def fulfill_order_inventory(
 
     try_auto_purchase_email_after_payment(db, order)
     db.refresh(order)
+    try:
+        from services.notification_events import notify_order_paid
+
+        notify_order_paid(db, order)
+        db.commit()
+    except Exception:
+        pass
     return order
 
 

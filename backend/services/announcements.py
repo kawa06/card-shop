@@ -417,6 +417,12 @@ def notify_announcement_published(db: Session, announcement: models.Announcement
         getattr(announcement, "show_on_site", True),
         getattr(announcement, "send_email", False),
     )
+    try:
+        from services.notification_events import notify_announcement_to_users
+
+        notify_announcement_to_users(db, announcement)
+    except Exception:
+        logger.exception("in-app announcement fanout failed id=%s", announcement.id)
 
 
 def _excerpt(html: str, limit: int = 120) -> str:

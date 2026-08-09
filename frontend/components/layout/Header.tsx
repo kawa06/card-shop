@@ -16,6 +16,7 @@ import { t } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { BUYLIST_SITE_URL } from '@/lib/site-urls'
+import { UserNotificationBell } from '@/components/notifications/UserNotificationBell'
 
 export default function Header() {
   const router = useRouter()
@@ -158,6 +159,8 @@ export default function Header() {
               <Globe className="h-4 w-4 mr-1" />
               <span className="text-xs font-medium">{lang === 'ja' ? 'EN' : 'JP'}</span>
             </Button>
+
+            <UserNotificationBell />
 
             <Button asChild variant="ghost" size="icon" className="relative text-gray-600 hover:text-gray-900 hover:bg-gray-100 h-9 w-9">
               <Link href="/cart">

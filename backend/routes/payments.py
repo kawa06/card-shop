@@ -169,6 +169,13 @@ def create_stripe_checkout_session(
         reserve_stock=is_bank_transfer,
         payment_deadline=bank_transfer_payment_deadline() if is_bank_transfer else None,
     )
+    try:
+        from services.notification_events import notify_order_received
+
+        notify_order_received(db, order)
+        db.commit()
+    except Exception:
+        pass
 
     from services.coupon_orders import apply_coupon_on_order_created
     from services.point_orders import apply_points_on_order_created

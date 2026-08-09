@@ -781,6 +781,22 @@ def admin_update_order_shipping(
             safe_commit(db, action="発送完了通知")
         except Exception:
             logger.exception("Failed to send shipping completed admin notify for order %s", order.id)
+        try:
+            from services.notification_events import notify_order_shipped
+
+            notify_order_shipped(db, order)
+            safe_commit(db, action="顧客発送通知")
+        except Exception:
+            logger.exception("Failed to create customer shipping notification for order %s", order.id)
+
+    if status_changed and order.shipping_status in ("delivered", "received"):
+        try:
+            from services.notification_events import notify_order_delivered
+
+            notify_order_delivered(db, order)
+            safe_commit(db, action="顧客配達通知")
+        except Exception:
+            logger.exception("Failed to create customer delivered notification for order %s", order.id)
 
     db.refresh(order)
     return _to_admin_order(order)

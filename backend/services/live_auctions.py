@@ -341,6 +341,13 @@ def finish_auction(db: Session, auction: models_live_auction.LiveAuction) -> mod
                 "amount": auction.winning_amount,
             },
         )
+        try:
+            from services.notification_events import notify_auction_won
+
+            notify_auction_won(db, auction, winner_user_id=auction.winner_user_id)
+            db.commit()
+        except Exception:
+            pass
     _emit_auction(db, auction, "auction.finished")
     return auction
 

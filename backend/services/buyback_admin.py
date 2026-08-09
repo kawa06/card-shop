@@ -725,6 +725,14 @@ def update_request_status(
             extra={"request_id": request.id},
         )
 
+    try:
+        from services.notification_events import notify_buyback_status
+
+        notify_buyback_status(db, request, status=new_status)
+        db.commit()
+    except Exception:
+        logger.warning("In-app buyback notification failed", extra={"request_id": request.id})
+
     return get_admin_request(db, request_id)
 
 
