@@ -329,10 +329,43 @@ app.include_router(buyback_router)
 @app.get("/api/health", summary="Health Check V20")
 def health():
     db = database_info()
+    schema = {}
+    try:
+        from sqlalchemy import text
+        from database import SessionLocal
+
+        session = SessionLocal()
+        try:
+            cols = {
+                r[0]
+                for r in session.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = 'oripa_purchases' "
+                        "AND column_name IN ('reserved_expires_at', 'stripe_checkout_session_id')"
+                    )
+                ).fetchall()
+            }
+            card_null = session.execute(
+                text(
+                    "SELECT is_nullable FROM information_schema.columns "
+                    "WHERE table_name = 'order_items' AND column_name = 'card_id'"
+                )
+            ).fetchone()
+            schema = {
+                "oripa_purchases_reserved_expires_at": "reserved_expires_at" in cols,
+                "oripa_purchases_stripe_checkout_session_id": "stripe_checkout_session_id" in cols,
+                "order_items_card_id_nullable": (card_null[0] == "YES") if card_null else None,
+            }
+        finally:
+            session.close()
+    except Exception as exc:
+        schema = {"error": type(exc).__name__}
     return {
         "status": "ok",
         "version": "phase3-10-v1",
         "database": db,
+        "schema": schema,
     }
 
 @app.get("/api/health20")
