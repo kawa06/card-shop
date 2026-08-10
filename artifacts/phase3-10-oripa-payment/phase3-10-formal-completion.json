@@ -66,9 +66,10 @@
     "524bd2c",
     "2d1e49c",
     "ee12074",
-    "6c99373"
+    "6c99373",
+    "23074d8"
   ],
-  "evidence_commit_note": "formal completion JSON committed after production verification",
+  "head": "23074d8402015bf8dfa5fccb71050f858bf2681d",
   "evidence_dir": "artifacts/phase3-10-oripa-payment/",
   "known_limitations": [
     "DEBUG auto-fulfill for oripa purchase only when Stripe key invalid AND DEBUG=true (local/E2E); production DEBUG=false uses real Checkout",
