@@ -554,3 +554,5 @@ class OrderBarcode(Base):
 
 import models_buyback  # noqa: F401, E402 — register buyback tables with Base.metadata
 import models_admin  # noqa: F401, E402 — register admin security tables with Base.metadata
+import models_oripa  # noqa: F401, E402 — register oripa tables with Base.metadata
+import models_shipment  # noqa: F401, E402 — register outbound shipment tables with Base.metadata

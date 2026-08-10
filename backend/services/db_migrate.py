@@ -71,6 +71,16 @@ def _migrate_oripa_schema() -> None:
     ]:
         _create_table_if_missing(table_name, model)
 
+    import models_shipment  # noqa: F401
+
+    for table_name, model in [
+        ("shipments", models_shipment.Shipment),
+        ("shipment_items", models_shipment.ShipmentItem),
+        ("shipment_logs", models_shipment.ShipmentLog),
+        ("shipment_barcodes", models_shipment.ShipmentBarcode),
+    ]:
+        _create_table_if_missing(table_name, model)
+
     db = SessionLocal()
     try:
         seed_admin_rbac(db)
