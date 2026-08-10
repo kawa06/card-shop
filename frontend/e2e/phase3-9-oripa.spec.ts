@@ -112,7 +112,7 @@ test('Gate3/4: customer oripa secrecy + UI', async ({ page }) => {
   await page.getByTestId('oripa-purchase-btn').click()
   const result = page.getByTestId('oripa-purchase-result')
   await expect(result).toBeVisible({ timeout: 60_000 })
-  await expect(result.getByText(/\u53e3\u8cfc\u5165\u3057\u307e\u3057\u305f/)).toBeVisible()
+  await expect(result.getByText(/決済が確定しました|口購入しました/)).toBeVisible()
   await shot(page, '04-customer-purchase-result')
 
   const held = await page.request.get('/api/me/oripa-entries', {

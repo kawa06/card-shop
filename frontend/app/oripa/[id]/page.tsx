@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { oripaApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,12 +22,24 @@ type OripaPublic = {
   sale_end_at?: string | null
 }
 
+type PurchaseResult = {
+  purchase_id: number
+  quantity: number
+  entry_labels: string[]
+  status: string
+  checkout_url?: string | null
+  payment_status?: string | null
+  order_id?: number | null
+}
+
 export default function OripaDetailPage() {
   const params = useParams()
+  const search = useSearchParams()
   const id = Number(params?.id)
   const [oripa, setOripa] = useState<OripaPublic | null>(null)
   const [qty, setQty] = useState('1')
   const [labels, setLabels] = useState<string[]>([])
+  const [status, setStatus] = useState<string>('')
   const [buying, setBuying] = useState(false)
 
   useEffect(() => {
@@ -38,16 +50,60 @@ export default function OripaDetailPage() {
       .catch(() => setOripa(null))
   }, [id])
 
+  // After Stripe redirect back with purchase_id
+  useEffect(() => {
+    const purchaseId = Number(search?.get('purchase_id') || 0)
+    if (!purchaseId) return
+    let cancelled = false
+    const poll = async () => {
+      for (let i = 0; i < 20; i++) {
+        try {
+          const res = await oripaApi.getPurchase(purchaseId)
+          const data = res.data as PurchaseResult
+          if (cancelled) return
+          setStatus(data.status)
+          if (data.status === 'completed') {
+            setLabels(data.entry_labels || [])
+            toast({ title: `${data.quantity}口の決済が確定しました` })
+            return
+          }
+          if (data.status === 'failed' || data.status === 'cancelled') {
+            toast({ title: '決済に失敗またはキャンセルされました', variant: 'destructive' })
+            return
+          }
+        } catch {
+          /* keep polling */
+        }
+        await new Promise((r) => setTimeout(r, 1500))
+      }
+      if (!cancelled) setStatus('payment_processing')
+    }
+    void poll()
+    return () => {
+      cancelled = true
+    }
+  }, [search])
+
   const purchase = async () => {
     setBuying(true)
+    setLabels([])
+    setStatus('')
     try {
       const key = `web-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const res = await oripaApi.purchase(id, { quantity: Number(qty), idempotency_key: key })
-      const data = res.data as { entry_labels: string[]; quantity: number }
-      setLabels(data.entry_labels || [])
-      toast({ title: `${data.quantity}口購入しました` })
-      const refreshed = await oripaApi.get(id)
-      setOripa(refreshed.data as OripaPublic)
+      const data = res.data as PurchaseResult
+      setStatus(data.status)
+      if (data.checkout_url && data.status === 'pending') {
+        toast({ title: '決済画面へ移動します' })
+        window.location.href = data.checkout_url
+        return
+      }
+      if (data.status === 'completed') {
+        setLabels(data.entry_labels || [])
+        toast({ title: `${data.quantity}口購入しました` })
+        const refreshed = await oripaApi.get(id)
+        setOripa(refreshed.data as OripaPublic)
+      }
     } catch {
       toast({ title: '購入に失敗しました', variant: 'destructive' })
     } finally {
@@ -75,16 +131,8 @@ export default function OripaDetailPage() {
             口数: 残り {oripa.remaining_entries} / 全 {oripa.total_entries}
           </p>
           <p>1回あたり最大: {oripa.max_entries_per_purchase} 口</p>
-          {(oripa.sale_start_at || oripa.sale_end_at) && (
-            <p data-testid="oripa-sale-period">
-              販売期間:{' '}
-              {oripa.sale_start_at ? new Date(oripa.sale_start_at).toLocaleString('ja-JP') : '開始未定'}
-              {' 〜 '}
-              {oripa.sale_end_at ? new Date(oripa.sale_end_at).toLocaleString('ja-JP') : '終了未定'}
-            </p>
-          )}
           <p className="text-amber-700">
-            注意: 購入後に表示されるのは番号のみです。中身・当たり/ハズレは開封するまで分かりません。
+            注意: 決済完了後に番号のみ表示されます。中身・当たり/ハズレは開封するまで分かりません。
           </p>
         </div>
 
@@ -101,14 +149,25 @@ export default function OripaDetailPage() {
               className="w-28"
             />
           </div>
-          <Button type="button" data-testid="oripa-purchase-btn" disabled={buying || oripa.remaining_entries <= 0} onClick={() => void purchase()}>
-            購入する
+          <Button
+            type="button"
+            data-testid="oripa-purchase-btn"
+            disabled={buying || oripa.remaining_entries <= 0}
+            onClick={() => void purchase()}
+          >
+            {buying ? '処理中...' : '購入して決済へ'}
           </Button>
         </div>
 
+        {status === 'pending' || status === 'payment_processing' ? (
+          <div className="mt-6 text-sm text-blue-700" data-testid="oripa-payment-processing">
+            決済処理中です。完了までお待ちください（Webhook 確定待ち）。
+          </div>
+        ) : null}
+
         {labels.length > 0 && (
           <div className="mt-8 border rounded-lg p-4" data-testid="oripa-purchase-result">
-            <p className="font-semibold mb-2">{labels.length}口購入しました</p>
+            <p className="font-semibold mb-2">{labels.length}口の決済が確定しました</p>
             <ul className="space-y-1">
               {labels.map((label) => (
                 <li key={label} data-testid={`oripa-result-${label}`}>

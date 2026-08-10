@@ -545,8 +545,16 @@ export const oripaApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/oripas', { params }),
   get: (id: number) => apiClient.get(`/oripas/${id}`),
-  purchase: (id: number, data: { quantity: number; idempotency_key?: string }) =>
-    apiClient.post(`/oripas/${id}/purchase`, data),
+  purchase: (
+    id: number,
+    data: {
+      quantity: number
+      idempotency_key?: string
+      points_to_use?: number
+      coupon_code?: string
+    }
+  ) => apiClient.post(`/oripas/${id}/purchase`, data),
+  getPurchase: (purchaseId: number) => apiClient.get(`/me/oripa-purchases/${purchaseId}`),
   myEntries: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/me/oripa-entries', { params }),
 }
