@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from services.order_checkout import expire_overdue_bank_transfer_orders
+from services.oripa_payment import expire_stale_oripa_reservations
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ async def background_order_expiry_task(db_factory) -> None:
                 count = expire_overdue_bank_transfer_orders(db)
                 if count:
                     logger.info("Expired %s overdue bank-transfer order(s)", count)
+                oripa_count = expire_stale_oripa_reservations(db)
+                if oripa_count:
+                    logger.info("Expired %s stale oripa reservation(s)", oripa_count)
             finally:
                 db.close()
         except Exception:

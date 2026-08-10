@@ -92,6 +92,8 @@ def validate_cart_stock(cart_items: Iterable[models.CartItem]) -> float:
 def _deduct_stock_locked(db: Session, order: models.Order) -> None:
     """Decrement stock with row-level locks to prevent overselling."""
     for order_item in order.items:
+        if order_item.card_id is None:
+            continue
         card = (
             db.query(models.Card)
             .filter(models.Card.id == order_item.card_id)
@@ -134,6 +136,8 @@ def release_inventory_for_order(db: Session, order: models.Order) -> None:
         .all()
     )
     for order_item in order_items:
+        if order_item.card_id is None:
+            continue
         card = (
             db.query(models.Card)
             .filter(models.Card.id == order_item.card_id)
@@ -287,8 +291,10 @@ def fulfill_order_inventory(
 
     assign_order_number(db, order)
     from services.point_orders import on_order_paid
+    from services.oripa_payment import confirm_oripa_purchase_for_order
 
     on_order_paid(db, order)
+    confirm_oripa_purchase_for_order(db, order)
     db.commit()
     db.refresh(order)
 
@@ -306,6 +312,8 @@ def fulfill_order_inventory(
 
 def clear_cart_for_order(db: Session, order: models.Order) -> None:
     for order_item in order.items:
+        if order_item.card_id is None:
+            continue
         cart_item = (
             db.query(models.CartItem)
             .filter(
@@ -336,7 +344,14 @@ def cancel_unpaid_order(
     release_inventory_for_order(db, order)
     from services.point_orders import on_order_cancelled_or_failed
     from services.coupon_orders import on_coupon_order_cancelled
+    from services.oripa_payment import release_oripa_reservations_for_order
 
+    release_oripa_reservations_for_order(
+        db,
+        order,
+        reason="expired" if as_expired else "cancelled",
+        as_expired=as_expired,
+    )
     on_order_cancelled_or_failed(db, order)
     on_coupon_order_cancelled(db, order)
     order.payment_status = "expired" if as_expired else "cancelled"

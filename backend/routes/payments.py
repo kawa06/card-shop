@@ -414,9 +414,11 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             if order and order.payment_status == "paid" and _is_full_stripe_refund(session, event_type, order):
                 from services.point_orders import on_order_cancelled_after_paid
                 from services.coupon_orders import on_coupon_order_cancelled
+                from services.oripa_payment import retire_oripa_for_paid_refund
 
                 on_order_cancelled_after_paid(db, order)
                 on_coupon_order_cancelled(db, order)
+                retire_oripa_for_paid_refund(db, order, reason=f"stripe_{event_type}")
             db.commit()
 
     return {"received": True}

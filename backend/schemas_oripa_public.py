@@ -29,6 +29,8 @@ class OripaPublicListOut(BaseModel):
 class OripaPurchaseIn(BaseModel):
     quantity: int = Field(..., ge=1, le=1000)
     idempotency_key: Optional[str] = Field(None, max_length=128)
+    points_to_use: int = Field(0, ge=0)
+    coupon_code: Optional[str] = Field(None, max_length=64)
 
 
 class OripaEntryPublicOut(BaseModel):
@@ -48,8 +50,12 @@ class OripaPurchaseResultOut(BaseModel):
     purchase_id: int
     oripa_id: int
     quantity: int
-    entry_labels: list[str]
+    entry_labels: list[str] = []
     status: str
+    order_id: Optional[int] = None
+    checkout_url: Optional[str] = None
+    session_id: Optional[str] = None
+    payment_status: Optional[str] = None
 
 
 class OripaHeldListOut(BaseModel):

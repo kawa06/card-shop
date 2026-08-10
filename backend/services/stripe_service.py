@@ -157,6 +157,7 @@ def create_checkout_session(
     line_items: list[dict[str, Any]],
     locale: str = "ja",
     checkout_type: str = "card",
+    extra_metadata: dict[str, str] | None = None,
 ) -> stripe.checkout.Session:
     require_stripe()
     _configure_stripe()
@@ -165,10 +166,14 @@ def create_checkout_session(
     if checkout_type not in {"card", "bank_transfer"}:
         raise HTTPException(status_code=400, detail="不正な決済種別です")
 
+    metadata = {"order_id": str(order_id), "checkout_type": checkout_type}
+    if extra_metadata:
+        metadata.update({str(k): str(v) for k, v in extra_metadata.items()})
+
     params: dict[str, Any] = {
         "mode": "payment",
         "line_items": line_items,
-        "metadata": {"order_id": str(order_id), "checkout_type": checkout_type},
+        "metadata": metadata,
         "client_reference_id": str(order_id),
         "locale": locale if locale in {"ja", "en"} else "auto",
         "success_url": f"{settings.FRONTEND_URL.rstrip('/')}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
