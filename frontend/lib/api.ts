@@ -554,8 +554,12 @@ export const oripaApi = {
 export const adminShipmentsApi = {
   list: (params?: Record<string, string | number | undefined>) =>
     apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/admin/shipments', { params }),
-  create: (data: { user_id: number; entry_ids: number[]; note?: string }) =>
-    apiClient.post('/admin/shipments', data),
+  create: (data: {
+    user_id: number
+    entry_ids?: number[]
+    order_ids?: number[]
+    note?: string
+  }) => apiClient.post('/admin/shipments', data),
   get: (id: number) => apiClient.get(`/admin/shipments/${id}`),
   update: (id: number, data: Record<string, unknown>) => apiClient.patch(`/admin/shipments/${id}`, data),
   logs: (id: number) => apiClient.get(`/admin/shipments/${id}/logs`),

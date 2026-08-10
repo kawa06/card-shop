@@ -53,6 +53,7 @@ class ShipmentItem(Base):
     __tablename__ = "shipment_items"
     __table_args__ = (
         UniqueConstraint("oripa_entry_id", name="uq_shipment_items_oripa_entry"),
+        UniqueConstraint("order_item_id", name="uq_shipment_items_order_item"),
         Index("ix_shipment_items_shipment", "shipment_id"),
     )
 

@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 
 class ShipmentCreateIn(BaseModel):
     user_id: int
-    entry_ids: list[int] = Field(..., min_length=1)
+    entry_ids: list[int] = Field(default_factory=list)
+    order_ids: list[int] = Field(default_factory=list)
     note: Optional[str] = None
 
 
@@ -38,6 +39,9 @@ class ShipmentItemOut(BaseModel):
     oripa_id: Optional[int] = None
     linked_product_id: Optional[int] = None
     linked_product_name: Optional[str] = None
+    order_item_id: Optional[int] = None
+    order_id: Optional[int] = None
+    product_name: Optional[str] = None
 
 
 class ShipmentOut(BaseModel):

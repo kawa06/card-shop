@@ -18,7 +18,7 @@ from services.barcode_render import render_code128_svg
 from services.oripa_admin import OripaError, raise_http
 from services.oripa_constants import format_entry_number
 from services.oripa_shipment import (
-    create_oripa_shipment,
+    create_consolidated_shipment,
     ensure_shipment_barcode,
     list_shipment_items,
     shipment_entry_labels,
@@ -46,6 +46,17 @@ def _serialize_shipment(db: Session, row: models_shipment.Shipment, *, with_admi
             linked_id = entry.linked_product_id
             card = db.query(models.Card).filter(models.Card.id == entry.linked_product_id).first()
             product_name = card.name if card else None
+        order_item = None
+        order_product = None
+        order_id = None
+        if item.order_item_id:
+            order_item = db.query(models.OrderItem).filter(models.OrderItem.id == item.order_item_id).first()
+            if order_item:
+                order_id = order_item.order_id
+                order_product = order_item.product_name
+                if with_admin_content and not order_product:
+                    card = db.query(models.Card).filter(models.Card.id == order_item.card_id).first()
+                    order_product = card.name if card else None
         items_out.append(
             schemas_shipment.ShipmentItemOut(
                 id=item.id,
@@ -55,6 +66,9 @@ def _serialize_shipment(db: Session, row: models_shipment.Shipment, *, with_admi
                 oripa_id=entry.oripa_id if entry else None,
                 linked_product_id=linked_id,
                 linked_product_name=product_name,
+                order_item_id=item.order_item_id,
+                order_id=order_id,
+                product_name=order_product,
             )
         )
     return schemas_shipment.ShipmentOut(
@@ -114,10 +128,11 @@ def create_shipment(
 ):
     try:
         require_permission(ctx, "shipment.create")
-        shipment = create_oripa_shipment(
+        shipment = create_consolidated_shipment(
             db,
             user_id=payload.user_id,
             entry_ids=payload.entry_ids,
+            order_ids=payload.order_ids,
             actor_admin_user_id=ctx.user.id,
             note=payload.note,
         )

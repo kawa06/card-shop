@@ -14,13 +14,22 @@ type Shipment = {
   status: string
   tracking_number?: string | null
   entry_labels: string[]
-  items: Array<{ oripa_entry_id?: number; entry_label?: string; linked_product_name?: string }>
+  items: Array<{
+    item_type?: string
+    oripa_entry_id?: number
+    entry_label?: string
+    linked_product_name?: string
+    order_id?: number
+    order_item_id?: number
+    product_name?: string
+  }>
 }
 
 export default function AdminShipmentsPage() {
   const [items, setItems] = useState<Shipment[]>([])
   const [userId, setUserId] = useState('')
   const [entryIds, setEntryIds] = useState('')
+  const [orderIds, setOrderIds] = useState('')
   const [selected, setSelected] = useState<Shipment | null>(null)
   const [tracking, setTracking] = useState('')
 
@@ -32,18 +41,28 @@ export default function AdminShipmentsPage() {
     reload()
   }, [])
 
+  const parseIds = (raw: string) =>
+    raw
+      .split(/[,\s]+/)
+      .map((s) => Number(s.trim()))
+      .filter((n) => Number.isFinite(n) && n > 0)
+
   const create = async () => {
     try {
-      const ids = entryIds
-        .split(/[,\s]+/)
-        .map((s) => Number(s.trim()))
-        .filter((n) => Number.isFinite(n) && n > 0)
+      const entries = parseIds(entryIds)
+      const orders = parseIds(orderIds)
+      if (!entries.length && !orders.length) {
+        toast({ title: 'entry_ids または order_ids を指定してください', variant: 'destructive' })
+        return
+      }
       const res = await adminShipmentsApi.create({
         user_id: Number(userId),
-        entry_ids: ids,
+        entry_ids: entries,
+        order_ids: orders,
       })
       toast({ title: `Shipment #${(res.data as { id: number }).id} 作成` })
       setEntryIds('')
+      setOrderIds('')
       reload()
     } catch {
       toast({ title: '作成に失敗しました', variant: 'destructive' })
@@ -78,15 +97,21 @@ export default function AdminShipmentsPage() {
       </div>
 
       <div className="border rounded-lg p-4 mb-8 space-y-3" data-testid="admin-shipment-create">
-        <p className="text-sm text-gray-600">保管中の entry id を指定して Shipment を作成（単体 / 複数オリパ対応）</p>
+        <p className="text-sm text-gray-600">
+          保管中 entry / 未発送 order を指定して Shipment を作成（オリパ同士・オリパ+通常商品）
+        </p>
         <div className="flex flex-wrap gap-3 items-end">
           <div>
             <Label>user_id</Label>
             <Input data-testid="shipment-user-id" value={userId} onChange={(e) => setUserId(e.target.value)} className="w-28" />
           </div>
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-[160px]">
             <Label>entry_ids (comma)</Label>
             <Input data-testid="shipment-entry-ids" value={entryIds} onChange={(e) => setEntryIds(e.target.value)} />
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <Label>order_ids (comma)</Label>
+            <Input data-testid="shipment-order-ids" value={orderIds} onChange={(e) => setOrderIds(e.target.value)} />
           </div>
           <Button type="button" data-testid="shipment-create-btn" onClick={() => void create()}>
             作成
@@ -124,8 +149,10 @@ export default function AdminShipmentsPage() {
           <p className="text-sm mb-2">番号: {selected.entry_labels?.join(', ')}</p>
           <ul className="text-sm space-y-1 mb-3">
             {selected.items?.map((it) => (
-              <li key={it.oripa_entry_id}>
-                {it.entry_label} → {it.linked_product_name || '(未紐付)'}
+              <li key={`${it.item_type}-${it.oripa_entry_id || it.order_item_id}`}>
+                {it.item_type === 'order_item'
+                  ? `order #${it.order_id} · ${it.product_name || '商品'}`
+                  : `${it.entry_label} → ${it.linked_product_name || '(未紐付)'}`}
               </li>
             ))}
           </ul>

@@ -91,35 +91,106 @@ def create_oripa_shipment(
     actor_admin_user_id: Optional[int] = None,
     note: Optional[str] = None,
 ) -> models_shipment.Shipment:
-    if not entry_ids:
-        raise OripaError("発送する番号を選択してください")
+    return create_consolidated_shipment(
+        db,
+        user_id=user_id,
+        entry_ids=entry_ids,
+        order_ids=None,
+        actor_admin_user_id=actor_admin_user_id,
+        note=note,
+    )
+
+
+def create_consolidated_shipment(
+    db: Session,
+    *,
+    user_id: int,
+    entry_ids: Optional[list[int]] = None,
+    order_ids: Optional[list[int]] = None,
+    actor_admin_user_id: Optional[int] = None,
+    note: Optional[str] = None,
+) -> models_shipment.Shipment:
+    """Create one physical package from held oripa entries and/or unpaid-not-shipped orders.
+
+    Shipping-fee policy (Phase 3-9 minimal):
+    - No automatic refund/recharge of order.shipping_fee when consolidating.
+    - Already-paid order shipping fees stay as-is; consolidation is ops-only.
+    """
+    entry_ids = list(entry_ids or [])
+    order_ids = list(order_ids or [])
+    if not entry_ids and not order_ids:
+        raise OripaError("発送する番号または注文を選択してください")
     if len(set(entry_ids)) != len(entry_ids):
         raise OripaError("番号の重複があります")
+    if len(set(order_ids)) != len(order_ids):
+        raise OripaError("注文の重複があります")
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
         raise OripaError("ユーザーが見つかりません", status_code=404)
 
-    # Lock candidate rows
-    entries = (
-        db.query(models_oripa.OripaEntry)
-        .filter(models_oripa.OripaEntry.id.in_(entry_ids))
-        .with_for_update()
-        .all()
-    )
-    if len(entries) != len(entry_ids):
-        raise OripaError("一部の番号が見つかりません", status_code=404)
+    entries: list[models_oripa.OripaEntry] = []
+    if entry_ids:
+        entries = (
+            db.query(models_oripa.OripaEntry)
+            .filter(models_oripa.OripaEntry.id.in_(entry_ids))
+            .with_for_update()
+            .all()
+        )
+        if len(entries) != len(entry_ids):
+            raise OripaError("一部の番号が見つかりません", status_code=404)
+        for entry in entries:
+            if entry.assigned_user_id != user_id:
+                raise OripaError("他ユーザーの番号は発送できません", status_code=403)
+            if entry.assignment_status != ENTRY_ASSIGNMENT_ASSIGNED:
+                raise OripaError(f"未割当の番号は発送できません: {format_entry_number(entry.entry_number)}")
+            if entry.shipment_status != ENTRY_SHIPMENT_HELD or entry.shipment_id is not None:
+                raise OripaError(
+                    f"保管中でない番号は発送できません: {format_entry_number(entry.entry_number)}",
+                    status_code=409,
+                )
 
-    for entry in entries:
-        if entry.assigned_user_id != user_id:
-            raise OripaError("他ユーザーの番号は発送できません", status_code=403)
-        if entry.assignment_status != ENTRY_ASSIGNMENT_ASSIGNED:
-            raise OripaError(f"未割当の番号は発送できません: {format_entry_number(entry.entry_number)}")
-        if entry.shipment_status != ENTRY_SHIPMENT_HELD or entry.shipment_id is not None:
-            raise OripaError(
-                f"保管中でない番号は発送できません: {format_entry_number(entry.entry_number)}",
-                status_code=409,
+    orders: list[models.Order] = []
+    order_items: list[models.OrderItem] = []
+    if order_ids:
+        orders = (
+            db.query(models.Order)
+            .filter(models.Order.id.in_(order_ids))
+            .with_for_update()
+            .all()
+        )
+        if len(orders) != len(order_ids):
+            raise OripaError("一部の注文が見つかりません", status_code=404)
+        shippable = {"unshipped", "preparing", "packing"}
+        for order in orders:
+            if order.user_id != user_id:
+                raise OripaError("他ユーザーの注文はまとめ発送できません", status_code=403)
+            if (order.payment_status or "").lower() != "paid":
+                raise OripaError(f"未払い注文はまとめ発送できません: order={order.id}", status_code=409)
+            if order.status == models.OrderStatus.cancelled:
+                raise OripaError(f"取消済み注文はまとめられません: order={order.id}", status_code=409)
+            status = (order.shipping_status or "unshipped").lower()
+            if status not in shippable:
+                raise OripaError(f"発送済み/取消の注文はまとめられません: order={order.id}", status_code=409)
+            if status == "shipped":
+                raise OripaError(f"発送済み注文は不可: order={order.id}", status_code=409)
+            items = (
+                db.query(models.OrderItem)
+                .filter(models.OrderItem.order_id == order.id)
+                .with_for_update()
+                .all()
             )
+            if not items:
+                raise OripaError(f"注文明細が空です: order={order.id}")
+            for oi in items:
+                exists = (
+                    db.query(models_shipment.ShipmentItem.id)
+                    .filter(models_shipment.ShipmentItem.order_item_id == oi.id)
+                    .first()
+                )
+                if exists:
+                    raise OripaError(f"既に別Shipmentに含まれる明細です: order_item={oi.id}", status_code=409)
+            order_items.extend(items)
 
     shipment = models_shipment.Shipment(
         user_id=user_id,
@@ -138,7 +209,6 @@ def create_oripa_shipment(
     db.flush()
 
     for entry in entries:
-        # CAS: only claim if still held and unassigned to shipment
         updated = (
             db.query(models_oripa.OripaEntry)
             .filter(
@@ -169,20 +239,42 @@ def create_oripa_shipment(
             )
         )
 
+    for oi in order_items:
+        db.add(
+            models_shipment.ShipmentItem(
+                shipment_id=shipment.id,
+                item_type="order_item",
+                order_item_id=oi.id,
+            )
+        )
+
+    # Mark linked orders as preparing (do not change paid amounts / shipping_fee)
+    for order in orders:
+        if (order.shipping_status or "unshipped") == "unshipped":
+            order.shipping_status = "preparing"
+        if order.status in (models.OrderStatus.pending, models.OrderStatus.processing):
+            order.status = models.OrderStatus.processing
+
     append_shipment_log(
         db,
         shipment=shipment,
         event_type="created",
         to_status=shipment.status,
         admin_user_id=actor_admin_user_id,
-        note=f"entries={entry_ids}",
+        note=f"entries={entry_ids}; orders={order_ids}",
     )
     ensure_shipment_barcode(db, shipment=shipment)
     write_oripa_audit(
         db,
         action="shipment.create",
         actor_admin_user_id=actor_admin_user_id,
-        after={"shipment_id": shipment.id, "entry_ids": entry_ids, "user_id": user_id},
+        after={
+            "shipment_id": shipment.id,
+            "entry_ids": entry_ids,
+            "order_ids": order_ids,
+            "user_id": user_id,
+            "shipping_fee_policy": "no_refund_no_recharge",
+        },
     )
     db.flush()
     return shipment
@@ -252,6 +344,38 @@ def update_shipment(
             },
             synchronize_session=False,
         )
+        # Sync linked normal orders (fulfillment status only; no fee changes)
+        if first_ship:
+            order_item_ids = [
+                row.order_item_id
+                for row in db.query(models_shipment.ShipmentItem)
+                .filter(
+                    models_shipment.ShipmentItem.shipment_id == shipment.id,
+                    models_shipment.ShipmentItem.item_type == "order_item",
+                )
+                .all()
+                if row.order_item_id is not None
+            ]
+            if order_item_ids:
+                order_ids = {
+                    oi.order_id
+                    for oi in db.query(models.OrderItem)
+                    .filter(models.OrderItem.id.in_(order_item_ids))
+                    .all()
+                }
+                for oid in order_ids:
+                    order = db.query(models.Order).filter(models.Order.id == oid).first()
+                    if order is None:
+                        continue
+                    order.shipping_status = "shipped"
+                    if order.status != models.OrderStatus.cancelled:
+                        order.status = models.OrderStatus.shipped
+                    order.tracking_number = shipment.tracking_number or order.tracking_number
+                    order.shipping_carrier = shipment.shipping_carrier or order.shipping_carrier
+                    if order.shipped_at is None:
+                        order.shipped_at = shipment.shipped_at
+                    if actor_admin_user_id and order.shipped_by_admin_id is None:
+                        order.shipped_by_admin_id = actor_admin_user_id
 
     if shipment.status in ("preparing", "packing") and prev_status == "unshipped":
         ensure_shipment_barcode(db, shipment=shipment)
