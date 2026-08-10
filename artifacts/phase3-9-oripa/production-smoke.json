@@ -1,0 +1,23 @@
+{
+  "railway_health": {
+    "status": "ok",
+    "version": "phase3-9-v1",
+    "database": {
+      "engine": "postgresql",
+      "persistent": true,
+      "warning": null
+    }
+  },
+  "oripas_http": 200,
+  "oripas_leak_absent": {
+    "linked_product_id": true,
+    "linked_product_name": true,
+    "prize_tier": true,
+    "SECRET_PRIZE": true,
+    "当たり": true,
+    "ハズレ": true
+  },
+  "deployment_id": "b1513d79-da7d-4bc0-a035-e09ddaea66cc",
+  "version": "phase3-9-v1",
+  "postgresql_persistent": true
+}

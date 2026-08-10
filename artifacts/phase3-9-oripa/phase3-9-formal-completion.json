@@ -1,0 +1,42 @@
+{
+  "phase": "3-9",
+  "status": "PHASE_3_9_FORMALLY_COMPLETED",
+  "railway": {
+    "deployment_id": "b1513d79-da7d-4bc0-a035-e09ddaea66cc",
+    "health": "ok",
+    "version": "phase3-9-v1",
+    "postgresql_persistent": true,
+    "url": "https://backend-production-054e.up.railway.app"
+  },
+  "vercel": {
+    "deployment_id": "dpl_Bq8Uimcar6sJ92Q39K15gWnp4uxb",
+    "production_url": "https://frontend-one-topaz-20.vercel.app"
+  },
+  "backend_tests": {
+    "phase3_9_steps": "step1-8 PASS",
+    "core_regression": "84 passed, 1 skipped",
+    "full_pytest": "463 passed, 1 skipped, 0 failed"
+  },
+  "frontend": {
+    "build": "PASS",
+    "tsc": "PASS",
+    "lint": "PASS (existing live-page warnings only)"
+  },
+  "playwright": {
+    "phase3_9": "3 passed"
+  },
+  "production_e2e": "PASS (routes + /api/oripas leak_absent)",
+  "commits": {
+    "step7": "7c07ada",
+    "step8": "e163d62"
+  },
+  "evidence_dir": "artifacts/phase3-9-oripa/",
+  "known_limitations": [
+    "Oripa purchase is interim in-request assignment (Stripe webhook for oripa not wired)",
+    "Assigned numbers are never resold on cancel (retired)",
+    "Post-ship purchase cancel blocked (409); money handling outside engine",
+    "Partial refund restore for points/coupons unchanged (not invented for Phase 3-9)",
+    "Oripa link does not mutate Card.stock; cancel does not invent stock restore",
+    "SQLite concurrent shipment HTTP races flaky — Step 6 uses sequential double-submit"
+  ]
+}

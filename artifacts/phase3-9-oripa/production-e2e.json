@@ -1,0 +1,44 @@
+{
+  "status": "PASS",
+  "method": "production smoke against Vercel alias + Railway health",
+  "vercel": {
+    "deployment_id": "dpl_Bq8Uimcar6sJ92Q39K15gWnp4uxb",
+    "production_url": "https://frontend-one-topaz-20.vercel.app"
+  },
+  "railway": {
+    "deployment_id": "b1513d79-da7d-4bc0-a035-e09ddaea66cc",
+    "health": {
+      "status": "ok",
+      "version": "phase3-9-v1",
+      "database": {
+        "engine": "postgresql",
+        "persistent": true,
+        "warning": null
+      }
+    }
+  },
+  "routes": {
+    "/oripa": {
+      "http": 200,
+      "ok": true
+    },
+    "/mypage/oripa": {
+      "http": 200,
+      "ok": true
+    },
+    "/admin/oripas": {
+      "http": 200,
+      "ok": true
+    },
+    "/admin/shipments": {
+      "http": 200,
+      "ok": true
+    },
+    "/api/oripas": {
+      "http": 200,
+      "leak_absent": true
+    }
+  },
+  "playwright_phase3_9": "3 passed (Gate3/4 secrecy+UI)",
+  "backend_gates": "steps1-8 + full pytest 463 passed"
+}
