@@ -99,3 +99,28 @@ class OripaEntryAdminOut(BaseModel):
 class OripaEntryListOut(BaseModel):
     total: int
     items: list[OripaEntryAdminOut]
+
+
+class OripaPurchaseCancelIn(BaseModel):
+    reason: Optional[str] = None
+
+
+class OripaPurchaseOut(BaseModel):
+    id: int
+    oripa_id: int
+    user_id: int
+    quantity: int
+    status: str
+    idempotency_key: Optional[str] = None
+    order_id: Optional[int] = None
+    unit_price: Optional[float] = None
+    total_amount: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ShipmentCancelIn(BaseModel):
+    reason: Optional[str] = None

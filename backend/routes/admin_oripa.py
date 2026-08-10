@@ -24,6 +24,7 @@ from services.oripa_admin import (
     raise_http,
     update_oripa,
 )
+from services.oripa_recovery import cancel_oripa_purchase
 
 router = APIRouter(prefix="/api/admin", tags=["admin-oripa"])
 
@@ -246,4 +247,32 @@ def bulk_link_api(
         db.commit()
         return {"linked": n}
     except Exception as exc:
+        _handle(exc)
+
+
+@router.post("/oripa-purchases/{purchase_id}/cancel", response_model=schemas_oripa.OripaPurchaseOut)
+def cancel_purchase_api(
+    purchase_id: int,
+    payload: schemas_oripa.OripaPurchaseCancelIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(get_current_admin_context),
+):
+    """Cancel purchase and permanently retire assigned numbers (no resale)."""
+    try:
+        require_permission(ctx, "oripa.update")
+        try:
+            row = cancel_oripa_purchase(
+                db,
+                purchase_id=purchase_id,
+                actor_admin_user_id=ctx.user.id,
+                reason=payload.reason,
+            )
+        except OripaError as exc:
+            db.rollback()
+            raise_http(exc)
+        db.commit()
+        db.refresh(row)
+        return schemas_oripa.OripaPurchaseOut.model_validate(row)
+    except Exception as exc:
+        db.rollback()
         _handle(exc)

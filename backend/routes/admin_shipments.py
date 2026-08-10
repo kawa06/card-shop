@@ -24,6 +24,8 @@ from services.oripa_shipment import (
     shipment_entry_labels,
     update_shipment,
 )
+from services.oripa_recovery import cancel_oripa_shipment
+import schemas_oripa
 
 router = APIRouter(prefix="/api/admin", tags=["admin-shipments"])
 
@@ -180,6 +182,33 @@ def patch_shipment(
     except OripaError as exc:
         db.rollback()
         raise_http(exc)
+    except Exception as exc:
+        db.rollback()
+        _handle(exc)
+
+
+@router.post("/shipments/{shipment_id}/cancel", response_model=schemas_shipment.ShipmentOut)
+def cancel_shipment_api(
+    shipment_id: int,
+    payload: schemas_oripa.ShipmentCancelIn,
+    db: Session = Depends(get_db),
+    ctx: AdminContext = Depends(get_current_admin_context),
+):
+    try:
+        require_permission(ctx, "shipment.update")
+        try:
+            row = cancel_oripa_shipment(
+                db,
+                shipment_id=shipment_id,
+                actor_admin_user_id=ctx.user.id,
+                reason=payload.reason,
+            )
+        except OripaError as exc:
+            db.rollback()
+            raise_http(exc)
+        db.commit()
+        db.refresh(row)
+        return _serialize_shipment(db, row)
     except Exception as exc:
         db.rollback()
         _handle(exc)
