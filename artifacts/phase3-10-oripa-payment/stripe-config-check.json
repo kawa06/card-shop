@@ -1,0 +1,8 @@
+{
+  "stripe_related_keys_present": {
+    "STRIPE_SECRET_KEY": true,
+    "STRIPE_WEBHOOK_SECRET": true
+  },
+  "DEBUG_is_false": true,
+  "note": "Secret values intentionally omitted from evidence"
+}

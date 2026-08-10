@@ -1,0 +1,200 @@
+﻿SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+Traceback (most recent call last):
+    self.sock = self._get_socket(host, port, self.timeout)
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    new_socket = super()._get_socket(host, port, timeout)
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+Traceback (most recent call last):
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+    self.sock = self._get_socket(host, port, self.timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+    new_socket = super()._get_socket(host, port, timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+    return socket.create_connection((host, port), timeout,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+Resend send failed to=oripakawa@gmail.com from=oripakawa@gmail.com status=403 error_code=mail_domain_unverified detail=Resend error (403): {"statusCode":403,"message":"The gmail.com domain is not verified. Please, add and verify your domain on https://resend.com/domains","name":"validation_error"}
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+Traceback (most recent call last):
+    return socket.create_connection((host, port), timeout,
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+    self.sock = self._get_socket(host, port, self.timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+    new_socket = super()._get_socket(host, port, timeout)
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+Traceback (most recent call last):
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+    self.sock = self._get_socket(host, port, self.timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+    new_socket = super()._get_socket(host, port, timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+    return socket.create_connection((host, port), timeout,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+    await self.app(scope, receive, send)
+ERROR:    Exception in ASGI application
+  File "/opt/venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 65, in __call__
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 399, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 70, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/venv/lib/python3.12/site-packages/fastapi/applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/applications.py", line 123, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/opt/venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+  File "/opt/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 64, in wrapped_app
+    raise exc
+    raise exc
+  File "/opt/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+  File "/opt/venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    await app(scope, receive, sender)
+    await app(scope, receive, sender)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/routing.py", line 72, in app
+  File "/opt/venv/lib/python3.12/site-packages/starlette/routing.py", line 756, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/routing.py", line 776, in app
+    await route.handle(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/routing.py", line 297, in handle
+    await self.app(scope, receive, send)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/routing.py", line 77, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+              ^^^^^^^^^^^^^^^^^^^^
+    response = await func(request)
+  File "/opt/venv/lib/python3.12/site-packages/starlette/requests.py", line 244, in body
+               ^^^^^^^^^^^^^^^^^^^
+    async for chunk in self.stream():
+  File "/opt/venv/lib/python3.12/site-packages/fastapi/routing.py", line 278, in app
+  File "/opt/venv/lib/python3.12/site-packages/starlette/requests.py", line 238, in stream
+    raw_response = await run_endpoint_function(
+    raise ClientDisconnect()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+starlette.requests.ClientDisconnect
+  File "/opt/venv/lib/python3.12/site-packages/fastapi/routing.py", line 191, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/routes/payments.py", line 363, in stripe_webhook
+    payload = await request.body()
+INFO:     100.64.0.7:49396 - "GET /api/oripas HTTP/1.1" 200 OK
+INFO:     100.64.0.5:48570 - "GET /api/cards?per_page=100&page=1&sort=created_at_desc HTTP/1.1" 200 OK
+Resend send failed to=oripakawa@gmail.com from=oripakawa@gmail.com status=403 error_code=mail_domain_unverified detail=Resend error (403): {"statusCode":403,"message":"The gmail.com domain is not verified. Please, add and verify your domain on https://resend.com/domains","name":"validation_error"}
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+    return socket.create_connection((host, port), timeout,
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Traceback (most recent call last):
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+    self.sock = self._get_socket(host, port, self.timeout)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+    new_socket = super()._get_socket(host, port, timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1028, in _get_socket
+    new_socket = super()._get_socket(host, port, timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 312, in _get_socket
+    return socket.create_connection((host, port), timeout,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SMTP fallback send failed to=oripakawa@gmail.com from=oripakawa@gmail.com
+Traceback (most recent call last):
+  File "/app/services/email_delivery.py", line 83, in _send_smtp
+    server = smtplib.SMTP_SSL(settings.MAIL_SERVER, settings.MAIL_PORT, timeout=smtp_timeout)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 1022, in __init__
+    SMTP.__init__(self, host, port, local_hostname, timeout,
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 255, in __init__
+    (code, msg) = self.connect(host, port)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.nix-profile/lib/python3.12/smtplib.py", line 341, in connect
+    self.sock = self._get_socket(host, port, self.timeout)
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 865, in create_connection
+    raise exceptions[0]
+  File "/root/.nix-profile/lib/python3.12/socket.py", line 850, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable

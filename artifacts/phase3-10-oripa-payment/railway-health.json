@@ -1,0 +1,14 @@
+﻿{
+    "status":  "ok",
+    "version":  "phase3-10-v1",
+    "database":  {
+                     "engine":  "postgresql",
+                     "persistent":  true,
+                     "warning":  null
+                 },
+    "schema":  {
+                   "oripa_purchases_reserved_expires_at":  true,
+                   "oripa_purchases_stripe_checkout_session_id":  true,
+                   "order_items_card_id_nullable":  true
+               }
+}

@@ -1,0 +1,79 @@
+{
+  "phase": "3-10",
+  "name": "Oripa Payment Finalization & Stripe Webhook Integration",
+  "status": "PHASE_3_10_FORMALLY_COMPLETED",
+  "implementation": {
+    "reservation": "available -> reserved (FOR UPDATE + CAS) before Stripe",
+    "confirm": "reserved -> assigned on fulfill_order_inventory (webhook authoritative)",
+    "unpaid_release": "reserved -> available on cancel/expiry/failure (never revealed)",
+    "paid_refund": "assigned/reserved -> retired (no resale)",
+    "reuse": "order_checkout + claim_stripe_event + existing Stripe webhook handlers"
+  },
+  "stripe": {
+    "flow": "Checkout Session",
+    "webhook_events": [
+      "checkout.session.completed",
+      "checkout.session.async_payment_succeeded",
+      "checkout.session.async_payment_failed",
+      "checkout.session.expired",
+      "charge.refunded",
+      "refund.created"
+    ],
+    "idempotency": "claim_stripe_event by Stripe event id",
+    "production_keys_present": {
+      "STRIPE_SECRET_KEY": true,
+      "STRIPE_WEBHOOK_SECRET": true,
+      "DEBUG_false": true
+    },
+    "secrets_in_evidence": false
+  },
+  "railway": {
+    "url": "https://backend-production-054e.up.railway.app",
+    "health": "ok",
+    "version": "phase3-10-v1",
+    "postgresql_persistent": true,
+    "migration": {
+      "oripa_purchases_reserved_expires_at": true,
+      "oripa_purchases_stripe_checkout_session_id": true,
+      "order_items_card_id_nullable": true
+    }
+  },
+  "vercel": {
+    "production_url": "https://frontend-one-topaz-20.vercel.app",
+    "oripa_page": 200,
+    "home": 200
+  },
+  "tests": {
+    "full_pytest": "473 passed, 1 skipped, 0 failed",
+    "phase3_10": "10 passed",
+    "frontend_build": "PASS",
+    "tsc": "PASS",
+    "lint": "PASS (existing live-page warnings only)",
+    "playwright_phase3_10_and_3_9": "4 passed"
+  },
+  "security": {
+    "public_api_leak_check": "PASS (/api/oripas empty list, no prize fields)",
+    "rbac": "existing admin routes + audit unchanged",
+    "frontend_not_authoritative_for_paid": true
+  },
+  "monthly_maintenance": {
+    "docs/maintenance/monthly-checklist.md": true,
+    "docs/maintenance/stripe-db-mismatch-recovery.md": true,
+    "docs/database-backup.md": "existing"
+  },
+  "commits": [
+    "21d6fbd",
+    "524bd2c",
+    "2d1e49c",
+    "ee12074",
+    "6c99373"
+  ],
+  "evidence_commit_note": "formal completion JSON committed after production verification",
+  "evidence_dir": "artifacts/phase3-10-oripa-payment/",
+  "known_limitations": [
+    "DEBUG auto-fulfill for oripa purchase only when Stripe key invalid AND DEBUG=true (local/E2E); production DEBUG=false uses real Checkout",
+    "SQLite last-slot concurrency proven via sequential CAS (same pattern as Phase 3-9 Step 6); threaded SQLite races remain flaky",
+    "Resend/SMTP outbound email failures observed in Railway logs are pre-existing and outside Phase 3-10 payment scope"
+  ],
+  "remaining": []
+}
