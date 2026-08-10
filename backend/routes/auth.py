@@ -9,7 +9,7 @@ import os
 from database import get_db
 from config import settings
 from database import get_db
-from admin_emails import normalize_email
+from admin_emails import normalize_email, is_admin_email
 import schemas_email
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_user_optional
 from mail import send_verification_email
@@ -207,6 +207,8 @@ def clerk_provision(
         if payload.name.strip():
             user.name = payload.name.strip()
         user.is_verified = True
+        if is_admin_email(email):
+            user.is_admin = True
         db.commit()
         db.refresh(user)
     else:
@@ -214,11 +216,17 @@ def clerk_provision(
             email=email,
             name=payload.name.strip() or email.split("@")[0],
             password_hash=hash_password(payload.password),
-            is_admin=False,
+            is_admin=is_admin_email(email),
             is_verified=True,
         )
         db.add(user)
         db.commit()
+        db.refresh(user)
+
+    if is_admin_email(email):
+        from services.admin_seed import seed_admin_rbac
+
+        seed_admin_rbac(db)
         db.refresh(user)
 
     challenge = _maybe_require_2fa(db, user)

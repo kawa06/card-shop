@@ -1,0 +1,10 @@
+{
+  "purchase_id": 3,
+  "oripa_id": 3,
+  "quantity": 2,
+  "entry_labels": [
+    "No.001",
+    "No.004"
+  ],
+  "status": "completed"
+}

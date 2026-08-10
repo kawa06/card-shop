@@ -1,3 +1,29 @@
+"""FastAPI application entrypoint."""
+
+from __future__ import annotations
+
+# Local monorepo: reuse frontend/.env.local secrets when backend/.env is absent
+# (ADMIN_PROXY_SECRET / CLERK_*), so Playwright + uvicorn share the same keys.
+import os
+from pathlib import Path
+
+_frontend_env = Path(__file__).resolve().parent.parent / "frontend" / ".env.local"
+if _frontend_env.is_file():
+    for _line in _frontend_env.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _key, _val = _line.split("=", 1)
+        _key = _key.strip()
+        _val = _val.strip().strip("'").strip('"')
+        # Fill missing/blank only — never override Railway/production env.
+        if _key and _val and not (os.environ.get(_key) or "").strip():
+            os.environ[_key] = _val
+    if not (os.environ.get("CLERK_PUBLISHABLE_KEY") or "").strip() and (
+        os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY") or ""
+    ).strip():
+        os.environ["CLERK_PUBLISHABLE_KEY"] = os.environ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"]
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles

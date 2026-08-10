@@ -34,6 +34,7 @@ export default defineConfig({
     ['json', { outputFile: '../artifacts/phase3-6-notifications/playwright-report.json' }],
     ['json', { outputFile: '../artifacts/phase3-7-admin-enhancement/playwright-report.json' }],
     ['json', { outputFile: '../artifacts/phase3-8-inventory-restock/playwright-report.json' }],
+    ['json', { outputFile: '../artifacts/phase3-9-oripa/playwright-report.json' }],
   ],
   webServer: {
     command: 'npm run dev',
@@ -128,6 +129,15 @@ export default defineConfig({
     {
       name: 'phase3-8-inventory-restock',
       testMatch: /phase3-8-inventory-restock\.spec\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: authFile,
+      },
+      dependencies: ['global setup'],
+    },
+    {
+      name: 'phase3-9-oripa',
+      testMatch: /phase3-9-oripa\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         storageState: authFile,

@@ -40,7 +40,12 @@ const PROTECTED_API_PREFIXES = [
   '/auth/request-verification',
   '/inquiries',
   '/points',
+  '/me/oripa-entries',
 ]
+
+function needsOripaUserAuth(url: string): boolean {
+  return url.includes('/oripas/') && url.includes('/purchase')
+}
 
 const PUBLIC_API_PATHS = ['/payments/stripe/config', '/inquiries/meta/categories']
 
@@ -65,20 +70,7 @@ async function resolveRequestToken(url: string): Promise<string | null> {
     return getClerkSessionToken()
   }
 
-  if (needsLiveUserAuth(url)) {
-    if (!syncPromise) {
-      syncPromise = import('@/store/auth')
-        .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
-        .finally(() => {
-          syncPromise = null
-        })
-    }
-    const backendToken = await syncPromise
-    if (backendToken) return backendToken
-    return getClerkSessionToken()
-  }
-
-  if (needsBackendAuth(url)) {
+  if (needsLiveUserAuth(url) || needsOripaUserAuth(url) || needsBackendAuth(url)) {
     if (!syncPromise) {
       syncPromise = import('@/store/auth')
         .then(({ useAuthStore }) => useAuthStore.getState().ensureBackendAuth())
@@ -106,7 +98,7 @@ apiClient.interceptors.request.use(async (config) => {
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
-    } else if (isAdminRoute || needsBackendAuth(url)) {
+    } else if (isAdminRoute || needsBackendAuth(url) || needsOripaUserAuth(url)) {
       delete config.headers.Authorization
     } else {
       const fallback = localStorage.getItem('auth_token')
@@ -130,7 +122,7 @@ apiClient.interceptors.response.use(
       status === 401 &&
       config &&
       !config.__retriedAfterAuth &&
-      needsBackendAuth(url)
+      needsBackendAuth(url) || needsOripaUserAuth(url)
     ) {
       config.__retriedAfterAuth = true
       const { useAuthStore } = await import('@/store/auth')
@@ -547,6 +539,16 @@ export const adminOripaApi = {
     apiClient.patch(`/admin/oripa-entries/${entryId}`, data),
   bulkLink: (id: number, data: { start_number: number; product_ids: number[] }) =>
     apiClient.post(`/admin/oripas/${id}/entries/bulk-link`, data),
+}
+
+export const oripaApi = {
+  list: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/oripas', { params }),
+  get: (id: number) => apiClient.get(`/oripas/${id}`),
+  purchase: (id: number, data: { quantity: number; idempotency_key?: string }) =>
+    apiClient.post(`/oripas/${id}/purchase`, data),
+  myEntries: (params?: Record<string, string | number | undefined>) =>
+    apiClient.get<{ total: number; items: Array<Record<string, unknown>> }>('/me/oripa-entries', { params }),
 }
 
 export const adminCouponsApi = {
