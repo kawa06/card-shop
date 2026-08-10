@@ -95,5 +95,8 @@ class OripaPurchase(Base):
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
     unit_price = Column(Float, nullable=True)
     total_amount = Column(Float, nullable=True)
+    # Phase 3-10: soft reservation TTL (release if unpaid past this)
+    reserved_expires_at = Column(DateTime, nullable=True, index=True)
+    stripe_checkout_session_id = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

@@ -31,8 +31,12 @@ ORIPA_STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 ENTRY_ASSIGNMENT_AVAILABLE = "available"
-ENTRY_ASSIGNMENT_ASSIGNED = "assigned"
-ENTRY_ASSIGNMENT_RETIRED = "retired"  # assigned then cancelled; not resold (Step 8)
+ENTRY_ASSIGNMENT_RESERVED = "reserved"  # payment pending; not revealed; releasable
+ENTRY_ASSIGNMENT_ASSIGNED = "assigned"  # paid / sold
+ENTRY_ASSIGNMENT_RETIRED = "retired"  # assigned then cancelled/refunded; not resold
+
+# Purchase lifecycle (reuse existing statuses; no proliferation)
+# pending = payment_pending | completed = paid/sold | failed | cancelled | expired via cancelled/failed reason
 
 ENTRY_SHIPMENT_HELD = "held"
 ENTRY_SHIPMENT_PENDING = "pending_ship"

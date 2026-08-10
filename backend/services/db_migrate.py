@@ -58,7 +58,7 @@ def run_schema_upgrades() -> None:
 
 
 def _migrate_oripa_schema() -> None:
-    """Phase 3-9 additive oripa / entry / audit tables."""
+    """Phase 3-9/3-10 additive oripa / entry / audit / payment reservation columns."""
     import models_oripa  # noqa: F401
     from services.admin_seed import seed_admin_rbac
     from database import SessionLocal
@@ -70,6 +70,10 @@ def _migrate_oripa_schema() -> None:
         ("oripa_purchases", models_oripa.OripaPurchase),
     ]:
         _create_table_if_missing(table_name, model)
+
+    _add_column_if_missing("oripa_purchases", "reserved_expires_at", "DATETIME")
+    _add_column_if_missing("oripa_purchases", "stripe_checkout_session_id", "VARCHAR(255)")
+    _relax_order_item_card_id_nullable()
 
     import models_shipment  # noqa: F401
 
@@ -87,6 +91,17 @@ def _migrate_oripa_schema() -> None:
     finally:
         db.close()
 
+
+def _relax_order_item_card_id_nullable() -> None:
+    """Allow oripa-only order lines without a Card FK (Phase 3-10)."""
+    dialect = engine.dialect.name
+    try:
+        if dialect == "postgresql":
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE order_items ALTER COLUMN card_id DROP NOT NULL"))
+        # SQLite test DBs recreate from models; production PG is the critical path.
+    except Exception as exc:
+        logger.info("order_items.card_id nullable migration skipped/failed: %s", exc)
 
 def _migrate_inventory_schema() -> None:
     """Phase 3-8 additive inventory alert / restock tables and card columns."""

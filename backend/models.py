@@ -398,7 +398,8 @@ class OrderItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    card_id = Column(Integer, ForeignKey("cards.id"), nullable=False)
+    # Nullable for Phase 3-10 oripa-only line items (no Card stock).
+    card_id = Column(Integer, ForeignKey("cards.id"), nullable=True)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
     product_name = Column(String(200), nullable=True)
